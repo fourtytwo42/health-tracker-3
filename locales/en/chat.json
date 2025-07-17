@@ -1,0 +1,73 @@
+{
+  "title": "AI Health Chat",
+  "subtitle": "Chat with your AI health companion",
+  "placeholder": "Type your message here...",
+  "send": "Send",
+  "thinking": "AI is thinking...",
+  "quickReplies": {
+    "generateMealPlan": "Generate a meal plan",
+    "logMeal": "Log a meal",
+    "logActivity": "Log an activity",
+    "logBiomarker": "Log a biomarker",
+    "viewProgress": "View my progress",
+    "setGoal": "Set a goal",
+    "generateGroceryList": "Generate grocery list",
+    "getReport": "Get health report"
+  },
+  "messages": {
+    "welcome": "Hello! I'm your AI health companion. How can I help you today?",
+    "mealPlanGenerated": "I've generated a meal plan for you!",
+    "mealLogged": "Great! I've logged your meal.",
+    "activityLogged": "Excellent! Your activity has been logged.",
+    "biomarkerLogged": "Perfect! Your biomarker has been recorded.",
+    "goalSet": "Goal set successfully! Let's work towards it together.",
+    "groceryListGenerated": "Here's your grocery list based on your meal plan.",
+    "reportGenerated": "Your health report is ready!",
+    "error": "I encountered an error. Please try again.",
+    "offline": "You're offline. Your message will be sent when you're back online."
+  },
+  "components": {
+    "recipeCard": {
+      "calories": "Calories",
+      "protein": "Protein",
+      "carbs": "Carbs",
+      "fat": "Fat",
+      "fiber": "Fiber",
+      "ingredients": "Ingredients",
+      "instructions": "Instructions",
+      "save": "Save Recipe",
+      "pdf": "Export PDF",
+      "swap": "Swap Recipe"
+    },
+    "planSummary": {
+      "title": "Meal Plan",
+      "dailyTotals": "Daily Totals",
+      "viewDetails": "View Details",
+      "editPlan": "Edit Plan"
+    },
+    "leaderboardSnippet": {
+      "yourRank": "Your Rank",
+      "yourPoints": "Your Points",
+      "viewFull": "View Full Leaderboard"
+    },
+    "groceryListCard": {
+      "title": "Grocery List",
+      "aisle": "Aisle",
+      "items": "Items",
+      "exportPdf": "Export PDF",
+      "markComplete": "Mark Complete"
+    },
+    "goalBadge": {
+      "goal": "Goal",
+      "progress": "Progress",
+      "completed": "Completed",
+      "inProgress": "In Progress"
+    },
+    "biomarkerChart": {
+      "title": "Biomarker Trends",
+      "noData": "No data available",
+      "trend": "Trend",
+      "average": "Average"
+    }
+  }
+} 

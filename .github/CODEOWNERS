@@ -1,0 +1,42 @@
+# Global owners
+* @hendo420
+
+# Frontend components and pages
+/app/components/ @hendo420
+/app/chat/ @hendo420
+/app/dashboard/ @hendo420
+/app/leaderboard/ @hendo420
+
+# API routes
+/app/api/ @hendo420
+
+# Services and business logic
+/lib/services/ @hendo420
+/lib/llmRouter.ts @hendo420
+/lib/mcp.ts @hendo420
+
+# Database and schema
+/prisma/ @hendo420
+/lib/prisma.ts @hendo420
+
+# Configuration files
+next.config.js @hendo420
+tsconfig.json @hendo420
+package.json @hendo420
+docker-compose.yml @hendo420
+
+# CI/CD and deployment
+.github/workflows/ @hendo420
+.github/CODEOWNERS @hendo420
+.github/branch-protection.yml @hendo420
+Dockerfile @hendo420
+
+# Testing
+/tests/ @hendo420
+vitest.*.config.ts @hendo420
+playwright.config.ts @hendo420
+.lighthouserc.js @hendo420
+
+# Documentation
+README.md @hendo420
+*.md @hendo420 

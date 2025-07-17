@@ -1,0 +1,49 @@
+# Branch Protection Rules
+# This file defines the protection rules for main and develop branches
+
+branches:
+  - name: main
+    protection:
+      required_status_checks:
+        strict: true
+        contexts:
+          - "lint"
+          - "unit-tests"
+          - "api-tests"
+          - "ui-tests"
+          - "db-tests"
+          - "build"
+          - "e2e-tests"
+          - "lighthouse"
+          - "security"
+      enforce_admins: true
+      required_pull_request_reviews:
+        required_approving_review_count: 2
+        dismiss_stale_reviews: true
+        require_code_owner_reviews: true
+      restrictions:
+        users: []
+        teams: []
+      allow_force_pushes: false
+      allow_deletions: false
+
+  - name: develop
+    protection:
+      required_status_checks:
+        strict: true
+        contexts:
+          - "lint"
+          - "unit-tests"
+          - "api-tests"
+          - "ui-tests"
+          - "db-tests"
+          - "build"
+      enforce_admins: false
+      required_pull_request_reviews:
+        required_approving_review_count: 1
+        dismiss_stale_reviews: true
+      restrictions:
+        users: []
+        teams: []
+      allow_force_pushes: false
+      allow_deletions: false 
