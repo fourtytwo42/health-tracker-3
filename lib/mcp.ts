@@ -36,35 +36,35 @@ export class MCPHandler {
     const days = [];
     
     const breakfastOptions = [
-      { name: 'Greek Yogurt with Berries', calories: 350, protein: 25, carbs: 30, fat: 12 },
-      { name: 'Oatmeal with Banana', calories: 400, protein: 15, carbs: 65, fat: 8 },
-      { name: 'Eggs with Whole Grain Toast', calories: 450, protein: 22, carbs: 35, fat: 18 },
-      { name: 'Smoothie Bowl', calories: 380, protein: 18, carbs: 45, fat: 10 },
-      { name: 'Avocado Toast', calories: 420, protein: 12, carbs: 40, fat: 20 },
+      { name: 'Breakfast: Greek Yogurt with Berries', calories: 350, protein: 25, carbs: 30, fat: 12 },
+      { name: 'Breakfast: Oatmeal with Banana', calories: 400, protein: 15, carbs: 65, fat: 8 },
+      { name: 'Breakfast: Eggs with Whole Grain Toast', calories: 450, protein: 22, carbs: 35, fat: 18 },
+      { name: 'Breakfast: Smoothie Bowl', calories: 380, protein: 18, carbs: 45, fat: 10 },
+      { name: 'Breakfast: Avocado Toast', calories: 420, protein: 12, carbs: 40, fat: 20 },
     ];
 
     const lunchOptions = [
-      { name: 'Grilled Chicken Salad', calories: 550, protein: 35, carbs: 25, fat: 22 },
-      { name: 'Quinoa Bowl', calories: 600, protein: 20, carbs: 70, fat: 18 },
-      { name: 'Turkey Sandwich', calories: 580, protein: 28, carbs: 55, fat: 20 },
-      { name: 'Salmon with Rice', calories: 620, protein: 32, carbs: 60, fat: 24 },
-      { name: 'Vegetarian Wrap', calories: 520, protein: 18, carbs: 65, fat: 16 },
+      { name: 'Lunch: Grilled Chicken Salad', calories: 550, protein: 35, carbs: 25, fat: 22 },
+      { name: 'Lunch: Quinoa Bowl', calories: 600, protein: 20, carbs: 70, fat: 18 },
+      { name: 'Lunch: Turkey Sandwich', calories: 580, protein: 28, carbs: 55, fat: 20 },
+      { name: 'Lunch: Salmon with Rice', calories: 620, protein: 32, carbs: 60, fat: 24 },
+      { name: 'Lunch: Vegetarian Wrap', calories: 520, protein: 18, carbs: 65, fat: 16 },
     ];
 
     const dinnerOptions = [
-      { name: 'Baked Salmon with Vegetables', calories: 480, protein: 30, carbs: 25, fat: 20 },
-      { name: 'Lean Beef Stir Fry', calories: 520, protein: 35, carbs: 30, fat: 22 },
-      { name: 'Chicken Breast with Sweet Potato', calories: 450, protein: 40, carbs: 35, fat: 12 },
-      { name: 'Vegetarian Pasta', calories: 480, protein: 15, carbs: 70, fat: 14 },
-      { name: 'Fish Tacos', calories: 520, protein: 28, carbs: 45, fat: 20 },
+      { name: 'Dinner: Baked Salmon with Vegetables', calories: 480, protein: 30, carbs: 25, fat: 20 },
+      { name: 'Dinner: Lean Beef Stir Fry', calories: 520, protein: 35, carbs: 30, fat: 22 },
+      { name: 'Dinner: Chicken Breast with Sweet Potato', calories: 450, protein: 40, carbs: 35, fat: 12 },
+      { name: 'Dinner: Vegetarian Pasta', calories: 480, protein: 15, carbs: 70, fat: 14 },
+      { name: 'Dinner: Fish Tacos', calories: 520, protein: 28, carbs: 45, fat: 20 },
     ];
 
     const snackOptions = [
-      { name: 'Apple with Almonds', calories: 200, protein: 8, carbs: 25, fat: 12 },
-      { name: 'Protein Shake', calories: 180, protein: 25, carbs: 15, fat: 3 },
-      { name: 'Hummus with Carrots', calories: 150, protein: 6, carbs: 20, fat: 6 },
-      { name: 'Greek Yogurt', calories: 120, protein: 15, carbs: 8, fat: 2 },
-      { name: 'Mixed Nuts', calories: 160, protein: 6, carbs: 8, fat: 14 },
+      { name: 'Snack: Apple with Almonds', calories: 200, protein: 8, carbs: 25, fat: 12 },
+      { name: 'Snack: Protein Shake', calories: 180, protein: 25, carbs: 15, fat: 3 },
+      { name: 'Snack: Hummus with Carrots', calories: 150, protein: 6, carbs: 20, fat: 6 },
+      { name: 'Snack: Greek Yogurt', calories: 120, protein: 15, carbs: 8, fat: 2 },
+      { name: 'Snack: Mixed Nuts', calories: 160, protein: 6, carbs: 8, fat: 14 },
     ];
 
     for (let i = 0; i < args.duration_days; i++) {

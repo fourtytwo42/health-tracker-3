@@ -30,7 +30,13 @@ interface PlanSummaryProps {
   totalWorkouts?: number;
   days?: Array<{
     day: number;
-    meals?: Array<{ name: string; calories: number }>;
+    meals?: Array<{ 
+      name: string; 
+      calories: number; 
+      protein: number; 
+      carbs: number; 
+      fat: number; 
+    }>;
     activities?: Array<{ name: string; duration: string; calories: number }>;
   }>;
 }
@@ -118,33 +124,52 @@ export default function PlanSummary({
             <Typography variant="subtitle2" gutterBottom>
               Daily Breakdown
             </Typography>
-            <List dense>
-              {days.slice(0, 3).map((day, index) => (
-                <ListItem key={index} sx={{ py: 0.5 }}>
-                  <ListItemIcon sx={{ minWidth: 36 }}>
-                    <CheckIcon color="success" fontSize="small" />
-                  </ListItemIcon>
-                  <ListItemText 
-                    primary={`Day ${day.day}`}
-                    secondary={
-                      type === 'meal' 
-                        ? `${day.meals?.length || 0} meals planned`
-                        : `${day.activities?.length || 0} activities planned`
-                    }
-                    primaryTypographyProps={{ variant: 'body2', fontWeight: 'medium' }}
-                    secondaryTypographyProps={{ variant: 'body2' }}
-                  />
-                </ListItem>
-              ))}
-              {days.length > 3 && (
-                <ListItem sx={{ py: 0.5 }}>
-                  <ListItemText 
-                    primary={`... and ${days.length - 3} more days`}
-                    primaryTypographyProps={{ variant: 'body2', color: 'text.secondary' }}
-                  />
-                </ListItem>
-              )}
-            </List>
+            {days.slice(0, 3).map((day, index) => (
+              <Box key={index} sx={{ mb: 2, p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
+                <Typography variant="body2" fontWeight="medium" gutterBottom>
+                  Day {day.day}
+                </Typography>
+                {type === 'meal' && day.meals && (
+                  <List dense>
+                    {day.meals.map((meal, mealIndex) => (
+                      <ListItem key={mealIndex} sx={{ py: 0.5, px: 0 }}>
+                        <ListItemIcon sx={{ minWidth: 32 }}>
+                          <FoodIcon fontSize="small" color="primary" />
+                        </ListItemIcon>
+                        <ListItemText 
+                          primary={meal.name}
+                          secondary={`${meal.calories} cal • ${meal.protein}g protein • ${meal.carbs}g carbs • ${meal.fat}g fat`}
+                          primaryTypographyProps={{ variant: 'body2', fontWeight: 'medium' }}
+                          secondaryTypographyProps={{ variant: 'caption' }}
+                        />
+                      </ListItem>
+                    ))}
+                  </List>
+                )}
+                {type === 'activity' && day.activities && (
+                  <List dense>
+                    {day.activities.map((activity, activityIndex) => (
+                      <ListItem key={activityIndex} sx={{ py: 0.5, px: 0 }}>
+                        <ListItemIcon sx={{ minWidth: 32 }}>
+                          <FitnessIcon fontSize="small" color="primary" />
+                        </ListItemIcon>
+                        <ListItemText 
+                          primary={activity.name}
+                          secondary={`${activity.duration} • ${activity.calories} cal`}
+                          primaryTypographyProps={{ variant: 'body2', fontWeight: 'medium' }}
+                          secondaryTypographyProps={{ variant: 'caption' }}
+                        />
+                      </ListItem>
+                    ))}
+                  </List>
+                )}
+              </Box>
+            ))}
+            {days.length > 3 && (
+              <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 1 }}>
+                ... and {days.length - 3} more days
+              </Typography>
+            )}
           </Box>
         )}
       </CardContent>
