@@ -490,7 +490,7 @@ export default function AdminDashboard() {
     }
     
     if (pricing.type === 'flat') {
-      return `$${pricing.costPer1k}/1k tokens`;
+      return `$${(pricing.costPer1k * 1000).toFixed(2)}/1M tokens`;
     }
     
     if (pricing.type === 'input_output') {
@@ -505,16 +505,16 @@ export default function AdminDashboard() {
       }
       
       if (inputCost === outputCost) {
-        return `$${inputCost}/1k tokens`;
+        return `$${(inputCost * 1000).toFixed(2)}/1M tokens`;
       } else {
-        return `$${inputCost}/1k input, $${outputCost}/1k output`;
+        return `$${(inputCost * 1000).toFixed(2)}/1M input, $${(outputCost * 1000).toFixed(2)}/1M output`;
       }
     }
     
     return 'N/A';
   };
 
-  // Helper function to get cost for priority calculation
+  // Helper function to get cost for priority calculation (kept as per 1k for internal calculations)
   const getProviderCost = (provider: any) => {
     if (!provider.pricing) return 0;
     
