@@ -238,6 +238,37 @@ model IngredientTaxonomy {
   @@map("ingredient_taxonomy")
 }
 
+model Ingredient {
+  id                    String   @id @default(cuid())
+  name                  String   @unique
+  description           String?
+  servingSize           String   @map("serving_size") // e.g., "100g", "1 cup", "1 medium"
+  calories              Float
+  protein               Float    // in grams
+  carbs                 Float    // in grams
+  fat                   Float    // in grams
+  fiber                 Float?   // in grams
+  sugar                 Float?   // in grams
+  sodium                Float?   // in mg
+  cholesterol           Float?   // in mg
+  saturatedFat          Float?   @map("saturated_fat") // in grams
+  monounsaturatedFat    Float?   @map("monounsaturated_fat") // in grams
+  polyunsaturatedFat    Float?   @map("polyunsaturated_fat") // in grams
+  transFat              Float?   @map("trans_fat") // in grams
+  netCarbs              Float?   @map("net_carbs") // in grams
+  glycemicIndex         Float?   @map("glycemic_index")
+  glycemicLoad          Float?   @map("glycemic_load")
+  dietaryFlags          String?  @map("dietary_flags") // JSON string of dietary flags
+  allergens             String?  // JSON string of allergens
+  category              String?  // Comprehensive category from the list
+  aisle                 String?  // e.g., "produce", "meat", "dairy", "pantry"
+  isActive              Boolean  @default(true) @map("is_active")
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @updatedAt @map("updated_at")
+  
+  @@map("ingredients")
+}
+
 model Setting {
   id          String @id @default(cuid())
   key         String @unique

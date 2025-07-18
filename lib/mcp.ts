@@ -38,47 +38,269 @@ export class MCPHandler {
     const calorieTarget = args.calorie_target || 2000;
     const days = [];
     
-    const breakfastOptions = [
-      { name: 'Breakfast: Greek Yogurt with Berries', calories: 350, protein: 25, carbs: 30, fat: 12 },
-      { name: 'Breakfast: Oatmeal with Banana', calories: 400, protein: 15, carbs: 65, fat: 8 },
-      { name: 'Breakfast: Eggs with Whole Grain Toast', calories: 450, protein: 22, carbs: 35, fat: 18 },
-      { name: 'Breakfast: Smoothie Bowl', calories: 380, protein: 18, carbs: 45, fat: 10 },
-      { name: 'Breakfast: Avocado Toast', calories: 420, protein: 12, carbs: 40, fat: 20 },
+    const breakfastRecipes = [
+      {
+        name: 'Greek Yogurt with Berries and Honey',
+        calories: 350,
+        protein: 25,
+        carbs: 30,
+        fat: 12,
+        ingredients: [
+          '1 cup Greek yogurt (non-fat)',
+          '1/2 cup mixed berries (strawberries, blueberries, raspberries)',
+          '1 tbsp honey',
+          '2 tbsp granola',
+          '1 tbsp chopped almonds'
+        ],
+        instructions: [
+          'In a bowl, add 1 cup of Greek yogurt',
+          'Top with fresh mixed berries',
+          'Drizzle with honey',
+          'Sprinkle granola and chopped almonds on top',
+          'Serve immediately'
+        ],
+        prepTime: '5 minutes',
+        cookTime: '0 minutes'
+      },
+      {
+        name: 'Oatmeal with Banana and Cinnamon',
+        calories: 400,
+        protein: 15,
+        carbs: 65,
+        fat: 8,
+        ingredients: [
+          '1 cup rolled oats',
+          '1 cup water',
+          '1 cup milk (or almond milk)',
+          '1 ripe banana, sliced',
+          '1 tbsp honey',
+          '1/2 tsp cinnamon',
+          'Pinch of salt'
+        ],
+        instructions: [
+          'In a medium saucepan, combine oats, water, milk, and salt',
+          'Bring to a boil over medium heat, then reduce to low',
+          'Simmer for 5 minutes, stirring occasionally',
+          'Remove from heat and let stand for 2 minutes',
+          'Top with sliced banana, honey, and cinnamon',
+          'Serve hot'
+        ],
+        prepTime: '5 minutes',
+        cookTime: '7 minutes'
+      },
+      {
+        name: 'Scrambled Eggs with Whole Grain Toast',
+        calories: 450,
+        protein: 22,
+        carbs: 35,
+        fat: 18,
+        ingredients: [
+          '3 large eggs',
+          '1 tbsp butter',
+          '2 slices whole grain bread',
+          '1/4 cup diced bell peppers',
+          '1/4 cup diced onions',
+          'Salt and pepper to taste',
+          '1 tbsp fresh herbs (optional)'
+        ],
+        instructions: [
+          'Toast the whole grain bread',
+          'In a bowl, whisk eggs with salt and pepper',
+          'Heat butter in a non-stick pan over medium heat',
+          'Add diced peppers and onions, sauté for 2 minutes',
+          'Pour in whisked eggs and cook, stirring gently',
+          'Cook until eggs are set but still moist',
+          'Serve eggs over toast and garnish with fresh herbs'
+        ],
+        prepTime: '5 minutes',
+        cookTime: '8 minutes'
+      }
     ];
 
-    const lunchOptions = [
-      { name: 'Lunch: Grilled Chicken Salad', calories: 550, protein: 35, carbs: 25, fat: 22 },
-      { name: 'Lunch: Quinoa Bowl', calories: 600, protein: 20, carbs: 70, fat: 18 },
-      { name: 'Lunch: Turkey Sandwich', calories: 580, protein: 28, carbs: 55, fat: 20 },
-      { name: 'Lunch: Salmon with Rice', calories: 620, protein: 32, carbs: 60, fat: 24 },
-      { name: 'Lunch: Vegetarian Wrap', calories: 520, protein: 18, carbs: 65, fat: 16 },
+    const lunchRecipes = [
+      {
+        name: 'Grilled Chicken Salad with Mixed Greens',
+        calories: 550,
+        protein: 35,
+        carbs: 25,
+        fat: 22,
+        ingredients: [
+          '4 oz chicken breast',
+          '2 cups mixed greens (spinach, arugula, romaine)',
+          '1/2 cup cherry tomatoes, halved',
+          '1/4 cup cucumber, sliced',
+          '1/4 cup red onion, thinly sliced',
+          '2 tbsp olive oil',
+          '1 tbsp balsamic vinegar',
+          'Salt and pepper to taste'
+        ],
+        instructions: [
+          'Season chicken breast with salt and pepper',
+          'Grill chicken for 6-8 minutes per side until cooked through',
+          'Let chicken rest for 5 minutes, then slice',
+          'In a large bowl, combine mixed greens, tomatoes, cucumber, and onion',
+          'Whisk together olive oil, balsamic vinegar, salt, and pepper',
+          'Toss salad with dressing and top with sliced chicken',
+          'Serve immediately'
+        ],
+        prepTime: '10 minutes',
+        cookTime: '15 minutes'
+      },
+      {
+        name: 'Quinoa Bowl with Roasted Vegetables',
+        calories: 600,
+        protein: 20,
+        carbs: 70,
+        fat: 18,
+        ingredients: [
+          '1/2 cup quinoa',
+          '1 cup vegetable broth',
+          '1 cup broccoli florets',
+          '1 cup cauliflower florets',
+          '1/2 cup chickpeas, drained',
+          '2 tbsp olive oil',
+          '1 tsp garlic powder',
+          '1 tsp paprika',
+          'Salt and pepper to taste',
+          '2 tbsp tahini sauce'
+        ],
+        instructions: [
+          'Rinse quinoa thoroughly and cook in vegetable broth for 15 minutes',
+          'Preheat oven to 400°F (200°C)',
+          'Toss broccoli, cauliflower, and chickpeas with olive oil and spices',
+          'Roast vegetables for 20-25 minutes until tender',
+          'Fluff quinoa with a fork and let cool slightly',
+          'Assemble bowl with quinoa base, roasted vegetables, and tahini sauce',
+          'Serve warm or at room temperature'
+        ],
+        prepTime: '15 minutes',
+        cookTime: '25 minutes'
+      }
     ];
 
-    const dinnerOptions = [
-      { name: 'Dinner: Baked Salmon with Vegetables', calories: 480, protein: 30, carbs: 25, fat: 20 },
-      { name: 'Dinner: Lean Beef Stir Fry', calories: 520, protein: 35, carbs: 30, fat: 22 },
-      { name: 'Dinner: Chicken Breast with Sweet Potato', calories: 450, protein: 40, carbs: 35, fat: 12 },
-      { name: 'Dinner: Vegetarian Pasta', calories: 480, protein: 15, carbs: 70, fat: 14 },
-      { name: 'Dinner: Fish Tacos', calories: 520, protein: 28, carbs: 45, fat: 20 },
+    const dinnerRecipes = [
+      {
+        name: 'Baked Salmon with Roasted Vegetables',
+        calories: 480,
+        protein: 30,
+        carbs: 25,
+        fat: 20,
+        ingredients: [
+          '6 oz salmon fillet',
+          '1 cup broccoli florets',
+          '1 cup carrots, sliced',
+          '2 tbsp olive oil',
+          '1 lemon, sliced',
+          '2 cloves garlic, minced',
+          '1 tsp dried herbs (thyme, rosemary)',
+          'Salt and pepper to taste'
+        ],
+        instructions: [
+          'Preheat oven to 400°F (200°C)',
+          'Line a baking sheet with parchment paper',
+          'Place salmon in the center and arrange vegetables around it',
+          'Drizzle with olive oil and season with garlic, herbs, salt, and pepper',
+          'Place lemon slices on top of salmon',
+          'Bake for 15-20 minutes until salmon flakes easily',
+          'Serve hot with lemon wedges'
+        ],
+        prepTime: '10 minutes',
+        cookTime: '20 minutes'
+      },
+      {
+        name: 'Lean Beef Stir Fry with Brown Rice',
+        calories: 520,
+        protein: 35,
+        carbs: 30,
+        fat: 22,
+        ingredients: [
+          '4 oz lean beef, sliced thin',
+          '1 cup brown rice, cooked',
+          '1 cup mixed vegetables (bell peppers, broccoli, carrots)',
+          '2 tbsp soy sauce',
+          '1 tbsp sesame oil',
+          '2 cloves garlic, minced',
+          '1 tbsp ginger, minced',
+          '1 tbsp cornstarch',
+          '2 tbsp water'
+        ],
+        instructions: [
+          'Cook brown rice according to package instructions',
+          'Heat sesame oil in a wok or large skillet over high heat',
+          'Add beef and stir-fry for 2-3 minutes until browned',
+          'Add garlic and ginger, stir for 30 seconds',
+          'Add vegetables and stir-fry for 3-4 minutes',
+          'Mix cornstarch with water and soy sauce',
+          'Pour sauce over stir fry and cook until thickened',
+          'Serve over brown rice'
+        ],
+        prepTime: '15 minutes',
+        cookTime: '15 minutes'
+      }
     ];
 
-    const snackOptions = [
-      { name: 'Snack: Apple with Almonds', calories: 200, protein: 8, carbs: 25, fat: 12 },
-      { name: 'Snack: Protein Shake', calories: 180, protein: 25, carbs: 15, fat: 3 },
-      { name: 'Snack: Hummus with Carrots', calories: 150, protein: 6, carbs: 20, fat: 6 },
-      { name: 'Snack: Greek Yogurt', calories: 120, protein: 15, carbs: 8, fat: 2 },
-      { name: 'Snack: Mixed Nuts', calories: 160, protein: 6, carbs: 8, fat: 14 },
+    const snackRecipes = [
+      {
+        name: 'Apple with Almonds and Cinnamon',
+        calories: 200,
+        protein: 8,
+        carbs: 25,
+        fat: 12,
+        ingredients: [
+          '1 medium apple, sliced',
+          '1/4 cup raw almonds',
+          '1/2 tsp cinnamon',
+          '1 tsp honey (optional)'
+        ],
+        instructions: [
+          'Wash and slice apple into wedges',
+          'Arrange apple slices on a plate',
+          'Sprinkle with cinnamon',
+          'Serve with almonds on the side',
+          'Drizzle with honey if desired'
+        ],
+        prepTime: '5 minutes',
+        cookTime: '0 minutes'
+      },
+      {
+        name: 'Protein Smoothie Bowl',
+        calories: 180,
+        protein: 25,
+        carbs: 15,
+        fat: 3,
+        ingredients: [
+          '1 scoop vanilla protein powder',
+          '1/2 cup frozen berries',
+          '1/2 cup almond milk',
+          '1 tbsp chia seeds',
+          '1 tbsp granola',
+          'Fresh berries for topping'
+        ],
+        instructions: [
+          'Blend protein powder, frozen berries, and almond milk until smooth',
+          'Pour into a bowl',
+          'Top with chia seeds, granola, and fresh berries',
+          'Serve immediately with a spoon'
+        ],
+        prepTime: '5 minutes',
+        cookTime: '0 minutes'
+      }
     ];
 
     for (let i = 0; i < args.duration_days; i++) {
-      const breakfast = breakfastOptions[i % breakfastOptions.length];
-      const lunch = lunchOptions[i % lunchOptions.length];
-      const dinner = dinnerOptions[i % dinnerOptions.length];
-      const snack = snackOptions[i % snackOptions.length];
+      const breakfast = breakfastRecipes[i % breakfastRecipes.length];
+      const lunch = lunchRecipes[i % lunchRecipes.length];
+      const dinner = dinnerRecipes[i % dinnerRecipes.length];
+      const snack = snackRecipes[i % snackRecipes.length];
 
       days.push({
         day: i + 1,
-        meals: [breakfast, lunch, dinner, snack],
+        meals: [
+          { ...breakfast, mealType: 'BREAKFAST' },
+          { ...lunch, mealType: 'LUNCH' },
+          { ...dinner, mealType: 'DINNER' },
+          { ...snack, mealType: 'SNACK' }
+        ],
         totalCalories: breakfast.calories + lunch.calories + dinner.calories + snack.calories,
       });
     }
@@ -86,6 +308,12 @@ export class MCPHandler {
     return {
       days,
       totalCalories: days.reduce((sum, day) => sum + day.totalCalories, 0),
+      metadata: {
+        calorieTarget: calorieTarget,
+        dietaryPreferences: args.dietary_preferences || [],
+        goal: args.goal || 'maintenance',
+        duration: args.duration_days
+      }
     };
   }
 
@@ -144,7 +372,18 @@ export class MCPHandler {
         const mealPlan = this.generateRealisticMealPlan(args);
         
         const response = await this.llmRouter.generateResponse({
-          prompt: `I've created a ${args.duration_days}-day meal plan${args.calorie_target ? ` with ${args.calorie_target} calories per day` : ''}${args.dietary_preferences ? ` considering: ${args.dietary_preferences.join(', ')}` : ''}${args.goal ? ` for ${args.goal}` : ''}. The plan includes ${mealPlan.days.length} days with balanced meals. Provide a brief summary of what this meal plan includes and tips for following it. Do not ask the user to share a meal plan - you are providing the meal plan.`,
+          prompt: `I've created a comprehensive ${args.duration_days}-day meal plan${args.calorie_target ? ` with ${args.calorie_target} calories per day` : ''}${args.dietary_preferences ? ` considering: ${args.dietary_preferences.join(', ')}` : ''}${args.goal ? ` for ${args.goal}` : ''}. 
+
+The meal plan includes detailed recipes for each meal with:
+- Complete ingredient lists with measurements
+- Step-by-step cooking instructions
+- Nutritional information (calories, protein, carbs, fat)
+- Prep and cook times
+- Meal types (breakfast, lunch, dinner, snack)
+
+Each day contains 4 meals with a total of ${Math.round(mealPlan.totalCalories / args.duration_days)} calories per day. The plan is designed to be healthy, balanced, and easy to follow.
+
+Provide a brief summary of what this meal plan includes, highlight the variety of meals, and give practical tips for following it successfully. Emphasize that this is a complete meal plan with recipes that the user can follow immediately.`,
           userId: authInfo.userId,
           tool: 'generate_meal_plan',
         });

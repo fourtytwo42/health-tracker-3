@@ -152,6 +152,111 @@ The admin dashboard (`/admin`) provides comprehensive LLM provider management:
 4. **Configure Router**: Set latency/cost weights and provider priorities
 5. **Test Providers**: Use the "Test Provider" button to verify connectivity
 
+## 🥗 USDA Nutrition Data Integration
+
+This application includes comprehensive USDA FoodData Central nutrition data integration. The system automatically seeds the database with official USDA nutrition information for hundreds of ingredients.
+
+### Data Sources
+
+- **USDA Foundation Foods**: Comprehensive nutrition data from the USDA FoodData Central database
+- **Automatic Detection**: Any JSON files placed in the `Data/` folder will be automatically processed and seeded
+- **Real-time Updates**: When USDA releases new data, simply replace the JSON files and re-seed
+
+### Features
+
+- **340+ Ingredients**: Pre-loaded with USDA foundation foods
+- **Comprehensive Nutrition**: Complete nutritional profiles including:
+  - Macronutrients (protein, carbs, fat)
+  - Micronutrients (vitamins, minerals)
+  - Fatty acid breakdown (saturated, monounsaturated, polyunsaturated, trans)
+  - Fiber, sugar, sodium, cholesterol
+  - Net carbs calculation
+  - Dietary flags and allergen information
+
+- **Smart Categorization**: Automatic mapping to comprehensive ingredient categories
+- **Aisle Organization**: Intelligent store aisle placement
+- **Dietary Intelligence**: Automatic detection of dietary restrictions and allergens
+
+### Seeding Commands
+
+```bash
+# Seed only USDA data
+npm run db:seed-usda
+
+# Seed all data (USDA + demo users + settings)
+npm run db:seed-all
+
+# Reset database and seed everything
+npm run db:reset-and-seed
+```
+
+### Adding New USDA Data
+
+1. Download new USDA JSON files from [FoodData Central](https://fdc.nal.usda.gov/download-datasets.html)
+2. Place JSON files in the `Data/` folder
+3. Run `npm run db:seed-all` to process and seed the new data
+
+### Data Structure
+
+The system automatically converts USDA data to our comprehensive ingredient format:
+
+```json
+{
+  "name": "Chicken Breast, raw",
+  "description": "USDA Foundation Food - FinalFood (Source: FoodData_Central_foundation_food_json_2025-04-24.json)",
+  "servingSize": "100g",
+  "calories": 165,
+  "protein": 31.0,
+  "carbs": 0.0,
+  "fat": 3.6,
+  "fiber": 0.0,
+  "sugar": 0.0,
+  "sodium": 74,
+  "cholesterol": 85,
+  "saturatedFat": 1.1,
+  "monounsaturatedFat": 1.2,
+  "polyunsaturatedFat": 0.8,
+  "transFat": 0.0,
+  "netCarbs": 0.0,
+  "dietaryFlags": "Gluten-Free, Dairy-Free, Nut-Free, Seafood-Free, Egg-Free, Soy-Free",
+  "allergens": "",
+  "category": "Proteins - Poultry (chicken, turkey, duck)",
+  "aisle": "meat"
+}
+```
+
+### Categories Available
+
+The system includes comprehensive ingredient categories:
+
+- **Proteins**: Meats, Poultry, Seafood, Eggs, Plant Proteins
+- **Vegetables**: Leafy Greens, Cruciferous, Root, Alliums, Nightshades, Gourds
+- **Fruits**: Berries, Citrus, Stone Fruits, Pomes, Tropical, Melons
+- **Grains & Starches**: Whole Grains, Refined Grains, Ancient Grains, Tubers
+- **Legumes & Pulses**: Beans, Lentils, Peas, Chickpeas
+- **Dairy & Alternatives**: Milk/Yogurt/Cheese, Plant Alternatives
+- **Nuts & Seeds**: Tree Nuts, Seeds
+- **Fats & Oils**: Cooking Oils, Animal Fats
+- **Condiments & Sauces**: Mustards/Ketchups, Marinades/Dressings
+- **Herbs & Spices**: Fresh Herbs, Dried Spices
+- **Beverages**: Water/Tea/Coffee, Juices/Sodas/Alcohol
+- **Sweets & Snacks**: Chocolate/Candy, Chips/Crackers
+- **Pantry & Canned Goods**: Canned Items, Stocks/Broths
+- **Frozen Foods**: Vegetables, Fruits, Prepared Meals
+- **Bakery**: Breads, Tortillas, Pastries
+
+### Admin Interface
+
+The admin dashboard includes a comprehensive ingredient management interface:
+
+- **Browse Ingredients**: View all USDA ingredients with detailed nutrition
+- **Search & Filter**: Find ingredients by name, category, or nutritional content
+- **Add Custom Ingredients**: Supplement USDA data with custom ingredients
+- **Bulk Operations**: Import/export ingredients via CSV
+- **Nutritional Analysis**: View detailed breakdowns of all nutritional components
+
+This integration provides a solid foundation of scientifically accurate nutrition data while maintaining flexibility for custom additions and updates.
+
 ## Architecture
 
 ### Frontend

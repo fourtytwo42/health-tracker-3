@@ -57,15 +57,13 @@ export default function AdminDashboard() {
 
   // Provider order state
   const [providerOrder, setProviderOrder] = useState<string[]>([
-    'ollama', 'openai', 'groq', 'anthropic', 'aws', 'azure'
+    'ollama', 'openai', 'groq', 'anthropic'
   ]);
   const [providerEnabled, setProviderEnabled] = useState<Record<string, boolean>>({});
 
   // Load LLM provider status
   const [llmProviders, setLlmProviders] = useState<any[]>([]);
   const [llmLoading, setLlmLoading] = useState(false);
-  const [testResult, setTestResult] = useState<any>(null);
-  const [testing, setTesting] = useState(false);
 
   // LLM provider management state
   const [providerModels, setProviderModels] = useState<Record<string, string[]>>({});
@@ -79,6 +77,11 @@ export default function AdminDashboard() {
   const [editingProvider, setEditingProvider] = useState('');
   const [apiKey, setApiKey] = useState('');
   const [apiKeyStatus, setApiKeyStatus] = useState<Record<string, { hasKey: boolean; maskedKey?: string }>>({});
+
+  // Test state
+  const [testing, setTesting] = useState(false);
+  const [testingProvider, setTestingProvider] = useState<string | null>(null);
+  const [testResult, setTestResult] = useState<any>(null);
 
   // Auto-refresh state
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
@@ -108,6 +111,127 @@ export default function AdminDashboard() {
     category: '',
     description: ''
   });
+
+  // Ingredients state
+  const [ingredients, setIngredients] = useState<any[]>([]);
+  const [ingredientsLoading, setIngredientsLoading] = useState(false);
+  const [ingredientDialogOpen, setIngredientDialogOpen] = useState(false);
+  const [editingIngredient, setEditingIngredient] = useState<any>(null);
+  const [ingredientForm, setIngredientForm] = useState({
+    name: '',
+    description: '',
+    servingSize: '',
+    calories: '',
+    protein: '',
+    carbs: '',
+    fat: '',
+    fiber: '',
+    sugar: '',
+    sodium: '',
+    cholesterol: '',
+    saturatedFat: '',
+    monounsaturatedFat: '',
+    polyunsaturatedFat: '',
+    transFat: '',
+    netCarbs: '',
+    glycemicIndex: '',
+    glycemicLoad: '',
+    dietaryFlags: '',
+    allergens: '',
+    category: '',
+    aisle: ''
+  });
+  const [categories, setCategories] = useState<string[]>([]);
+  const [aisles, setAisles] = useState<string[]>([]);
+  
+  // Search and filter state
+  const [searchTerm, setSearchTerm] = useState('');
+  const [ingredientCategoryFilter, setIngredientCategoryFilter] = useState('');
+  const [ingredientAisleFilter, setIngredientAisleFilter] = useState('');
+  const [calorieRange, setCalorieRange] = useState([0, 1000]);
+  const [proteinRange, setProteinRange] = useState([0, 100]);
+  const [carbRange, setCarbRange] = useState([0, 100]);
+  const [fatRange, setFatRange] = useState([0, 100]);
+  const [fiberRange, setFiberRange] = useState([0, 50]);
+  const [sodiumRange, setSodiumRange] = useState([0, 2000]);
+  const [showFilters, setShowFilters] = useState(false);
+  const [comprehensiveCategories] = useState([
+    // Proteins
+    'Proteins - Meats (beef, pork, lamb, game)',
+    'Proteins - Poultry (chicken, turkey, duck)',
+    'Proteins - Seafood (fish, shellfish)',
+    'Proteins - Eggs',
+    'Proteins - Plant Proteins (tofu, tempeh, seitan)',
+    
+    // Vegetables
+    'Vegetables - Leafy Greens (spinach, kale)',
+    'Vegetables - Cruciferous (broccoli, cauliflower)',
+    'Vegetables - Root (carrots, beets, potatoes)',
+    'Vegetables - Alliums (onion, garlic)',
+    'Vegetables - Nightshades (tomato, eggplant, pepper)',
+    'Vegetables - Gourds & Squashes',
+    
+    // Fruits
+    'Fruits - Berries',
+    'Fruits - Citrus',
+    'Fruits - Stone Fruits',
+    'Fruits - Pomes (apple, pear)',
+    'Fruits - Tropical (mango, pineapple)',
+    'Fruits - Melons',
+    
+    // Grains & Starches
+    'Grains & Starches - Whole Grains (brown rice, quinoa)',
+    'Grains & Starches - Refined Grains (white rice, pasta)',
+    'Grains & Starches - Ancient Grains (farro, spelt)',
+    'Grains & Starches - Tubers & Root Starches (potato, cassava)',
+    
+    // Legumes & Pulses
+    'Legumes & Pulses - Beans (black, kidney, navy)',
+    'Legumes & Pulses - Lentils, Peas, Chickpeas',
+    
+    // Dairy & Alternatives
+    'Dairy & Alternatives - Milk, Yogurt, Cheese, Butter',
+    'Dairy & Alternatives - Plant Milks & Cheeses',
+    
+    // Nuts & Seeds
+    'Nuts & Seeds - Tree Nuts, Peanuts',
+    'Nuts & Seeds - Seeds (chia, flax, sunflower)',
+    
+    // Fats & Oils
+    'Fats & Oils - Cooking Oils (olive, avocado)',
+    'Fats & Oils - Animal Fats (lard, tallow)',
+    
+    // Condiments & Sauces
+    'Condiments & Sauces - Mustards, Ketchups, Hot Sauces',
+    'Condiments & Sauces - Marinades & Dressings',
+    
+    // Herbs & Spices
+    'Herbs & Spices - Fresh Herbs (basil, cilantro)',
+    'Herbs & Spices - Dried Spices & Blends',
+    
+    // Beverages
+    'Beverages - Water, Tea, Coffee',
+    'Beverages - Juices, Sodas, Alcohol',
+    
+    // Sweets & Snacks
+    'Sweets & Snacks - Chocolate, Candy',
+    'Sweets & Snacks - Chips, Crackers, Granola Bars',
+    
+    // Pantry & Canned Goods
+    'Pantry & Canned Goods - Canned Vegetables, Beans',
+    'Pantry & Canned Goods - Stocks & Broths, Vinegars',
+    
+    // Frozen Foods
+    'Frozen Foods - Vegetables, Fruits, Prepared Meals',
+    
+    // Bakery
+    'Bakery - Breads, Tortillas, Pastries'
+  ]);
+  const [csvImportDialogOpen, setCsvImportDialogOpen] = useState(false);
+  const [csvFile, setCsvFile] = useState<File | null>(null);
+  const [csvData, setCsvData] = useState('');
+  const [importing, setImporting] = useState(false);
+  const [importResults, setImportResults] = useState<any>(null);
 
   useEffect(() => {
     // Get user from localStorage
@@ -163,7 +287,9 @@ export default function AdminDashboard() {
                   ...prevProvider,
                   isAvailable: newProvider.isAvailable,
                   avgLatencyMs: newProvider.avgLatencyMs,
-                  model: newProvider.model
+                  avgTokensPerSecond: newProvider.avgTokensPerSecond,
+                  model: newProvider.model,
+                  usage: newProvider.usage // Also update usage statistics
                 };
               }
               return prevProvider;
@@ -207,7 +333,7 @@ export default function AdminDashboard() {
 
   // Load all API key status at once
   const loadAllApiKeyStatus = async () => {
-    const providerKeys = ['groq', 'openai', 'anthropic', 'aws', 'azure'];
+    const providerKeys = ['groq', 'openai', 'anthropic'];
     const promises = providerKeys.map(loadApiKeyStatus);
     await Promise.all(promises);
   };
@@ -235,6 +361,7 @@ export default function AdminDashboard() {
 
   const testLLMProvider = async (providerKey: string) => {
     setTesting(true);
+    setTestingProvider(providerKey);
     setTestResult(null);
     try {
       const response = await fetch('/api/llm/test', {
@@ -251,10 +378,16 @@ export default function AdminDashboard() {
       
       const result = await response.json();
       setTestResult(result);
+      
+      // Auto-refresh provider data to update usage statistics
+      if (result.success) {
+        await loadLLMProviders();
+      }
     } catch (error) {
       setTestResult({ success: false, error: 'Failed to test provider' });
     } finally {
       setTesting(false);
+      setTestingProvider(null);
     }
   };
 
@@ -480,16 +613,34 @@ export default function AdminDashboard() {
     }
   };
 
-  const loadData = async () => {
+  const loadIngredients = async () => {
+    setIngredientsLoading(true);
     try {
-      setLoading(true);
-      setError(null);
+      const response = await fetch('/api/ingredients', {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('accessToken')}` }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setIngredients(data.data || []);
+      } else {
+        console.error('Failed to load ingredients:', response.status);
+      }
+    } catch (error) {
+      console.error('Error loading ingredients:', error);
+    } finally {
+      setIngredientsLoading(false);
+    }
+  };
 
-      // Load LLM providers
-      await loadLLMProviders();
-      await loadAllApiKeyStatus();
-      await loadSystemMessages();
-      await loadSystemMessageCategories();
+  const loadData = async () => {
+    setLoading(true);
+    try {
+      await Promise.all([
+        loadLLMProviders(),
+        loadSystemMessages(),
+        loadSystemMessageCategories(),
+        loadIngredients()
+      ]);
 
       // Load LLM settings to get provider order and enabled state
       const llmRes = await fetch('/api/settings/llm', {
@@ -516,14 +667,12 @@ export default function AdminDashboard() {
           setProviderEnabled(enabledState);
         } else {
           // Fallback: if no settings exist, create default settings
-          const defaultOrder = ['ollama', 'openai', 'groq', 'anthropic', 'aws', 'azure'];
+          const defaultOrder = ['ollama', 'openai', 'groq', 'anthropic'];
           const defaultEnabled = {
             ollama: true,
             openai: true,
             groq: true,
             anthropic: true,
-            aws: false,
-            azure: false,
           };
           
           setProviderOrder(defaultOrder);
@@ -831,6 +980,203 @@ export default function AdminDashboard() {
     }
   };
 
+  // Ingredients management functions
+  const openIngredientDialog = (ingredient?: any) => {
+    if (ingredient) {
+      setEditingIngredient(ingredient);
+      setIngredientForm({
+        name: ingredient.name,
+        description: ingredient.description,
+        servingSize: ingredient.servingSize,
+        calories: ingredient.calories,
+        protein: ingredient.protein,
+        carbs: ingredient.carbs,
+        fat: ingredient.fat,
+        fiber: ingredient.fiber,
+        sugar: ingredient.sugar,
+        sodium: ingredient.sodium,
+        cholesterol: ingredient.cholesterol,
+        saturatedFat: ingredient.saturatedFat,
+        monounsaturatedFat: ingredient.monounsaturatedFat,
+        polyunsaturatedFat: ingredient.polyunsaturatedFat,
+        transFat: ingredient.transFat,
+        netCarbs: ingredient.netCarbs,
+        glycemicIndex: ingredient.glycemicIndex,
+        glycemicLoad: ingredient.glycemicLoad,
+        dietaryFlags: ingredient.dietaryFlags,
+        allergens: ingredient.allergens,
+        category: ingredient.category,
+        aisle: ingredient.aisle
+      });
+    } else {
+      setEditingIngredient(null);
+      setIngredientForm({
+        name: '',
+        description: '',
+        servingSize: '',
+        calories: '',
+        protein: '',
+        carbs: '',
+        fat: '',
+        fiber: '',
+        sugar: '',
+        sodium: '',
+        cholesterol: '',
+        saturatedFat: '',
+        monounsaturatedFat: '',
+        polyunsaturatedFat: '',
+        transFat: '',
+        netCarbs: '',
+        glycemicIndex: '',
+        glycemicLoad: '',
+        dietaryFlags: '',
+        allergens: '',
+        category: '',
+        aisle: ''
+      });
+    }
+    setIngredientDialogOpen(true);
+  };
+
+  const saveIngredient = async () => {
+    try {
+      const url = editingIngredient ? `/api/ingredients/${editingIngredient.id}` : '/api/ingredients';
+      const method = editingIngredient ? 'PUT' : 'POST';
+
+      const response = await fetch(url, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
+        },
+        body: JSON.stringify(ingredientForm)
+      });
+
+      if (response.ok) {
+        setIngredientDialogOpen(false);
+        await loadIngredients();
+        setError(null);
+      } else {
+        const error = await response.json();
+        setError(error.error || 'Failed to save ingredient');
+      }
+    } catch (error) {
+      setError('Failed to save ingredient');
+      console.error('Error saving ingredient:', error);
+    }
+  };
+
+  const deleteIngredient = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this ingredient?')) return;
+    
+    try {
+      const response = await fetch(`/api/ingredients/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
+        }
+      });
+
+      if (response.ok) {
+        await loadIngredients();
+        setError(null);
+      } else {
+        const error = await response.json();
+        setError(error.error || 'Failed to delete ingredient');
+      }
+    } catch (error) {
+      setError('Failed to delete ingredient');
+      console.error('Error deleting ingredient:', error);
+    }
+  };
+
+  const importIngredientsFromCSV = async () => {
+    setImporting(true);
+    setImportResults(null);
+    try {
+      const formData = new FormData();
+      if (csvFile) {
+        formData.append('file', csvFile);
+      }
+
+      const response = await fetch('/api/ingredients/import', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
+        },
+        body: formData
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setImportResults(data);
+        setCsvImportDialogOpen(false);
+        setCsvFile(null);
+        setCsvData('');
+        await loadIngredients();
+      } else {
+        const error = await response.json();
+        setImportResults({ success: false, error: error.error || 'Failed to import CSV' });
+      }
+    } catch (error) {
+      setImportResults({ success: false, error: 'Failed to import CSV' });
+      console.error('Error importing CSV:', error);
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  const deleteAllIngredients = async () => {
+    if (!confirm('Are you sure you want to delete ALL ingredients? This action cannot be undone.')) return;
+    
+    try {
+      const response = await fetch('/api/ingredients/delete-all', {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('accessToken')}` }
+      });
+      if (response.ok) {
+        await loadIngredients();
+        setError(null);
+      } else {
+        const error = await response.json();
+        setError(error.error || 'Failed to delete all ingredients');
+      }
+    } catch (error) {
+      setError('Failed to delete all ingredients');
+      console.error('Error deleting all ingredients:', error);
+    }
+  };
+
+  // Filter ingredients based on search and filter criteria
+  const getFilteredIngredients = () => {
+    return ingredients.filter(ingredient => {
+      // Text search
+      const searchLower = searchTerm.toLowerCase();
+      const matchesSearch = !searchTerm || 
+        ingredient.name.toLowerCase().includes(searchLower) ||
+        (ingredient.description && ingredient.description.toLowerCase().includes(searchLower)) ||
+        ingredient.category?.toLowerCase().includes(searchLower) ||
+        ingredient.aisle?.toLowerCase().includes(searchLower);
+
+      // Category filter
+      const matchesCategory = !ingredientCategoryFilter || ingredient.category === ingredientCategoryFilter;
+
+      // Aisle filter
+      const matchesAisle = !ingredientAisleFilter || ingredient.aisle === ingredientAisleFilter;
+
+      // Nutritional range filters
+      const matchesCalories = ingredient.calories >= calorieRange[0] && ingredient.calories <= calorieRange[1];
+      const matchesProtein = ingredient.protein >= proteinRange[0] && ingredient.protein <= proteinRange[1];
+      const matchesCarbs = ingredient.carbs >= carbRange[0] && ingredient.carbs <= carbRange[1];
+      const matchesFat = ingredient.fat >= fatRange[0] && ingredient.fat <= fatRange[1];
+      const matchesFiber = !ingredient.fiber || (ingredient.fiber >= fiberRange[0] && ingredient.fiber <= fiberRange[1]);
+      const matchesSodium = !ingredient.sodium || (ingredient.sodium >= sodiumRange[0] && ingredient.sodium <= sodiumRange[1]);
+
+      return matchesSearch && matchesCategory && matchesAisle && 
+             matchesCalories && matchesProtein && matchesCarbs && 
+             matchesFat && matchesFiber && matchesSodium;
+    });
+  };
+
   if (user?.role !== 'ADMIN') {
     return (
       <Container maxWidth="md" sx={{ mt: 4 }}>
@@ -868,6 +1214,7 @@ export default function AdminDashboard() {
             <Tabs value={activeTab} onChange={(_, newValue) => setActiveTab(newValue)}>
               <Tab label="LLM Providers" />
               <Tab label="System Messages" />
+              <Tab label="Ingredients" />
             </Tabs>
           </Box>
 
@@ -901,7 +1248,9 @@ export default function AdminDashboard() {
                                   ...prevProvider,
                                   isAvailable: newProvider.isAvailable,
                                   avgLatencyMs: newProvider.avgLatencyMs,
-                                  model: newProvider.model
+                                  avgTokensPerSecond: newProvider.avgTokensPerSecond,
+                                  model: newProvider.model,
+                                  usage: newProvider.usage // Also update usage statistics
                                 };
                               }
                               return prevProvider;
@@ -1041,6 +1390,19 @@ export default function AdminDashboard() {
                           >
                             Latency: {provider.avgLatencyMs}ms
                           </Typography>
+                          {provider.avgTokensPerSecond && (
+                            <Typography 
+                              variant="body2" 
+                              color="text.secondary" 
+                              gutterBottom
+                              sx={{
+                                color: provider.avgTokensPerSecond > 50 ? 'success.main' : 
+                                       provider.avgTokensPerSecond > 20 ? 'warning.main' : 'error.main'
+                              }}
+                            >
+                              Avg Tokens/Second: {provider.avgTokensPerSecond.toFixed(1)}
+                            </Typography>
+                          )}
                           <Typography variant="body2" color="text.secondary" gutterBottom>
                             Cost: {formatPricing(provider)}
                           </Typography>
@@ -1053,7 +1415,7 @@ export default function AdminDashboard() {
                                 Total Tokens: {provider.usage.totalTokens.toLocaleString()}
                               </Typography>
                               <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.875rem' }}>
-                                Total Cost: ${provider.usage.totalCost.toFixed(4)}
+                                Total Cost: ${provider.usage.totalCost.toFixed(8)}
                               </Typography>
                               <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.875rem' }}>
                                 Requests: {provider.usage.requestCount}
@@ -1069,29 +1431,33 @@ export default function AdminDashboard() {
                             </Box>
                           )}
                           <Box sx={{ display: 'flex', gap: 1, mt: 2 }}>
-                            <Button
-                              size="small"
-                              variant="outlined"
-                              onClick={() => openApiKeyDialog(provider.key)}
-                              disabled={!provider.apiKeyStatus?.hasKey}
-                            >
-                              {provider.apiKeyStatus?.hasKey ? 'Update API Key' : 'Add API Key'}
-                            </Button>
-                            {provider.apiKeyStatus?.hasKey && (
-                              <Button
-                                size="small"
-                                variant="outlined"
-                                color="error"
-                                onClick={() => removeApiKey(provider.key)}
-                              >
-                                Remove Key
-                              </Button>
+                            {provider.key !== 'ollama' && (
+                              <>
+                                <Button
+                                  size="small"
+                                  variant="outlined"
+                                  onClick={() => openApiKeyDialog(provider.key)}
+                                  disabled={false}
+                                >
+                                  {apiKeyStatus[provider.key]?.hasKey ? 'Update API Key' : 'Add API Key'}
+                                </Button>
+                                {apiKeyStatus[provider.key]?.hasKey && (
+                                  <Button
+                                    size="small"
+                                    variant="outlined"
+                                    color="error"
+                                    onClick={() => removeApiKey()}
+                                  >
+                                    Remove Key
+                                  </Button>
+                                )}
+                              </>
                             )}
                             <Button
                               size="small"
                               variant="outlined"
                               onClick={() => openModelDialog(provider.key, provider.model || '')}
-                              disabled={!provider.apiKeyStatus?.hasKey || !provider.isAvailable}
+                              disabled={provider.key !== 'ollama' && (!apiKeyStatus[provider.key]?.hasKey || !provider.isAvailable)}
                             >
                               Change Model
                             </Button>
@@ -1099,21 +1465,27 @@ export default function AdminDashboard() {
                               size="small"
                               variant="outlined"
                               onClick={() => testLLMProvider(provider.key)}
-                              disabled={!provider.apiKeyStatus?.hasKey || !provider.isAvailable}
+                              disabled={provider.key !== 'ollama' && (!apiKeyStatus[provider.key]?.hasKey || !provider.isAvailable)}
                             >
-                              Test
+                              {testing && testingProvider === provider.key ? (
+                                <>
+                                  <CircularProgress size={16} sx={{ mr: 1 }} />
+                                  Testing...
+                                </>
+                              ) : (
+                                'Test'
+                              )}
                             </Button>
+                            {provider.key === 'ollama' && (
+                              <Button
+                                size="small"
+                                variant="outlined"
+                                onClick={() => openOllamaEndpointDialog(provider.endpoint)}
+                              >
+                                Update Endpoint
+                              </Button>
+                            )}
                           </Box>
-                          {provider.key === 'ollama' && (
-                            <Button
-                              size="small"
-                              variant="outlined"
-                              onClick={() => openOllamaEndpointDialog(provider.endpoint)}
-                              sx={{ mt: 1 }}
-                            >
-                              Update Endpoint
-                            </Button>
-                          )}
                         </CardContent>
                       </Card>
                     </Grid>
@@ -1242,6 +1614,469 @@ export default function AdminDashboard() {
                       </ListItem>
                     ))}
                 </List>
+              )}
+            </Box>
+          )}
+
+          {/* Ingredients Tab */}
+          {activeTab === 2 && (
+            <Box sx={{ p: 3 }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                <Typography variant="h6">Ingredients Management</Typography>
+                <Box sx={{ display: 'flex', gap: 1 }}>
+                  <Button
+                    variant="outlined"
+                    onClick={() => setCsvImportDialogOpen(true)}
+                  >
+                    Import CSV
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    onClick={async () => {
+                      try {
+                        const response = await fetch('/api/ingredients/example', {
+                          headers: { 'Authorization': `Bearer ${localStorage.getItem('accessToken')}` }
+                        });
+                        if (response.ok) {
+                          const blob = await response.blob();
+                          const url = window.URL.createObjectURL(blob);
+                          const a = document.createElement('a');
+                          a.href = url;
+                          a.download = 'ingredients_example.csv';
+                          document.body.appendChild(a);
+                          a.click();
+                          window.URL.revokeObjectURL(url);
+                          document.body.removeChild(a);
+                        }
+                      } catch (error) {
+                        console.error('Error downloading example CSV:', error);
+                      }
+                    }}
+                  >
+                    Download Example
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    onClick={async () => {
+                      try {
+                        const response = await fetch('/api/ingredients/export', {
+                          headers: { 'Authorization': `Bearer ${localStorage.getItem('accessToken')}` }
+                        });
+                        if (response.ok) {
+                          const blob = await response.blob();
+                          const url = window.URL.createObjectURL(blob);
+                          const a = document.createElement('a');
+                          a.href = url;
+                          a.download = 'ingredients.csv';
+                          document.body.appendChild(a);
+                          a.click();
+                          window.URL.revokeObjectURL(url);
+                          document.body.removeChild(a);
+                        }
+                      } catch (error) {
+                        console.error('Error exporting ingredients:', error);
+                      }
+                    }}
+                  >
+                    Export All
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    color="error"
+                    onClick={async () => {
+                      if (!confirm('Are you sure you want to delete ALL ingredients? This action cannot be undone.')) return;
+                      
+                      try {
+                        const response = await fetch('/api/ingredients/delete-all', {
+                          method: 'DELETE',
+                          headers: { 'Authorization': `Bearer ${localStorage.getItem('accessToken')}` }
+                        });
+                        if (response.ok) {
+                          await loadIngredients();
+                          setError(null);
+                        } else {
+                          const error = await response.json();
+                          setError(error.error || 'Failed to delete all ingredients');
+                        }
+                      } catch (error) {
+                        setError('Failed to delete all ingredients');
+                        console.error('Error deleting all ingredients:', error);
+                      }
+                    }}
+                  >
+                    Delete All
+                  </Button>
+                  <Button
+                    variant="contained"
+                    onClick={() => openIngredientDialog()}
+                  >
+                    Add Ingredient
+                  </Button>
+                </Box>
+              </Box>
+
+              {/* Search and Filter Section */}
+              <Box sx={{ mb: 3 }}>
+                {/* Search Bar */}
+                <Box sx={{ mb: 2 }}>
+                  <TextField
+                    fullWidth
+                    label="Search ingredients..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    placeholder="Search by name, description, category, or aisle..."
+                    variant="outlined"
+                    size="small"
+                  />
+                </Box>
+
+                {/* Filter Toggle */}
+                <Box sx={{ mb: 2 }}>
+                  <Button
+                    variant="outlined"
+                    onClick={() => setShowFilters(!showFilters)}
+                    size="small"
+                  >
+                    {showFilters ? 'Hide Filters' : 'Show Filters'}
+                  </Button>
+                </Box>
+
+                {/* Filter Panel */}
+                {showFilters && (
+                  <Paper sx={{ p: 2, mb: 2 }}>
+                    <Typography variant="h6" gutterBottom>
+                      Filters
+                    </Typography>
+                    
+                    <Grid container spacing={2}>
+                      {/* Category Filter */}
+                      <Grid item xs={12} md={6}>
+                        <TextField
+                          select
+                          fullWidth
+                          label="Category"
+                          value={ingredientCategoryFilter}
+                          onChange={(e) => setIngredientCategoryFilter(e.target.value)}
+                          size="small"
+                        >
+                          <MenuItem value="">All Categories</MenuItem>
+                          {comprehensiveCategories.map((category) => (
+                            <MenuItem key={category} value={category}>
+                              {category}
+                            </MenuItem>
+                          ))}
+                        </TextField>
+                      </Grid>
+
+                      {/* Aisle Filter */}
+                      <Grid item xs={12} md={6}>
+                        <TextField
+                          select
+                          fullWidth
+                          label="Aisle"
+                          value={ingredientAisleFilter}
+                          onChange={(e) => setIngredientAisleFilter(e.target.value)}
+                          size="small"
+                        >
+                          <MenuItem value="">All Aisles</MenuItem>
+                          {aisles.map((aisle) => (
+                            <MenuItem key={aisle} value={aisle}>
+                              {aisle}
+                            </MenuItem>
+                          ))}
+                        </TextField>
+                      </Grid>
+
+                      {/* Calorie Range */}
+                      <Grid item xs={12} md={6}>
+                        <Typography gutterBottom>
+                          Calories: {calorieRange[0]} - {calorieRange[1]}
+                        </Typography>
+                        <Slider
+                          value={calorieRange}
+                          onChange={(_, newValue) => setCalorieRange(newValue as number[])}
+                          valueLabelDisplay="auto"
+                          min={0}
+                          max={1000}
+                          step={10}
+                        />
+                      </Grid>
+
+                      {/* Protein Range */}
+                      <Grid item xs={12} md={6}>
+                        <Typography gutterBottom>
+                          Protein: {proteinRange[0]} - {proteinRange[1]}g
+                        </Typography>
+                        <Slider
+                          value={proteinRange}
+                          onChange={(_, newValue) => setProteinRange(newValue as number[])}
+                          valueLabelDisplay="auto"
+                          min={0}
+                          max={100}
+                          step={1}
+                        />
+                      </Grid>
+
+                      {/* Carb Range */}
+                      <Grid item xs={12} md={6}>
+                        <Typography gutterBottom>
+                          Carbs: {carbRange[0]} - {carbRange[1]}g
+                        </Typography>
+                        <Slider
+                          value={carbRange}
+                          onChange={(_, newValue) => setCarbRange(newValue as number[])}
+                          valueLabelDisplay="auto"
+                          min={0}
+                          max={100}
+                          step={1}
+                        />
+                      </Grid>
+
+                      {/* Fat Range */}
+                      <Grid item xs={12} md={6}>
+                        <Typography gutterBottom>
+                          Fat: {fatRange[0]} - {fatRange[1]}g
+                        </Typography>
+                        <Slider
+                          value={fatRange}
+                          onChange={(_, newValue) => setFatRange(newValue as number[])}
+                          valueLabelDisplay="auto"
+                          min={0}
+                          max={100}
+                          step={1}
+                        />
+                      </Grid>
+
+                      {/* Fiber Range */}
+                      <Grid item xs={12} md={6}>
+                        <Typography gutterBottom>
+                          Fiber: {fiberRange[0]} - {fiberRange[1]}g
+                        </Typography>
+                        <Slider
+                          value={fiberRange}
+                          onChange={(_, newValue) => setFiberRange(newValue as number[])}
+                          valueLabelDisplay="auto"
+                          min={0}
+                          max={50}
+                          step={0.5}
+                        />
+                      </Grid>
+
+                      {/* Sodium Range */}
+                      <Grid item xs={12} md={6}>
+                        <Typography gutterBottom>
+                          Sodium: {sodiumRange[0]} - {sodiumRange[1]}mg
+                        </Typography>
+                        <Slider
+                          value={sodiumRange}
+                          onChange={(_, newValue) => setSodiumRange(newValue as number[])}
+                          valueLabelDisplay="auto"
+                          min={0}
+                          max={2000}
+                          step={10}
+                        />
+                      </Grid>
+
+                      {/* Clear Filters */}
+                      <Grid item xs={12}>
+                        <Button
+                          variant="outlined"
+                          onClick={() => {
+                            setSearchTerm('');
+                            setIngredientCategoryFilter('');
+                            setIngredientAisleFilter('');
+                            setCalorieRange([0, 1000]);
+                            setProteinRange([0, 100]);
+                            setCarbRange([0, 100]);
+                            setFatRange([0, 100]);
+                            setFiberRange([0, 50]);
+                            setSodiumRange([0, 2000]);
+                          }}
+                          size="small"
+                        >
+                          Clear All Filters
+                        </Button>
+                      </Grid>
+                    </Grid>
+                  </Paper>
+                )}
+
+                {/* Results Count */}
+                <Box sx={{ mb: 2 }}>
+                  <Typography variant="body2" color="text.secondary">
+                    Showing {getFilteredIngredients().length} of {ingredients.length} ingredients
+                  </Typography>
+                </Box>
+              </Box>
+
+              {ingredientsLoading ? (
+                <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
+                  <CircularProgress />
+                </Box>
+              ) : (
+                <Grid container spacing={2}>
+                  {getFilteredIngredients().map((ingredient) => (
+                    <Grid item xs={12} md={6} lg={4} key={ingredient.id}>
+                      <Card>
+                        <CardContent>
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
+                            <Typography variant="h6" component="div">
+                              {ingredient.name}
+                            </Typography>
+                            <Box sx={{ display: 'flex', gap: 0.5 }}>
+                              <IconButton
+                                size="small"
+                                onClick={() => openIngredientDialog(ingredient)}
+                                color="primary"
+                              >
+                                <EditIcon fontSize="small" />
+                              </IconButton>
+                              <IconButton
+                                size="small"
+                                onClick={() => deleteIngredient(ingredient.id)}
+                                color="error"
+                              >
+                                <DeleteIcon fontSize="small" />
+                              </IconButton>
+                            </Box>
+                          </Box>
+                          
+                          {ingredient.description && (
+                            <Typography variant="body2" color="text.secondary" gutterBottom>
+                              {ingredient.description}
+                            </Typography>
+                          )}
+                          
+                          <Typography variant="body2" color="text.secondary" gutterBottom>
+                            <strong>Serving:</strong> {ingredient.servingSize}
+                          </Typography>
+                          
+                          <Box sx={{ display: 'flex', gap: 2, mb: 1 }}>
+                            <Typography variant="body2" color="text.secondary">
+                              <strong>Calories:</strong> {ingredient.calories}
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary">
+                              <strong>Protein:</strong> {ingredient.protein}g
+                            </Typography>
+                          </Box>
+                          
+                          <Box sx={{ display: 'flex', gap: 2, mb: 1 }}>
+                            <Typography variant="body2" color="text.secondary">
+                              <strong>Carbs:</strong> {ingredient.carbs}g
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary">
+                              <strong>Fat:</strong> {ingredient.fat}g
+                            </Typography>
+                          </Box>
+                          
+                          {(ingredient.fiber || ingredient.sugar || ingredient.sodium) && (
+                            <Box sx={{ display: 'flex', gap: 2, mb: 1 }}>
+                              {ingredient.fiber && (
+                                <Typography variant="body2" color="text.secondary">
+                                  <strong>Fiber:</strong> {ingredient.fiber}g
+                                </Typography>
+                              )}
+                              {ingredient.sugar && (
+                                <Typography variant="body2" color="text.secondary">
+                                  <strong>Sugar:</strong> {ingredient.sugar}g
+                                </Typography>
+                              )}
+                              {ingredient.sodium && (
+                                <Typography variant="body2" color="text.secondary">
+                                  <strong>Sodium:</strong> {ingredient.sodium}mg
+                                </Typography>
+                              )}
+                            </Box>
+                          )}
+                          
+                          {(ingredient.cholesterol || ingredient.saturatedFat || ingredient.monounsaturatedFat || ingredient.polyunsaturatedFat) && (
+                            <Box sx={{ display: 'flex', gap: 2, mb: 1 }}>
+                              {ingredient.cholesterol && (
+                                <Typography variant="body2" color="text.secondary">
+                                  <strong>Cholesterol:</strong> {ingredient.cholesterol}mg
+                                </Typography>
+                              )}
+                              {ingredient.saturatedFat && (
+                                <Typography variant="body2" color="text.secondary">
+                                  <strong>Sat Fat:</strong> {ingredient.saturatedFat}g
+                                </Typography>
+                              )}
+                              {ingredient.monounsaturatedFat && (
+                                <Typography variant="body2" color="text.secondary">
+                                  <strong>Mono Fat:</strong> {ingredient.monounsaturatedFat}g
+                                </Typography>
+                              )}
+                              {ingredient.polyunsaturatedFat && (
+                                <Typography variant="body2" color="text.secondary">
+                                  <strong>Poly Fat:</strong> {ingredient.polyunsaturatedFat}g
+                                </Typography>
+                              )}
+                            </Box>
+                          )}
+                          
+                          {(ingredient.netCarbs || ingredient.glycemicIndex || ingredient.glycemicLoad) && (
+                            <Box sx={{ display: 'flex', gap: 2, mb: 1 }}>
+                              {ingredient.netCarbs && (
+                                <Typography variant="body2" color="text.secondary">
+                                  <strong>Net Carbs:</strong> {ingredient.netCarbs}g
+                                </Typography>
+                              )}
+                              {ingredient.glycemicIndex && (
+                                <Typography variant="body2" color="text.secondary">
+                                  <strong>GI:</strong> {ingredient.glycemicIndex}
+                                </Typography>
+                              )}
+                              {ingredient.glycemicLoad && (
+                                <Typography variant="body2" color="text.secondary">
+                                  <strong>GL:</strong> {ingredient.glycemicLoad}
+                                </Typography>
+                              )}
+                            </Box>
+                          )}
+                          
+                          {(ingredient.dietaryFlags || ingredient.allergens) && (
+                            <Box sx={{ mb: 1 }}>
+                              {ingredient.dietaryFlags && (
+                                <Typography variant="body2" color="text.secondary" gutterBottom>
+                                  <strong>Dietary:</strong> {ingredient.dietaryFlags}
+                                </Typography>
+                              )}
+                              {ingredient.allergens && (
+                                <Typography variant="body2" color="text.secondary" gutterBottom>
+                                  <strong>Allergens:</strong> {ingredient.allergens}
+                                </Typography>
+                              )}
+                            </Box>
+                          )}
+                          
+                          <Box sx={{ display: 'flex', gap: 1, mt: 1 }}>
+                            {ingredient.category && (
+                              <Chip 
+                                label={ingredient.category} 
+                                size="small" 
+                                color="primary" 
+                                variant="outlined"
+                              />
+                            )}
+                            {ingredient.aisle && (
+                              <Chip 
+                                label={ingredient.aisle} 
+                                size="small" 
+                                color="secondary" 
+                                variant="outlined"
+                              />
+                            )}
+                            <Chip 
+                              label={ingredient.isActive ? 'Active' : 'Inactive'} 
+                              size="small" 
+                              color={ingredient.isActive ? 'success' : 'default'}
+                            />
+                          </Box>
+                        </CardContent>
+                      </Card>
+                    </Grid>
+                  ))}
+                </Grid>
               )}
             </Box>
           )}
@@ -1428,6 +2263,346 @@ export default function AdminDashboard() {
               disabled={!systemMessageForm.key || !systemMessageForm.title || !systemMessageForm.content || !systemMessageForm.category}
             >
               {editingMessage ? 'Update Message' : 'Add Message'}
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* Test Result Dialog */}
+        <Dialog open={!!testResult} onClose={() => setTestResult(null)} maxWidth="md" fullWidth>
+          <DialogTitle>
+            Test Result - {testResult?.provider || 'Unknown Provider'}
+          </DialogTitle>
+          <DialogContent>
+            {testResult?.success ? (
+              <Box>
+                <Alert severity="success" sx={{ mb: 2 }}>
+                  Test completed successfully!
+                </Alert>
+                <Typography variant="h6" gutterBottom>
+                  Response:
+                </Typography>
+                <Box sx={{ 
+                  p: 2, 
+                  backgroundColor: '#f5f5f5', 
+                  borderRadius: 1, 
+                  border: '1px solid #e0e0e0',
+                  maxHeight: 300,
+                  overflow: 'auto'
+                }}>
+                  <Typography variant="body1" component="pre" sx={{ whiteSpace: 'pre-wrap', fontFamily: 'inherit' }}>
+                    {testResult.content}
+                  </Typography>
+                </Box>
+                {testResult.usage && (
+                  <Box sx={{ mt: 2 }}>
+                    <Typography variant="h6" gutterBottom>
+                      Usage Statistics:
+                    </Typography>
+                    <Typography variant="body2">
+                      Prompt Tokens: {testResult.usage.promptTokens || 0}
+                    </Typography>
+                    <Typography variant="body2">
+                      Completion Tokens: {testResult.usage.completionTokens || 0}
+                    </Typography>
+                    <Typography variant="body2">
+                      Total Tokens: {testResult.usage.totalTokens || 0}
+                    </Typography>
+                    {testResult.cost !== undefined && (
+                      <Typography variant="body2" sx={{ mt: 1, fontWeight: 'bold' }}>
+                        Estimated Cost: ${Number(testResult.cost || 0).toFixed(8)}
+                      </Typography>
+                    )}
+                    {testResult.timing && (
+                      <Box sx={{ mt: 2 }}>
+                        <Typography variant="h6" gutterBottom>
+                          Performance Metrics:
+                        </Typography>
+                        <Typography variant="body2">
+                          Generation Time: {testResult.timing.generationTimeMs}ms
+                        </Typography>
+                        {testResult.timing.tokensPerSecond && (
+                          <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
+                            Tokens/Second: {testResult.timing.tokensPerSecond.toFixed(2)}
+                          </Typography>
+                        )}
+                      </Box>
+                    )}
+                  </Box>
+                )}
+              </Box>
+            ) : (
+              <Alert severity="error">
+                {testResult?.error || 'Test failed with unknown error'}
+              </Alert>
+            )}
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setTestResult(null)}>Close</Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* CSV Import Dialog */}
+        <Dialog open={csvImportDialogOpen} onClose={() => setCsvImportDialogOpen(false)} maxWidth="sm" fullWidth>
+          <DialogTitle>Import Ingredients from CSV</DialogTitle>
+          <DialogContent>
+            <Typography variant="body2" color="text.secondary" gutterBottom>
+              Please select a CSV file containing ingredient data. The file should have columns for 'name', 'description', 'servingSize', 'calories', 'protein', 'carbs', 'fat', 'fiber', 'sugar', 'sodium', 'category', and 'aisle'.
+            </Typography>
+            <input
+              type="file"
+              accept=".csv"
+              onChange={(e) => {
+                if (e.target.files && e.target.files.length > 0) {
+                  setCsvFile(e.target.files[0]);
+                  setCsvData(''); // Clear previous data if a new file is selected
+                }
+              }}
+              style={{ display: 'none' }}
+              id="csv-file-input"
+            />
+            <label htmlFor="csv-file-input">
+              <Button variant="outlined" component="span">
+                Choose CSV File
+              </Button>
+            </label>
+            {csvFile && (
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                Selected File: {csvFile.name}
+              </Typography>
+            )}
+            {csvData && (
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                File Content (for preview):
+                <pre style={{ whiteSpace: 'pre-wrap', fontFamily: 'inherit' }}>{csvData}</pre>
+              </Typography>
+            )}
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setCsvImportDialogOpen(false)}>Cancel</Button>
+            <Button 
+              onClick={importIngredientsFromCSV} 
+              variant="contained"
+              disabled={!csvFile || importing}
+            >
+              {importing ? <CircularProgress size={20} /> : 'Import CSV'}
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* Ingredient Dialog */}
+        <Dialog open={ingredientDialogOpen} onClose={() => setIngredientDialogOpen(false)} maxWidth="sm" fullWidth>
+          <DialogTitle>
+            {editingIngredient ? 'Edit Ingredient' : 'Add New Ingredient'}
+          </DialogTitle>
+          <DialogContent>
+            <TextField
+              fullWidth
+              label="Name"
+              value={ingredientForm.name}
+              onChange={(e) => setIngredientForm(prev => ({ ...prev, name: e.target.value }))}
+              margin="normal"
+              autoFocus={!editingIngredient}
+              helperText="Required. Name of the ingredient."
+            />
+            <TextField
+              fullWidth
+              label="Description"
+              value={ingredientForm.description}
+              onChange={(e) => setIngredientForm(prev => ({ ...prev, description: e.target.value }))}
+              margin="normal"
+              helperText="Optional. More details about the ingredient."
+            />
+            <TextField
+              fullWidth
+              label="Serving Size"
+              value={ingredientForm.servingSize}
+              onChange={(e) => setIngredientForm(prev => ({ ...prev, servingSize: e.target.value }))}
+              margin="normal"
+              helperText="Required. Example: 1 cup, 100g, 1 piece."
+            />
+            <TextField
+              fullWidth
+              label="Calories"
+              value={ingredientForm.calories}
+              onChange={(e) => setIngredientForm(prev => ({ ...prev, calories: e.target.value }))}
+              margin="normal"
+              type="number"
+              helperText="Required. Number of calories per serving."
+            />
+            <TextField
+              fullWidth
+              label="Protein"
+              value={ingredientForm.protein}
+              onChange={(e) => setIngredientForm(prev => ({ ...prev, protein: e.target.value }))}
+              margin="normal"
+              type="number"
+              helperText="Optional. Grams of protein per serving."
+            />
+            <TextField
+              fullWidth
+              label="Carbs"
+              value={ingredientForm.carbs}
+              onChange={(e) => setIngredientForm(prev => ({ ...prev, carbs: e.target.value }))}
+              margin="normal"
+              type="number"
+              helperText="Optional. Grams of carbs per serving."
+            />
+            <TextField
+              fullWidth
+              label="Fat"
+              value={ingredientForm.fat}
+              onChange={(e) => setIngredientForm(prev => ({ ...prev, fat: e.target.value }))}
+              margin="normal"
+              type="number"
+              helperText="Optional. Grams of fat per serving."
+            />
+            <TextField
+              fullWidth
+              label="Fiber"
+              value={ingredientForm.fiber}
+              onChange={(e) => setIngredientForm(prev => ({ ...prev, fiber: e.target.value }))}
+              margin="normal"
+              type="number"
+              helperText="Optional. Grams of fiber per serving."
+            />
+            <TextField
+              fullWidth
+              label="Sugar"
+              value={ingredientForm.sugar}
+              onChange={(e) => setIngredientForm(prev => ({ ...prev, sugar: e.target.value }))}
+              margin="normal"
+              type="number"
+              helperText="Optional. Grams of sugar per serving."
+            />
+            <TextField
+              fullWidth
+              label="Sodium"
+              value={ingredientForm.sodium}
+              onChange={(e) => setIngredientForm(prev => ({ ...prev, sodium: e.target.value }))}
+              margin="normal"
+              type="number"
+              helperText="Optional. Milligrams of sodium per serving."
+            />
+            <TextField
+              fullWidth
+              label="Cholesterol"
+              value={ingredientForm.cholesterol}
+              onChange={(e) => setIngredientForm(prev => ({ ...prev, cholesterol: e.target.value }))}
+              margin="normal"
+              type="number"
+              helperText="Optional. Milligrams of cholesterol per serving."
+            />
+            <TextField
+              fullWidth
+              label="Saturated Fat"
+              value={ingredientForm.saturatedFat}
+              onChange={(e) => setIngredientForm(prev => ({ ...prev, saturatedFat: e.target.value }))}
+              margin="normal"
+              type="number"
+              helperText="Optional. Grams of saturated fat per serving."
+            />
+            <TextField
+              fullWidth
+              label="Monounsaturated Fat"
+              value={ingredientForm.monounsaturatedFat}
+              onChange={(e) => setIngredientForm(prev => ({ ...prev, monounsaturatedFat: e.target.value }))}
+              margin="normal"
+              type="number"
+              helperText="Optional. Grams of monounsaturated fat per serving."
+            />
+            <TextField
+              fullWidth
+              label="Polyunsaturated Fat"
+              value={ingredientForm.polyunsaturatedFat}
+              onChange={(e) => setIngredientForm(prev => ({ ...prev, polyunsaturatedFat: e.target.value }))}
+              margin="normal"
+              type="number"
+              helperText="Optional. Grams of polyunsaturated fat per serving."
+            />
+            <TextField
+              fullWidth
+              label="Trans Fat"
+              value={ingredientForm.transFat}
+              onChange={(e) => setIngredientForm(prev => ({ ...prev, transFat: e.target.value }))}
+              margin="normal"
+              type="number"
+              helperText="Optional. Grams of trans fat per serving."
+            />
+            <TextField
+              fullWidth
+              label="Net Carbs"
+              value={ingredientForm.netCarbs}
+              onChange={(e) => setIngredientForm(prev => ({ ...prev, netCarbs: e.target.value }))}
+              margin="normal"
+              type="number"
+              helperText="Optional. Grams of net carbs per serving."
+            />
+            <TextField
+              fullWidth
+              label="Glycemic Index"
+              value={ingredientForm.glycemicIndex}
+              onChange={(e) => setIngredientForm(prev => ({ ...prev, glycemicIndex: e.target.value }))}
+              margin="normal"
+              type="number"
+              helperText="Optional. Glycemic index of the ingredient."
+            />
+            <TextField
+              fullWidth
+              label="Glycemic Load"
+              value={ingredientForm.glycemicLoad}
+              onChange={(e) => setIngredientForm(prev => ({ ...prev, glycemicLoad: e.target.value }))}
+              margin="normal"
+              type="number"
+              helperText="Optional. Glycemic load of the ingredient."
+            />
+            <TextField
+              fullWidth
+              label="Dietary Flags"
+              value={ingredientForm.dietaryFlags}
+              onChange={(e) => setIngredientForm(prev => ({ ...prev, dietaryFlags: e.target.value }))}
+              margin="normal"
+              helperText="Optional. Dietary flags (e.g., 'Vegan', 'Gluten-Free')."
+            />
+            <TextField
+              fullWidth
+              label="Allergens"
+              value={ingredientForm.allergens}
+              onChange={(e) => setIngredientForm(prev => ({ ...prev, allergens: e.target.value }))}
+              margin="normal"
+              helperText="Optional. Allergens (e.g., 'Peanuts', 'Dairy')."
+            />
+            <TextField
+              select
+              fullWidth
+              label="Category"
+              value={ingredientForm.category}
+              onChange={(e) => setIngredientForm(prev => ({ ...prev, category: e.target.value }))}
+              margin="normal"
+              helperText="Select a category for the ingredient."
+            >
+              {comprehensiveCategories.map((category) => (
+                <MenuItem key={category} value={category}>
+                  {category}
+                </MenuItem>
+              ))}
+            </TextField>
+            <TextField
+              fullWidth
+              label="Aisle"
+              value={ingredientForm.aisle}
+              onChange={(e) => setIngredientForm(prev => ({ ...prev, aisle: e.target.value }))}
+              margin="normal"
+              helperText="Optional. Aisle in the store (e.g., 'Dairy', 'Produce', 'Meat')."
+            />
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setIngredientDialogOpen(false)}>Cancel</Button>
+            <Button 
+              onClick={saveIngredient} 
+              variant="contained"
+              disabled={!ingredientForm.name || !ingredientForm.servingSize || !ingredientForm.calories}
+            >
+              {editingIngredient ? 'Update Ingredient' : 'Add Ingredient'}
             </Button>
           </DialogActions>
         </Dialog>

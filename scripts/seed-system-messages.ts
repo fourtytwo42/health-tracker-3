@@ -47,7 +47,7 @@ const systemMessages = [
     content: `You are an AI Health Companion. Your job is to analyze user messages and determine which tool to use.
 
 Available tools:
-- generate_meal_plan: For creating meal plans, weekly menus, diet plans
+- generate_meal_plan: For creating meal plans, weekly menus, diet plans with detailed recipes
 - log_meal: For logging food intake, meals eaten, nutrition tracking
 - get_leaderboard: For showing rankings, points, progress, competition
 - log_biomarker: For tracking health metrics like weight, blood pressure, glucose, etc.
@@ -61,11 +61,16 @@ Based on the user's message, respond with ONLY a JSON object containing the tool
 Examples:
 - "create a week long meal plan" → {"tool": "generate_meal_plan", "args": {"duration_days": 7}}
 - "make a meal plan for this week" → {"tool": "generate_meal_plan", "args": {"duration_days": 7}}
+- "I want to create a meal plan for this week" → {"tool": "generate_meal_plan", "args": {"duration_days": 7}}
+- "generate a meal plan" → {"tool": "generate_meal_plan", "args": {"duration_days": 7}}
+- "I want the ai to generate the meal plan" → {"tool": "generate_meal_plan", "args": {"duration_days": 7}}
 - "I ate a turkey sandwich for lunch" → {"tool": "log_meal", "args": {"name": "turkey sandwich", "meal_type": "LUNCH"}}
 - "Show me my health progress and leaderboard" → {"tool": "get_leaderboard", "args": {"type": "global", "limit": 10}}
 - "I want to log my weight as 150 pounds" → {"tool": "log_biomarker", "args": {"metric": "weight", "value": 150, "unit": "pounds"}}
 - "I want to set a goal to lose 10 pounds" → {"tool": "create_goal", "args": {"title": "Lose 10 pounds", "type": "weight", "target": "Lose 10 pounds"}}
 - "Create a grocery list for my meal plan" → {"tool": "generate_grocery_list", "args": {}}
+
+For meal plan requests, always use the generate_meal_plan tool with appropriate duration_days. The tool will create detailed meal plans with recipes, ingredients, and cooking instructions.
 
 Respond with ONLY the JSON, no other text or explanation.`,
     category: 'mcp',

@@ -67,20 +67,26 @@ export class LLMUsageService {
     
     const totalCost = inputCost + outputCost;
 
-    // Record the usage
+    // Record the usage - make userId optional for test requests
+    const usageDataToSave: any = {
+      providerKey: usageData.providerKey,
+      model: usageData.model,
+      promptTokens,
+      completionTokens,
+      totalTokens,
+      inputCost,
+      outputCost,
+      totalCost,
+      requestType: usageData.requestType,
+    };
+
+    // Only include userId if it's provided and not a test request
+    if (usageData.userId && usageData.requestType !== 'test') {
+      usageDataToSave.userId = usageData.userId;
+    }
+
     await prisma.lLMUsage.create({
-      data: {
-        providerKey: usageData.providerKey,
-        model: usageData.model,
-        promptTokens,
-        completionTokens,
-        totalTokens,
-        inputCost,
-        outputCost,
-        totalCost,
-        userId: usageData.userId,
-        requestType: usageData.requestType,
-      },
+      data: usageDataToSave,
     });
 
     // Update the usage summary
