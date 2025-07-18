@@ -75,12 +75,7 @@ export class MCPHandler {
 
       days.push({
         day: i + 1,
-        meals: {
-          breakfast,
-          lunch,
-          dinner,
-          snack,
-        },
+        meals: [breakfast, lunch, dinner, snack],
         totalCalories: breakfast.calories + lunch.calories + dinner.calories + snack.calories,
       });
     }
@@ -146,7 +141,7 @@ export class MCPHandler {
         const mealPlan = this.generateRealisticMealPlan(args);
         
         const response = await this.llmRouter.generateResponse({
-          prompt: `I've created a ${args.duration_days}-day meal plan${args.calorie_target ? ` with ${args.calorie_target} calories per day` : ''}${args.dietary_preferences ? ` considering: ${args.dietary_preferences.join(', ')}` : ''}${args.goal ? ` for ${args.goal}` : ''}. The plan includes ${mealPlan.days.length} days with balanced meals. Provide a brief summary and tips for following this plan.`,
+          prompt: `I've created a ${args.duration_days}-day meal plan${args.calorie_target ? ` with ${args.calorie_target} calories per day` : ''}${args.dietary_preferences ? ` considering: ${args.dietary_preferences.join(', ')}` : ''}${args.goal ? ` for ${args.goal}` : ''}. The plan includes ${mealPlan.days.length} days with balanced meals. Provide a brief summary of what this meal plan includes and tips for following it. Do not ask the user to share a meal plan - you are providing the meal plan.`,
           userId: authInfo.userId,
           tool: 'generate_meal_plan',
         });
@@ -416,45 +411,39 @@ export class MCPHandler {
       await this.ensureLLMInitialized();
 
       // Create a prompt that helps the AI understand what tools are available and extract proper arguments
-      const systemPrompt = `You are an AI Health Companion. Based on the user's message, determine which tool to use and extract the proper arguments.
+      const systemPrompt = `You are an AI Health Companion. Your job is to analyze user messages and determine which tool to use.
 
-Available tools and their required arguments:
-- generate_meal_plan: duration_days (number), calorie_target (optional number), dietary_preferences (optional array), goal (optional: "weight_loss", "muscle_gain", "maintenance")
-- log_meal: name (string), meal_type ("BREAKFAST", "LUNCH", "DINNER", "SNACK"), calories (optional number), protein (optional number), carbs (optional number), fat (optional number), ingredients (optional array), notes (optional string)
-- get_leaderboard: type (optional: "global", "around_me"), limit (optional number)
-- log_biomarker: metric ("weight", "blood_pressure", "glucose", "heart_rate", "body_fat", "muscle_mass"), value (number), unit (string), notes (optional string)
-- create_goal: title (string), type ("weight", "fitness", "nutrition", "general"), target (string), deadline (optional string), description (optional string)
-- generate_grocery_list: meal_plan_days (optional number), dietary_preferences (optional array), budget (optional number)
+Available tools:
+- generate_meal_plan: For creating meal plans, weekly menus, diet plans
+- log_meal: For logging food intake, meals eaten, nutrition tracking
+- get_leaderboard: For showing rankings, points, progress, competition
+- log_biomarker: For tracking health metrics like weight, blood pressure, glucose, etc.
+- create_goal: For setting fitness goals, health objectives, targets
+- generate_grocery_list: For creating shopping lists, grocery planning
 
 User message: "${message}"
 
-Extract the tool and arguments from the user's message. For example:
-- "I want to create a meal plan for this week" → {"tool": "generate_meal_plan", "args": {"duration_days": 7}}
+Based on the user's message, respond with ONLY a JSON object containing the tool name and arguments:
+
+Examples:
+- "create a week long meal plan" → {"tool": "generate_meal_plan", "args": {"duration_days": 7}}
+- "make a meal plan for this week" → {"tool": "generate_meal_plan", "args": {"duration_days": 7}}
 - "I ate a turkey sandwich for lunch" → {"tool": "log_meal", "args": {"name": "turkey sandwich", "meal_type": "LUNCH"}}
 - "Show me my health progress and leaderboard" → {"tool": "get_leaderboard", "args": {"type": "global", "limit": 10}}
 - "I want to log my weight as 150 pounds" → {"tool": "log_biomarker", "args": {"metric": "weight", "value": 150, "unit": "pounds"}}
 - "I want to set a goal to lose 10 pounds" → {"tool": "create_goal", "args": {"title": "Lose 10 pounds", "type": "weight", "target": "Lose 10 pounds"}}
 - "Create a grocery list for my meal plan" → {"tool": "generate_grocery_list", "args": {}}
 
-IMPORTANT: Only include arguments that are explicitly mentioned or can be reasonably inferred. For optional arguments that are not mentioned, omit them entirely from the args object.
+Respond with ONLY the JSON, no other text or explanation.`;
 
-Respond with ONLY the JSON, no other text:
-{
-  "tool": "tool_name",
-  "args": { "param1": "value1", "param2": "value2" }
-}
-
-If no specific tool is needed, respond with:
-{
-  "tool": "chat",
-  "args": { "message": "your response" }
-}`;
-
-      const response = await this.llmRouter.generateResponse({
-        prompt: systemPrompt,
-        userId: authInfo.userId,
-        tool: 'natural_language_router',
-      });
+              // Clear cache for natural language requests to prevent stale responses
+        this.llmRouter.clearCache();
+        
+        const response = await this.llmRouter.generateResponse({
+          prompt: systemPrompt,
+          userId: authInfo.userId,
+          tool: 'natural_language_router',
+        });
 
       // Try to parse the response as JSON to extract tool call
       try {

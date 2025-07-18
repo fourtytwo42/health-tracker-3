@@ -363,6 +363,14 @@ export default function ChatPage() {
                   fullWidth
                   value={inputValue}
                   onChange={(e) => setInputValue(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      if (!isLoading && inputValue.trim()) {
+                        handleSubmit(e as any);
+                      }
+                    }
+                  }}
                   placeholder="Ask me about your health..."
                   disabled={isLoading}
                   multiline
