@@ -30,6 +30,9 @@ export async function POST(request: NextRequest) {
     const authInfo = AuthService.verifyAccessToken(token);
     const body = await request.json();
     
+    // Ensure LLM providers are initialized before processing requests
+    await mcpHandler.ensureLLMInitialized();
+    
     let response;
     if (body.tool === 'chat') {
       // Use natural language handler for chat messages

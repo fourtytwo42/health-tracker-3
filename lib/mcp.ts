@@ -88,8 +88,8 @@ export class MCPHandler {
 
   // Add method to ensure LLM Router is initialized
   async ensureLLMInitialized(): Promise<void> {
-    // Force refresh providers to ensure they're loaded
-    await this.llmRouter.refreshProviders();
+    // Wait for providers to be initialized and probed
+    await this.llmRouter.waitForInitialization();
   }
 
   static getInstance(): MCPHandler {

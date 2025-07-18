@@ -9,6 +9,10 @@ export const GET = requireRole('ADMIN')(async (req) => {
     const llmRouter = LLMRouter.getInstance();
     console.log('LLMRouter instance obtained');
     
+    // Wait for providers to be initialized and probed
+    await llmRouter.waitForInitialization();
+    console.log('LLM providers initialized and probed');
+    
     const providerStats = llmRouter.getProviderStats();
     console.log('Provider stats obtained:', providerStats);
     

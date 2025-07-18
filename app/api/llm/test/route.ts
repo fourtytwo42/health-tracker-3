@@ -19,6 +19,9 @@ export const POST = requireRole('ADMIN')(async (req) => {
 
     const llmRouter = LLMRouter.getInstance();
     
+    // Wait for providers to be initialized and probed
+    await llmRouter.waitForInitialization();
+    
     // Clear cache for test requests to ensure fresh responses
     llmRouter.clearCache();
     

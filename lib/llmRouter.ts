@@ -66,6 +66,27 @@ export class LLMRouter {
     });
   }
 
+  // Add method to check if providers are initialized
+  async waitForInitialization(): Promise<void> {
+    // If providers are already initialized, return immediately
+    if (this.providers.size > 0) {
+      return;
+    }
+    
+    // Wait for initialization to complete
+    let attempts = 0;
+    const maxAttempts = 30; // Wait up to 30 seconds
+    
+    while (this.providers.size === 0 && attempts < maxAttempts) {
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      attempts++;
+    }
+    
+    if (this.providers.size === 0) {
+      throw new Error('LLM providers failed to initialize within timeout');
+    }
+  }
+
   static getInstance(): LLMRouter {
     if (!LLMRouter.instance) {
       LLMRouter.instance = new LLMRouter();

@@ -760,7 +760,7 @@ export default function AdminDashboard() {
               {providerOrder.length === 0 && llmProviders.length === 0 && (
                 <Grid item xs={12}>
                   <Alert severity="info">
-                    No providers loaded. Please check the console for debugging information.
+                    {llmLoading ? 'Initializing LLM providers... This may take a few seconds.' : 'No providers loaded. Please check the console for debugging information.'}
                   </Alert>
                 </Grid>
               )}
