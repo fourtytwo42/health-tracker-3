@@ -6,14 +6,15 @@ const registerSchema = z.object({
   username: z.string().min(3).max(30),
   email: z.string().email(),
   password: z.string().min(8).max(100),
+  avatarUrl: z.string().optional(),
 });
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { username, email, password } = registerSchema.parse(body);
+    const { username, email, password, avatarUrl } = registerSchema.parse(body);
 
-    const user = await AuthService.registerUser(username, email, password);
+    const user = await AuthService.registerUser(username, email, password, avatarUrl);
 
     const accessToken = AuthService.generateAccessToken({
       userId: user.id,

@@ -28,8 +28,8 @@ async function main() {
           carbTarget: 200,
           fatTarget: 65,
           fiberTarget: 25,
-          dietaryPreferences: ['none'],
-          privacySettings: { leaderboardVisible: true }
+          dietaryPreferences: JSON.stringify(['none']),
+          privacySettings: JSON.stringify({ leaderboardVisible: true })
         }
       },
       leaderboard: {
@@ -64,8 +64,8 @@ async function main() {
           carbTarget: 180,
           fatTarget: 60,
           fiberTarget: 25,
-          dietaryPreferences: ['vegetarian'],
-          privacySettings: { leaderboardVisible: true }
+          dietaryPreferences: JSON.stringify(['vegetarian']),
+          privacySettings: JSON.stringify({ leaderboardVisible: true })
         }
       },
       leaderboard: {
@@ -166,37 +166,37 @@ async function main() {
     {
       name: 'Grilled Chicken Salad',
       mealType: 'LUNCH',
-      ingredients: [
+      ingredients: JSON.stringify([
         { name: 'Chicken Breast', quantity: 150, unit: 'g' },
         { name: 'Spinach', quantity: 2, unit: 'cups' },
         { name: 'Tomato', quantity: 1, unit: 'medium' },
         { name: 'Avocado', quantity: 0.5, unit: 'medium' },
         { name: 'Olive Oil', quantity: 1, unit: 'tbsp' }
-      ],
-      nutritionInfo: {
+      ]),
+      nutritionInfo: JSON.stringify({
         calories: 350,
         protein: 35,
         carbs: 15,
         fat: 20,
         fiber: 8
-      }
+      })
     },
     {
       name: 'Oatmeal with Berries',
       mealType: 'BREAKFAST',
-      ingredients: [
+      ingredients: JSON.stringify([
         { name: 'Oats', quantity: 0.5, unit: 'cup' },
         { name: 'Milk', quantity: 1, unit: 'cup' },
         { name: 'Frozen Berries', quantity: 0.5, unit: 'cup' },
         { name: 'Almonds', quantity: 2, unit: 'tbsp' }
-      ],
-      nutritionInfo: {
+      ]),
+      nutritionInfo: JSON.stringify({
         calories: 280,
         protein: 12,
         carbs: 45,
         fat: 8,
         fiber: 6
-      }
+      })
     }
   ];
 
@@ -313,72 +313,33 @@ async function main() {
     });
   }
 
-  // Create feature flags
-  const featureFlags = [
-    {
-      key: 'leaderboard',
-      name: 'Leaderboard',
-      description: 'Enable gamification leaderboard',
-      enabled: true,
-      rolloutPercentage: 100
+
+
+  // Create default LLM settings
+  const defaultLLMSettings = {
+    selectedModel: 'llama3.2:3b',
+    selectedProvider: 'ollama',
+    latencyWeight: 0.7,
+    costWeight: 0.3,
+    providers: {
+      ollama: { enabled: true, priority: 1 },
+      groq: { enabled: true, priority: 2 },
+      openai: { enabled: true, priority: 3 },
+      anthropic: { enabled: true, priority: 4 },
+      aws: { enabled: false, priority: 5 },
+      azure: { enabled: false, priority: 6 },
     },
-    {
-      key: 'grocery_list',
-      name: 'Grocery List',
-      description: 'Enable AI-generated grocery lists',
-      enabled: true,
-      rolloutPercentage: 100
-    },
-    {
-      key: 'biomarker_logging',
-      name: 'Biomarker Logging',
-      description: 'Enable biomarker tracking with photos',
-      enabled: true,
-      rolloutPercentage: 100
-    },
-    {
-      key: 'goal_certificates',
-      name: 'Goal Certificates',
-      description: 'Enable PDF certificates for completed goals',
-      enabled: true,
-      rolloutPercentage: 100
+  };
+
+  await prisma.setting.upsert({
+    where: { key: 'llm_settings' },
+    update: {},
+    create: {
+      key: 'llm_settings',
+      value: JSON.stringify(defaultLLMSettings),
+      description: 'Default LLM Router Configuration'
     }
-  ];
-
-  for (const flag of featureFlags) {
-    await prisma.featureFlag.upsert({
-      where: { key: flag.key },
-      update: {},
-      create: flag
-    });
-  }
-
-  // Create default settings
-  const settings = [
-    {
-      key: 'llm_provider',
-      value: 'ollama',
-      description: 'Default LLM provider'
-    },
-    {
-      key: 'max_retries',
-      value: '3',
-      description: 'Maximum retry attempts for failed operations'
-    },
-    {
-      key: 'cache_ttl_hours',
-      value: '6',
-      description: 'Cache TTL in hours'
-    }
-  ];
-
-  for (const setting of settings) {
-    await prisma.setting.upsert({
-      where: { key: setting.key },
-      update: {},
-      create: setting
-    });
-  }
+  });
 
   console.log('✅ Database seeded successfully!');
   console.log('👤 Demo accounts created:');
@@ -387,7 +348,7 @@ async function main() {
   console.log('🏪 Ingredient taxonomy created with 50+ items');
   console.log('🍽 Sample meals, activities, and biomarkers added');
   console.log('🎯 Sample goals created');
-  console.log('🚩 Feature flags configured');
+  console.log('🤖 LLM settings configured');
 }
 
 main()

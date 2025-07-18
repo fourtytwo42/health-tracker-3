@@ -6,7 +6,17 @@ export interface LLMProvider {
   name: string;
   endpoint: string;
   apiKey: string;
-  costPer1k: number;
+  pricing: {
+    type: 'free' | 'flat' | 'input_output';
+    costPer1k?: number;
+    inputCostPer1k?: number;
+    outputCostPer1k?: number;
+    modelPricing?: Record<string, {
+      inputCostPer1k?: number;
+      outputCostPer1k?: number;
+      costPer1k?: number;
+    }>;
+  };
   avgLatencyMs: number;
   isAvailable: boolean;
   model?: string;
@@ -56,6 +66,10 @@ export class LLMRouter {
   static getInstance(): LLMRouter {
     if (!LLMRouter.instance) {
       LLMRouter.instance = new LLMRouter();
+      // Initialize providers immediately when instance is created
+      LLMRouter.instance.initializeProviders().catch(error => {
+        console.error('Failed to initialize providers on instance creation:', error);
+      });
     }
     return LLMRouter.instance;
   }
@@ -66,21 +80,41 @@ export class LLMRouter {
     try {
       this.settings = await this.settingService.getLLMSettings();
       
-      // Update provider models based on settings
-      const ollamaProvider = this.providers.get('ollama');
-      if (ollamaProvider && this.settings?.selectedProvider === 'ollama') {
-        ollamaProvider.model = this.settings.selectedModel;
+      // Reload API keys for all providers
+      const configs = await this.settingService.getLLMProviderConfigs();
+      
+      for (const config of configs) {
+        const provider = this.providers.get(config.key);
+        if (provider) {
+          // Reload API key from database
+          let apiKey = await this.settingService.getLLMProviderAPIKey(config.key);
+          
+          // Fallback to environment variables for backward compatibility
+          if (!apiKey && config.apiKeyRequired) {
+            const envKey = `${config.key.toUpperCase()}_API_KEY`;
+            apiKey = process.env[envKey] || '';
+          }
+          provider.apiKey = apiKey || '';
+          // Reload provider-specific model
+          const providerModel = await this.settingService.getLLMProviderModel(config.key);
+          if (providerModel) {
+            provider.model = providerModel;
+          }
+          // For Ollama, update endpoint
+          if (config.key === 'ollama') {
+            provider.endpoint = await this.settingService.getOllamaEndpoint();
+          }
+        }
       }
     } catch (error) {
       console.error('Failed to refresh LLM settings:', error);
     }
-    
     await this.probeProviders();
   }
 
   // Add method to update model for a specific provider
-  async updateProviderModel(providerName: string, model: string): Promise<boolean> {
-    const provider = Array.from(this.providers.values()).find(p => p.name === providerName);
+  async updateProviderModel(providerKey: string, model: string): Promise<boolean> {
+    const provider = this.providers.get(providerKey);
     
     if (!provider) {
       return false;
@@ -89,11 +123,12 @@ export class LLMRouter {
     // Check if model is actually changing
     const modelChanged = provider.model !== model;
     
-    // Update the model
+    // Update the model in the provider and store it in settings
     provider.model = model;
+    await this.settingService.setLLMProviderModel(providerKey, model);
     
     // For Ollama, verify the model exists
-    if (providerName === 'Ollama') {
+    if (provider.name === 'Ollama') {
       try {
         const response = await fetch(`${provider.endpoint}/api/tags`);
         if (response.ok) {
@@ -113,10 +148,10 @@ export class LLMRouter {
     // Clear cache if model changed to prevent stale responses
     if (modelChanged) {
       this.clearCache();
-      console.log(`Cleared cache due to model change: ${providerName} -> ${model}`);
+      console.log(`Cleared cache due to model change: ${provider.name} -> ${model}`);
     }
     
-    console.log(`Updated ${providerName} model to: ${model}`);
+    console.log(`Updated ${provider.name} model to: ${model}`);
     return true;
   }
 
@@ -157,65 +192,76 @@ export class LLMRouter {
   }
 
   private async initializeProviders(): Promise<void> {
+    console.log('Initializing LLM providers...');
+    
     // Load settings from database
     try {
       this.settings = await this.settingService.getLLMSettings();
+      console.log('Loaded LLM settings:', this.settings);
     } catch (error) {
       console.error('Failed to load LLM settings:', error);
       this.settings = null;
     }
 
-    // Ollama (Local)
-    if (process.env.OLLAMA_BASE_URL) {
-      this.providers.set('ollama', {
-        name: 'Ollama',
-        endpoint: process.env.OLLAMA_BASE_URL,
-        apiKey: '',
-        costPer1k: 0, // Free local model
+    // Get provider configurations
+    const configs = await this.settingService.getLLMProviderConfigs();
+    console.log('Provider configs:', configs);
+
+    for (const config of configs) {
+      console.log(`Processing provider config: ${config.key} (${config.name})`);
+      
+      // Check if provider is enabled in settings
+      const isEnabled = this.settings?.providers[config.key]?.enabled ?? true;
+      console.log(`Provider ${config.key} enabled:`, isEnabled);
+      
+      if (!isEnabled) {
+        console.log(`Skipping disabled provider: ${config.key}`);
+        continue;
+      }
+
+      // Get API key from database (or environment for backward compatibility)
+      let apiKey = await this.settingService.getLLMProviderAPIKey(config.key);
+      
+      // Fallback to environment variables for backward compatibility
+      if (!apiKey && config.apiKeyRequired) {
+        const envKey = `${config.key.toUpperCase()}_API_KEY`;
+        apiKey = process.env[envKey] || '';
+      }
+
+      // Get provider-specific model or fall back to default
+      let providerModel = await this.settingService.getLLMProviderModel(config.key);
+      if (!providerModel) {
+        providerModel = config.defaultModel;
+      }
+
+      // For Ollama, use dynamic endpoint
+      let endpoint = config.endpoint;
+      if (config.key === 'ollama') {
+        endpoint = await this.settingService.getOllamaEndpoint();
+      }
+
+      console.log(`Adding provider ${config.key}:`, {
+        name: config.name,
+        endpoint,
+        hasApiKey: !!apiKey,
+        model: providerModel,
+        pricing: config.pricing
+      });
+
+      // Add all enabled providers to the map, even if they don't have API keys
+      // This allows them to show up in the admin interface
+      this.providers.set(config.key, {
+        name: config.name,
+        endpoint,
+        apiKey: apiKey || '',
+        pricing: config.pricing,
         avgLatencyMs: 0,
-        isAvailable: false,
-        model: this.settings?.selectedModel || 'llama3.2:3b',
+        isAvailable: false, // Will be set to true during probing if API key is available
+        model: providerModel,
       });
     }
 
-    // OpenAI
-    if (process.env.OPENAI_API_KEY) {
-      this.providers.set('openai', {
-        name: 'OpenAI',
-        endpoint: 'https://api.openai.com/v1/chat/completions',
-        apiKey: process.env.OPENAI_API_KEY,
-        costPer1k: 0.002, // GPT-3.5-turbo pricing
-        avgLatencyMs: 0,
-        isAvailable: false,
-        model: 'gpt-3.5-turbo',
-      });
-    }
-
-    // Groq
-    if (process.env.GROQ_API_KEY) {
-      this.providers.set('groq', {
-        name: 'Groq',
-        endpoint: 'https://api.groq.com/openai/v1/chat/completions',
-        apiKey: process.env.GROQ_API_KEY,
-        costPer1k: 0.0001, // Very low cost
-        avgLatencyMs: 0,
-        isAvailable: false,
-        model: 'mixtral-8x7b-32768',
-      });
-    }
-
-    // Anthropic
-    if (process.env.ANTHROPIC_API_KEY) {
-      this.providers.set('anthropic', {
-        name: 'Anthropic',
-        endpoint: 'https://api.anthropic.com/v1/messages',
-        apiKey: process.env.ANTHROPIC_API_KEY,
-        costPer1k: 0.008, // Claude pricing
-        avgLatencyMs: 0,
-        isAvailable: false,
-        model: 'claude-3-sonnet-20240229',
-      });
-    }
+    console.log(`Initialized ${this.providers.size} providers:`, Array.from(this.providers.keys()));
 
     // Initialize providers asynchronously
     this.probeProviders().catch(error => {
@@ -228,6 +274,18 @@ export class LLMRouter {
     
     for (const [key, provider] of Array.from(this.providers.entries())) {
       try {
+        // Check if provider has API key if required
+        const configs = await this.settingService.getLLMProviderConfigs();
+        const config = configs.find(c => c.key === key);
+        const hasApiKey = config?.apiKeyRequired ? !!provider.apiKey : true;
+        
+        if (!hasApiKey) {
+          provider.isAvailable = false;
+          provider.avgLatencyMs = 0;
+          console.log(`Provider ${provider.name}: Unavailable (no API key)`);
+          continue;
+        }
+        
         const startTime = Date.now();
         const isAvailable = await this.healthCheck(provider);
         const latency = Date.now() - startTime;
@@ -235,23 +293,22 @@ export class LLMRouter {
         provider.isAvailable = isAvailable;
         provider.avgLatencyMs = latency;
         
-        // For Ollama, verify the selected model exists, otherwise use first available
+        // For Ollama, verify the provider's model exists, otherwise use first available
         if (provider.name === 'Ollama' && isAvailable) {
           try {
             const response = await fetch(`${provider.endpoint}/api/tags`);
             if (response.ok) {
               const data = await response.json();
               if (data.models && data.models.length > 0) {
-                // Check if the selected model exists
-                const selectedModel = this.settings?.selectedModel;
-                const modelExists = data.models.some((m: any) => m.name === selectedModel);
+                // Check if the provider's model exists
+                const providerModel = provider.model;
+                const modelExists = data.models.some((m: any) => m.name === providerModel);
                 
-                if (selectedModel && modelExists) {
-                  provider.model = selectedModel;
-                  console.log(`Ollama model set to selected model: ${provider.model}`);
+                if (providerModel && modelExists) {
+                  console.log(`Ollama model set to provider model: ${provider.model}`);
                 } else {
                   provider.model = data.models[0].name;
-                  console.log(`Ollama model set to first available: ${provider.model} (selected model ${selectedModel} not found)`);
+                  console.log(`Ollama model set to first available: ${provider.model} (provider model ${providerModel} not found)`);
                 }
               }
             }
@@ -294,55 +351,123 @@ export class LLMRouter {
           console.error('Ollama health check failed:', error);
           return false;
         }
+      } else if (provider.name === 'Groq' || provider.name === 'OpenAI') {
+        // For OpenAI-compatible providers, test the models endpoint
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000);
+        
+        try {
+          const modelsEndpoint = provider.name === 'Groq' 
+            ? 'https://api.groq.com/openai/v1/models'
+            : 'https://api.openai.com/v1/models';
+            
+          const response = await fetch(modelsEndpoint, {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${provider.apiKey}`,
+            },
+            signal: controller.signal,
+          });
+          
+          clearTimeout(timeoutId);
+          
+          if (response.ok) {
+            const data = await response.json();
+            return data.data && data.data.length > 0;
+          }
+          return false;
+        } catch (error) {
+          clearTimeout(timeoutId);
+          console.error(`${provider.name} health check failed:`, error);
+          return false;
+        }
+      } else if (provider.name === 'Anthropic') {
+        // For Anthropic, test the models endpoint
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000);
+        
+        try {
+          const response = await fetch('https://api.anthropic.com/v1/models', {
+            method: 'GET',
+            headers: {
+              'x-api-key': provider.apiKey,
+              'anthropic-version': '2023-06-01',
+            },
+            signal: controller.signal,
+          });
+          
+          clearTimeout(timeoutId);
+          
+          if (response.ok) {
+            const data = await response.json();
+            return data.data && data.data.length > 0;
+          }
+          return false;
+        } catch (error) {
+          clearTimeout(timeoutId);
+          console.error(`${provider.name} health check failed:`, error);
+          return false;
+        }
+      } else if (provider.name === 'AWS Bedrock') {
+        // For AWS Bedrock, test the foundation models endpoint
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000);
+        
+        try {
+          const response = await fetch('https://bedrock.us-east-1.amazonaws.com/foundation-models', {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${provider.apiKey}`,
+            },
+            signal: controller.signal,
+          });
+          
+          clearTimeout(timeoutId);
+          
+          if (response.ok) {
+            const data = await response.json();
+            return data.modelSummaries && data.modelSummaries.length > 0;
+          }
+          return false;
+        } catch (error) {
+          clearTimeout(timeoutId);
+          console.error(`${provider.name} health check failed:`, error);
+          return false;
+        }
+      } else if (provider.name === 'Azure OpenAI') {
+        // For Azure OpenAI, test the deployments endpoint
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000);
+        
+        try {
+          const response = await fetch(`${provider.endpoint}/openai/deployments?api-version=2024-02-15-preview`, {
+            method: 'GET',
+            headers: {
+              'api-key': provider.apiKey,
+            },
+            signal: controller.signal,
+          });
+          
+          clearTimeout(timeoutId);
+          
+          if (response.ok) {
+            const data = await response.json();
+            return data.data && data.data.length > 0;
+          }
+          return false;
+        } catch (error) {
+          clearTimeout(timeoutId);
+          console.error(`${provider.name} health check failed:`, error);
+          return false;
+        }
       } else {
-        // For other providers, just check if the endpoint is reachable
-        return true; // Assume available if we have API key
+        // For other providers, assume available if we have API key
+        return !!provider.apiKey;
       }
     } catch (error) {
       console.error(`Health check failed for ${provider.name}:`, error);
       return false;
     }
-  }
-
-  private selectProvider(): LLMProvider | null {
-    const availableProviders = Array.from(this.providers.values())
-      .filter(p => p.isAvailable);
-
-    if (availableProviders.length === 0) {
-      return null;
-    }
-
-    // If we have a selected provider from settings, prioritize it
-    if (this.settings?.selectedProvider) {
-      const selectedProvider = availableProviders.find(p => 
-        p.name.toLowerCase() === this.settings!.selectedProvider.toLowerCase()
-      );
-      if (selectedProvider) {
-        return selectedProvider;
-      }
-    }
-
-    // Fall back to scoring-based selection
-    const maxLatency = Math.max(...availableProviders.map(p => p.avgLatencyMs));
-    const maxCost = Math.max(...availableProviders.map(p => p.costPer1k));
-
-    let bestProvider = availableProviders[0];
-    let bestScore = Infinity;
-
-    for (const provider of availableProviders) {
-      const latencyNorm = maxLatency > 0 ? provider.avgLatencyMs / maxLatency : 0;
-      const costNorm = maxCost > 0 ? provider.costPer1k / maxCost : 0;
-      const latencyWeight = this.settings?.latencyWeight || 0.7;
-      const costWeight = this.settings?.costWeight || 0.3;
-      const score = latencyWeight * latencyNorm + costWeight * costNorm;
-
-      if (score < bestScore) {
-        bestScore = score;
-        bestProvider = provider;
-      }
-    }
-
-    return bestProvider;
   }
 
   private generateCacheKey(request: LLMRequest, provider?: LLMProvider): string {
@@ -367,51 +492,177 @@ export class LLMRouter {
       await this.initializeProviders();
     }
     
-    // Select best provider first
-    const provider = this.selectProvider();
-    if (!provider) {
+    // Get available providers in priority order
+    const availableProviders = this.getAvailableProvidersInOrder();
+    
+    if (availableProviders.length === 0) {
       throw new Error('No available LLM providers');
     }
 
-    // Check cache with provider-specific key
-    const cacheKey = this.generateCacheKey(request, provider);
-    const cachedResponse = this.cache.get(cacheKey);
+    // Try providers in priority order
+    let lastError: Error | null = null;
     
-    if (cachedResponse) {
-      console.log('Cache hit for request:', cacheKey);
-      return cachedResponse;
+    for (const provider of availableProviders) {
+      try {
+        console.log(`Attempting request with ${provider.name}`);
+        
+        // Check cache with provider-specific key
+        const cacheKey = this.generateCacheKey(request, provider);
+        const cachedResponse = this.cache.get(cacheKey);
+        
+        if (cachedResponse) {
+          console.log('Cache hit for request:', cacheKey);
+          return cachedResponse;
+        }
+
+        // For Ollama, ensure the model is loaded before making the request
+        if (provider.name === 'Ollama') {
+          await this.ensureOllamaModelLoaded(provider);
+        }
+
+        const response = await this.callProvider(provider, request);
+        
+        // Cache the response
+        this.cache.set(cacheKey, response);
+        
+        console.log(`Successfully routed request to ${provider.name}`);
+        return response;
+        
+      } catch (error) {
+        lastError = error as Error;
+        console.error(`Provider ${provider.name} failed:`, error);
+        
+        // Don't mark provider as unavailable immediately - it might be a temporary issue
+        // Only mark as unavailable after multiple consecutive failures
+        // For now, just continue to the next provider
+      }
+    }
+    
+    // If we get here, all providers failed
+    throw new Error(`All LLM providers failed. Last error: ${lastError?.message || 'Unknown error'}`);
+  }
+
+  private getAvailableProvidersInOrder(): LLMProvider[] {
+    const availableProviders = Array.from(this.providers.values())
+      .filter(p => p.isAvailable);
+
+    if (availableProviders.length === 0) {
+      return [];
     }
 
-    console.log(`Routing request to ${provider.name}`);
+    // Get provider order from settings (admin dashboard priority)
+    const providerOrder = this.settings?.providers ? 
+      Object.entries(this.settings.providers)
+        .filter(([_, config]) => (config as any).enabled)
+        .sort(([_, a], [__, b]) => (a as any).priority - (b as any).priority)
+        .map(([key, _]) => key) : 
+      ['ollama', 'openai', 'groq', 'anthropic', 'aws', 'azure'];
+
+    // Map provider keys to names
+    const keyToName: Record<string, string> = {
+      'ollama': 'Ollama',
+      'openai': 'OpenAI',
+      'groq': 'Groq',
+      'anthropic': 'Anthropic',
+      'aws': 'AWS Bedrock',
+      'azure': 'Azure OpenAI'
+    };
+
+    // Sort available providers by priority order
+    const sortedProviders: LLMProvider[] = [];
+    
+    for (const providerKey of providerOrder) {
+      const providerName = keyToName[providerKey];
+      const provider = availableProviders.find(p => p.name === providerName);
+      if (provider) {
+        sortedProviders.push(provider);
+      }
+    }
+    
+    // Add any remaining providers that weren't in the priority list
+    availableProviders.forEach(provider => {
+      if (!sortedProviders.find(p => p.name === provider.name)) {
+        sortedProviders.push(provider);
+      }
+    });
+    
+    return sortedProviders;
+  }
+
+  // Helper function to get provider cost for priority calculation
+  private getProviderCost(provider: LLMProvider): number {
+    if (!provider.pricing) return 0;
+    
+    const { pricing, model } = provider;
+    
+    if (pricing.type === 'free') {
+      return 0;
+    }
+    
+    if (pricing.type === 'flat') {
+      return pricing.costPer1k || 0;
+    }
+    
+    if (pricing.type === 'input_output') {
+      // Get model-specific pricing if available
+      let inputCost = pricing.inputCostPer1k || 0;
+      let outputCost = pricing.outputCostPer1k || 0;
+      
+      if (model && pricing.modelPricing && pricing.modelPricing[model]) {
+        const modelPricing = pricing.modelPricing[model];
+        inputCost = modelPricing.inputCostPer1k || inputCost;
+        outputCost = modelPricing.outputCostPer1k || outputCost;
+      }
+      
+      // Return average cost for priority calculation
+      return (inputCost + outputCost) / 2;
+    }
+    
+    return 0;
+  }
+
+  async testProvider(providerKey: string, request: LLMRequest): Promise<LLMResponse> {
+    // Ensure providers are initialized
+    if (this.providers.size === 0) {
+      await this.initializeProviders();
+    }
+    
+    // Map provider key to name
+    const keyToName: Record<string, string> = {
+      'ollama': 'Ollama',
+      'openai': 'OpenAI',
+      'groq': 'Groq',
+      'anthropic': 'Anthropic',
+      'aws': 'AWS Bedrock',
+      'azure': 'Azure OpenAI'
+    };
+    
+    const providerName = keyToName[providerKey];
+    if (!providerName) {
+      throw new Error(`Unknown provider: ${providerKey}`);
+    }
+    
+    // Find the specific provider
+    const provider = Array.from(this.providers.values()).find(p => p.name === providerName);
+    if (!provider) {
+      throw new Error(`Provider ${providerName} not found`);
+    }
+    
+    if (!provider.isAvailable) {
+      throw new Error(`Provider ${providerName} is not available`);
+    }
+
+    console.log(`Testing provider: ${provider.name}`);
 
     // For Ollama, ensure the model is loaded before making the request
     if (provider.name === 'Ollama') {
       await this.ensureOllamaModelLoaded(provider);
     }
 
-    try {
-      const response = await this.callProvider(provider, request);
-      
-      // Cache the response
-      this.cache.set(cacheKey, response);
-      
-      return response;
-    } catch (error) {
-      // Mark provider as unavailable and retry with next best
-      provider.isAvailable = false;
-      console.error(`Provider ${provider.name} failed, marking as unavailable:`, error);
-      
-      const fallbackProvider = this.selectProvider();
-      if (fallbackProvider) {
-        console.log(`Retrying with fallback provider: ${fallbackProvider.name}`);
-        const fallbackCacheKey = this.generateCacheKey(request, fallbackProvider);
-        const response = await this.callProvider(fallbackProvider, request);
-        this.cache.set(fallbackCacheKey, response);
-        return response;
-      }
-      
-      throw new Error('All LLM providers failed');
-    }
+    // Test the specific provider without caching
+    const response = await this.callProvider(provider, request);
+    
+    return response;
   }
 
   private async callProvider(provider: LLMProvider, request: LLMRequest): Promise<LLMResponse> {
@@ -423,6 +674,10 @@ export class LLMRouter {
         return this.callOpenAICompatible(provider, request);
       case 'Anthropic':
         return this.callAnthropic(provider, request);
+      case 'AWS Bedrock':
+        return this.callAWSBedrock(provider, request);
+      case 'Azure OpenAI':
+        return this.callAzureOpenAI(provider, request);
       default:
         throw new Error(`Unsupported provider: ${provider.name}`);
     }
@@ -477,6 +732,14 @@ export class LLMRouter {
   }
 
   private async callOpenAICompatible(provider: LLMProvider, request: LLMRequest): Promise<LLMResponse> {
+    // Debug: Check if API key is present
+    if (!provider.apiKey) {
+      console.error(`${provider.name} API key is missing`);
+      throw new Error(`${provider.name} API key is missing`);
+    }
+    
+    console.log(`Making request to ${provider.name} with model: ${provider.model}`);
+    
     const response = await fetch(provider.endpoint, {
       method: 'POST',
       headers: {
@@ -497,6 +760,8 @@ export class LLMRouter {
     });
 
     if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`${provider.name} request failed: ${response.status} - ${errorText}`);
       throw new Error(`${provider.name} request failed: ${response.statusText}`);
     }
 
@@ -544,14 +809,82 @@ export class LLMRouter {
     };
   }
 
+  private async callAWSBedrock(provider: LLMProvider, request: LLMRequest): Promise<LLMResponse> {
+    const response = await fetch(`${provider.endpoint}/model/${provider.model}/invoke`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${provider.apiKey}`,
+      },
+      body: JSON.stringify({
+        prompt: request.prompt,
+        max_tokens: request.maxTokens || 1000,
+        temperature: request.temperature || 0.7,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`AWS Bedrock request failed: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    
+    return {
+      content: data.completion,
+      provider: provider.name,
+      usage: {
+        promptTokens: 0,
+        completionTokens: 0,
+        totalTokens: 0,
+      },
+    };
+  }
+
+  private async callAzureOpenAI(provider: LLMProvider, request: LLMRequest): Promise<LLMResponse> {
+    const response = await fetch(`${provider.endpoint}/openai/deployments/${provider.model}/chat/completions?api-version=2024-02-15-preview`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'api-key': provider.apiKey,
+      },
+      body: JSON.stringify({
+        messages: [
+          {
+            role: 'user',
+            content: request.prompt,
+          },
+        ],
+        max_tokens: request.maxTokens || 1000,
+        temperature: request.temperature || 0.7,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Azure OpenAI request failed: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    
+    return {
+      content: data.choices[0].message.content,
+      provider: provider.name,
+      usage: data.usage,
+    };
+  }
+
   getProviderStats(): Record<string, Omit<LLMProvider, 'apiKey'>> {
+    console.log('Getting provider stats. Providers map size:', this.providers.size);
+    console.log('Provider keys:', Array.from(this.providers.keys()));
+    
     const stats: Record<string, Omit<LLMProvider, 'apiKey'>> = {};
     
     for (const [key, provider] of Array.from(this.providers.entries())) {
       const { apiKey, ...providerWithoutKey } = provider;
       stats[key] = providerWithoutKey;
+      console.log(`Provider ${key}:`, providerWithoutKey);
     }
     
+    console.log('Returning provider stats:', stats);
     return stats;
   }
 

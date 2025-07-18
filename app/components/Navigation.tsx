@@ -35,6 +35,7 @@ interface User {
   id: string;
   username: string;
   role: 'USER' | 'ADMIN';
+  avatarUrl?: string;
 }
 
 export default function Navigation() {
@@ -178,8 +179,11 @@ export default function Navigation() {
                 onClick={handleProfileMenuOpen}
                 sx={{ p: 0 }}
               >
-                <Avatar sx={{ width: 32, height: 32, bgcolor: 'primary.main' }}>
-                  <PersonIcon />
+                <Avatar 
+                  sx={{ width: 32, height: 32, bgcolor: 'primary.main' }}
+                  src={user.avatarUrl}
+                >
+                  {user.avatarUrl ? undefined : <PersonIcon />}
                 </Avatar>
               </IconButton>
               <Menu
@@ -195,13 +199,23 @@ export default function Navigation() {
                   horizontal: 'right',
                 }}
               >
-                <MenuItem onClick={handleProfileMenuClose}>
+                <MenuItem 
+                  onClick={() => {
+                    handleProfileMenuClose();
+                    router.push('/profile');
+                  }}
+                >
                   <ListItemIcon>
                     <PersonIcon fontSize="small" />
                   </ListItemIcon>
                   Profile
                 </MenuItem>
-                <MenuItem onClick={handleProfileMenuClose}>
+                <MenuItem 
+                  onClick={() => {
+                    handleProfileMenuClose();
+                    router.push('/settings');
+                  }}
+                >
                   <ListItemIcon>
                     <SettingsIcon fontSize="small" />
                   </ListItemIcon>

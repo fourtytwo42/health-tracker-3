@@ -17,7 +17,7 @@ export const PUT = requireRole('ADMIN')(async (req) => {
     const llmRouter = LLMRouter.getInstance();
     
     // Update the Ollama model
-    const success = await llmRouter.updateProviderModel('Ollama', model);
+    const success = await llmRouter.updateProviderModel('ollama', model);
     
     if (!success) {
       return NextResponse.json(

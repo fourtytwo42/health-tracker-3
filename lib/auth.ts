@@ -87,6 +87,7 @@ export class AuthService {
     username: string,
     email: string,
     password: string,
+    avatarUrl?: string,
   ): Promise<AuthUser> {
     const existingUser = await prisma.user.findFirst({
       where: {
@@ -106,11 +107,12 @@ export class AuthService {
         email,
         passwordHash,
         role: 'USER',
+        avatarUrl,
         profile: {
           create: {
             activityLevel: 'SEDENTARY',
-            dietaryPreferences: [],
-            privacySettings: { leaderboardVisible: true },
+            dietaryPreferences: JSON.stringify([]),
+            privacySettings: JSON.stringify({ leaderboardVisible: true }),
           },
         },
         leaderboard: {

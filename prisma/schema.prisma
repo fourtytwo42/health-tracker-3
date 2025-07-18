@@ -16,6 +16,7 @@ model User {
   email        String   @unique
   passwordHash String   @map("password_hash")
   role         String   @default("USER")
+  avatarUrl    String?  @map("avatar_url")
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
   
@@ -236,19 +237,6 @@ model IngredientTaxonomy {
   @@map("ingredient_taxonomy")
 }
 
-model FeatureFlag {
-  id              String @id @default(cuid())
-  key             String @unique
-  name            String
-  description     String?
-  enabled         Boolean @default(false)
-  rolloutPercentage Int @default(0) @map("rollout_percentage")
-  createdAt       DateTime @default(now()) @map("created_at")
-  updatedAt       DateTime @updatedAt @map("updated_at")
-  
-  @@map("feature_flags")
-}
-
 model Setting {
   id          String @id @default(cuid())
   key         String @unique
@@ -258,4 +246,4 @@ model Setting {
   updatedAt   DateTime @updatedAt @map("updated_at")
   
   @@map("settings")
-} 
+}

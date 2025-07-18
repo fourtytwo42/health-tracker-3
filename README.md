@@ -69,7 +69,7 @@ Each tool response can include quick reply options for seamless user interaction
 ### Prerequisites
 - Node.js 20+
 - SQLite (for local development)
-- Ollama (for local LLM)
+- Ollama (for local LLM) - Optional, other providers available
 
 ### Installation
 
@@ -94,6 +94,7 @@ cp env.example .env.local
 ```bash
 npx prisma migrate dev
 npx prisma db seed
+npm run db:seed:providers
 ```
 
 5. Start the development server:
@@ -123,6 +124,34 @@ npm run dev
 - "I want to set a new fitness goal"
 - "Create a grocery list for my meal plan"
 
+### LLM Provider Management
+
+The admin dashboard (`/admin`) provides comprehensive LLM provider management:
+
+#### API Key Management
+- **Add/Update API Keys**: Securely store API keys for each provider in the database
+- **Key Status**: View masked API keys and availability status
+- **Remove Keys**: Safely remove API keys when no longer needed
+
+#### Model Management
+- **Fetch Available Models**: Automatically retrieve available models from each provider's API
+- **Model Selection**: Choose from available models for each provider
+- **Model Caching**: Models are cached locally to reduce API calls
+
+#### Provider Configuration
+- **Enable/Disable Providers**: Toggle providers on/off in the router
+- **Priority Settings**: Set provider priority for routing decisions
+- **Health Monitoring**: Real-time status and latency monitoring
+- **Testing**: Test provider connectivity and response quality
+
+#### Setup Instructions
+
+1. **Access Admin Dashboard**: Navigate to `/admin` as an admin user
+2. **Add API Keys**: Click "Add API Key" for each provider you want to use
+3. **Fetch Models**: Click "Change Model" to fetch available models from the provider
+4. **Configure Router**: Set latency/cost weights and provider priorities
+5. **Test Providers**: Use the "Test Provider" button to verify connectivity
+
 ## Architecture
 
 ### Frontend
@@ -139,7 +168,8 @@ npm run dev
 - **SQLite** for data storage
 
 ### AI Integration
-- **Ollama** for local LLM processing
+- **Multiple LLM Providers** (Ollama, Groq, OpenAI, Anthropic, AWS Bedrock, Azure OpenAI)
+- **LLM Router** with latency/cost optimization
 - **MCP Protocol** for structured tool calling
 - **Component JSON** for rich UI responses
 - **Quick Replies** for conversational flow

@@ -3,7 +3,7 @@ import { PrismaClient } from '@prisma/client';
 import { createServer } from 'http';
 import { parse } from 'url';
 import { NextRequest } from 'next/server';
-import { featureFlagService } from '@/lib/featureFlagService';
+
 
 const prisma = new PrismaClient();
 
@@ -335,31 +335,7 @@ describe('Full System Integration', () => {
     });
   });
 
-  describe('Feature Flags', () => {
-    it('should check feature flag status', async () => {
-      // Create a test feature flag
-      await featureFlagService.upsertFeatureFlag({
-        key: 'test_feature',
-        name: 'Test Feature',
-        description: 'Test feature flag',
-        enabled: true,
-        rolloutPercentage: 100
-      });
 
-      const response = await fetch('http://localhost:3000/api/feature-flags/test_feature/check', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${authToken}`
-        },
-        body: JSON.stringify({ userId: testUser.id })
-      });
-
-      expect(response.status).toBe(200);
-      const data = await response.json();
-      expect(data.enabled).toBe(true);
-    });
-  });
 
   describe('Health Checks', () => {
     it('should return system health status', async () => {

@@ -4,8 +4,12 @@ import { LLMRouter } from '@/lib/llmRouter';
 
 export const GET = requireRole('ADMIN')(async (req) => {
   try {
+    console.log('GET /api/llm/providers called');
     const llmRouter = LLMRouter.getInstance();
+    console.log('LLMRouter instance obtained');
+    
     const providerStats = llmRouter.getProviderStats();
+    console.log('Provider stats obtained:', providerStats);
     
     // Convert to array format for easier frontend consumption
     const providers = Object.entries(providerStats).map(([key, provider]) => ({
@@ -15,9 +19,10 @@ export const GET = requireRole('ADMIN')(async (req) => {
       model: provider.model,
       isAvailable: provider.isAvailable,
       avgLatencyMs: provider.avgLatencyMs,
-      costPer1k: provider.costPer1k,
+      pricing: provider.pricing,
     }));
 
+    console.log('Returning providers array:', providers);
     return NextResponse.json({ providers });
   } catch (error) {
     console.error('Error fetching LLM providers:', error);

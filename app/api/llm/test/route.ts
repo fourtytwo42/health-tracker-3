@@ -7,6 +7,16 @@ export const POST = requireRole('ADMIN')(async (req) => {
     const body = await req.json();
     const { provider, prompt } = body;
 
+    if (!provider) {
+      return NextResponse.json(
+        { 
+          success: false,
+          error: 'Provider parameter is required'
+        },
+        { status: 400 }
+      );
+    }
+
     const llmRouter = LLMRouter.getInstance();
     
     // Clear cache for test requests to ensure fresh responses
@@ -20,7 +30,7 @@ export const POST = requireRole('ADMIN')(async (req) => {
       temperature: 0.7
     };
 
-    const response = await llmRouter.generateResponse(testRequest);
+    const response = await llmRouter.testProvider(provider, testRequest);
     
     return NextResponse.json({
       success: true,

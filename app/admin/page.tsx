@@ -6,8 +6,6 @@ import {
   Container,
   Typography,
   Paper,
-  Tabs,
-  Tab,
   Button,
   Dialog,
   DialogTitle,
@@ -21,34 +19,11 @@ import {
   CircularProgress,
   Card,
   CardContent,
-  CardActions,
-  IconButton,
-  Chip,
   Grid,
   MenuItem
 } from '@mui/material';
-import { Delete as DeleteIcon, Edit as EditIcon } from '@mui/icons-material';
 import Navigation from '../components/Navigation';
 
-interface FeatureFlag {
-  id: string;
-  key: string;
-  name: string;
-  description?: string;
-  enabled: boolean;
-  rolloutPercentage: number;
-  createdAt: string;
-  updatedAt: string;
-}
-
-interface Setting {
-  id: string;
-  key: string;
-  value: string;
-  description?: string;
-  createdAt: string;
-  updatedAt: string;
-}
 
 interface LLMRouterConfig {
   selectedModel: string;
@@ -65,40 +40,17 @@ interface LLMRouterConfig {
 
 export default function AdminDashboard() {
   const [user, setUser] = useState<any>(null);
-  const [tabValue, setTabValue] = useState(0);
-  const [featureFlags, setFeatureFlags] = useState<FeatureFlag[]>([]);
-  const [settings, setSettings] = useState<Setting[]>([]);
-  const [llmConfig, setLlmConfig] = useState<LLMRouterConfig | null>(null);
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  
-  // Feature flag dialog state
-  const [flagDialogOpen, setFlagDialogOpen] = useState(false);
-  const [editingFlag, setEditingFlag] = useState<FeatureFlag | null>(null);
-  const [flagForm, setFlagForm] = useState({
-    key: '',
-    name: '',
-    description: '',
-    enabled: false,
-    rolloutPercentage: 0
-  });
 
   // LLM config dialog state
-  const [llmDialogOpen, setLlmDialogOpen] = useState(false);
-  const [llmForm, setLlmForm] = useState({
-    selectedModel: 'llama3.2:3b',
-    selectedProvider: 'ollama',
-    latencyWeight: 0.7,
-    costWeight: 0.3,
-    providers: {
-      ollama: { enabled: true, priority: 1 },
-      groq: { enabled: true, priority: 2 },
-      openai: { enabled: true, priority: 3 },
-      anthropic: { enabled: true, priority: 4 },
-      aws: { enabled: false, priority: 5 },
-      azure: { enabled: false, priority: 6 }
-    }
-  });
+
+  // Provider order state
+  const [providerOrder, setProviderOrder] = useState<string[]>([
+    'ollama', 'openai', 'groq', 'anthropic', 'aws', 'azure'
+  ]);
+  const [providerEnabled, setProviderEnabled] = useState<Record<string, boolean>>({});
 
   // Load LLM provider status
   const [llmProviders, setLlmProviders] = useState<any[]>([]);
@@ -106,11 +58,29 @@ export default function AdminDashboard() {
   const [testResult, setTestResult] = useState<any>(null);
   const [testing, setTesting] = useState(false);
 
-  // Ollama model selection state
-  const [ollamaModels, setOllamaModels] = useState<any[]>([]);
+  // LLM provider management state
+  const [providerModels, setProviderModels] = useState<Record<string, string[]>>({});
   const [modelDialogOpen, setModelDialogOpen] = useState(false);
+  const [selectedProvider, setSelectedProvider] = useState('');
   const [selectedModel, setSelectedModel] = useState('');
   const [updatingModel, setUpdatingModel] = useState(false);
+  
+  // API key management state
+  const [apiKeyDialogOpen, setApiKeyDialogOpen] = useState(false);
+  const [editingProvider, setEditingProvider] = useState('');
+  const [apiKey, setApiKey] = useState('');
+  const [apiKeyStatus, setApiKeyStatus] = useState<Record<string, { hasKey: boolean; maskedKey?: string }>>({});
+
+  // Auto-refresh state
+  const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
+  const [previousProviderStatus, setPreviousProviderStatus] = useState<Record<string, boolean>>({});
+  const [statusNotifications, setStatusNotifications] = useState<string[]>([]);
+
+  // Add Ollama endpoint dialog state
+  const [ollamaEndpointDialogOpen, setOllamaEndpointDialogOpen] = useState(false);
+  const [ollamaEndpoint, setOllamaEndpoint] = useState('');
+  const [ollamaEndpointLoading, setOllamaEndpointLoading] = useState(false);
+  const [ollamaEndpointError, setOllamaEndpointError] = useState<string | null>(null);
 
   useEffect(() => {
     // Get user from localStorage
@@ -128,6 +98,99 @@ export default function AdminDashboard() {
     }
   }, []);
 
+  // On load, initialize order and enabled state from llmProviders
+  useEffect(() => {
+    if (llmProviders.length > 0) {
+      console.log('Setting provider order from llmProviders:', llmProviders);
+      setProviderOrder(llmProviders.map(p => p.key));
+      setProviderEnabled(Object.fromEntries(llmProviders.map(p => [p.key, p.isAvailable])));
+    }
+  }, [llmProviders]);
+
+  // Debug effect to see current state
+  useEffect(() => {
+    console.log('Current llmProviders:', llmProviders);
+    console.log('Current providerOrder:', providerOrder);
+    console.log('Current providerEnabled:', providerEnabled);
+  }, [llmProviders, providerOrder, providerEnabled]);
+
+  // Auto-refresh effect - always on!
+  useEffect(() => {
+    if (!user || user.role !== 'ADMIN') return;
+
+    const interval = setInterval(async () => {
+      console.log('Auto-refreshing provider status...');
+      
+      // Store current providers for comparison
+      const oldProviders = [...llmProviders];
+      
+      // Update provider status without triggering full re-render
+      try {
+        const response = await fetch('/api/llm/providers', {
+          headers: { 'Authorization': `Bearer ${localStorage.getItem('accessToken')}` }
+        });
+        if (response.ok) {
+          const data = await response.json();
+          const newProviders = data.providers || [];
+          
+          // Update only the status information, preserving the existing structure
+          setLlmProviders(prevProviders => {
+            const updatedProviders = prevProviders.map(prevProvider => {
+              const newProvider = newProviders.find((p: any) => p.key === prevProvider.key);
+              if (newProvider) {
+                return {
+                  ...prevProvider,
+                  isAvailable: newProvider.isAvailable,
+                  avgLatencyMs: newProvider.avgLatencyMs,
+                  model: newProvider.model
+                };
+              }
+              return prevProvider;
+            });
+            return updatedProviders;
+          });
+          
+          // Update API key status
+          await loadAllApiKeyStatus();
+          setLastRefresh(new Date());
+          
+          // Check for status changes and show notifications
+          const notifications: string[] = [];
+          
+          newProviders.forEach((newProvider: any) => {
+            const oldProvider = oldProviders.find(p => p.key === newProvider.key);
+            if (oldProvider) {
+              if (!oldProvider.isAvailable && newProvider.isAvailable) {
+                notifications.push(`${newProvider.name} is now online!`);
+              } else if (oldProvider.isAvailable && !newProvider.isAvailable) {
+                notifications.push(`${newProvider.name} went offline`);
+              }
+            }
+          });
+          
+          if (notifications.length > 0) {
+            setStatusNotifications(prev => [...prev, ...notifications]);
+            // Clear notifications after 3 seconds
+            setTimeout(() => {
+              setStatusNotifications(prev => prev.filter(n => !notifications.includes(n)));
+            }, 3000);
+          }
+        }
+      } catch (error) {
+        console.error('Error during auto-refresh:', error);
+      }
+    }, 5000); // Check every 5 seconds
+
+    return () => clearInterval(interval);
+  }, [user]); // Remove llmProviders dependency to prevent re-triggering
+
+  // Load all API key status at once
+  const loadAllApiKeyStatus = async () => {
+    const providerKeys = ['groq', 'openai', 'anthropic', 'aws', 'azure'];
+    const promises = providerKeys.map(loadApiKeyStatus);
+    await Promise.all(promises);
+  };
+
   const loadLLMProviders = async () => {
     setLlmLoading(true);
     try {
@@ -136,7 +199,11 @@ export default function AdminDashboard() {
       });
       if (response.ok) {
         const data = await response.json();
+        console.log('LLM Providers API response:', data);
+        console.log('Providers array:', data.providers);
         setLlmProviders(data.providers || []);
+      } else {
+        console.error('Failed to load LLM providers:', response.status, response.statusText);
       }
     } catch (error) {
       console.error('Error loading LLM providers:', error);
@@ -170,51 +237,84 @@ export default function AdminDashboard() {
     }
   };
 
-  const loadOllamaModels = async () => {
+  const loadProviderModels = async (provider: string) => {
     try {
-      const response = await fetch('/api/llm/ollama-models', {
+      const response = await fetch(`/api/llm/providers/${provider}/models`, {
         headers: { 'Authorization': `Bearer ${localStorage.getItem('accessToken')}` }
       });
       if (response.ok) {
         const data = await response.json();
-        setOllamaModels(data.models || []);
+        if (data.success) {
+          setProviderModels(prev => ({
+            ...prev,
+            [provider]: data.models || []
+          }));
+        }
       }
     } catch (error) {
-      console.error('Error loading Ollama models:', error);
+      console.error(`Error loading ${provider} models:`, error);
     }
   };
 
-  const openModelDialog = async (currentModel: string) => {
+  const loadApiKeyStatus = async (provider: string) => {
+    try {
+      const response = await fetch(`/api/llm/providers/${provider}/api-key`, {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('accessToken')}` }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setApiKeyStatus(prev => ({
+          ...prev,
+          [provider]: {
+            hasKey: data.hasApiKey,
+            maskedKey: data.maskedApiKey
+          }
+        }));
+      }
+    } catch (error) {
+      console.error(`Error loading ${provider} API key status:`, error);
+    }
+  };
+
+  const openModelDialog = async (provider: string, currentModel: string) => {
+    setSelectedProvider(provider);
     setSelectedModel(currentModel);
-    await loadOllamaModels();
+    await loadProviderModels(provider);
     setModelDialogOpen(true);
   };
 
-  const updateOllamaModel = async () => {
+  const openApiKeyDialog = async (provider: string) => {
+    setEditingProvider(provider);
+    setApiKey('');
+    await loadApiKeyStatus(provider);
+    setApiKeyDialogOpen(true);
+  };
+
+  const updateProviderModel = async () => {
     setUpdatingModel(true);
     try {
-      // Update the LLM settings with the new model
-      const currentSettings = await fetch('/api/settings/llm', {
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('accessToken')}` }
-      }).then(res => res.json());
-
-      const updatedSettings = {
-        ...currentSettings.config,
-        selectedModel: selectedModel,
-        selectedProvider: 'ollama'
-      };
-
-      const response = await fetch('/api/settings/llm', {
-        method: 'PUT',
+      const response = await fetch(`/api/llm/providers/${selectedProvider}/models`, {
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
         },
-        body: JSON.stringify(updatedSettings)
+        body: JSON.stringify({ model: selectedModel })
       });
       
       if (response.ok) {
         setModelDialogOpen(false);
+        // Force a refresh of the LLM router to pick up the new model
+        try {
+          await fetch('/api/llm/refresh', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
+            }
+          });
+        } catch (error) {
+          console.error('Failed to refresh LLM router:', error);
+        }
         // Refresh the providers to show the updated model
         await loadLLMProviders();
         // Reload data to show updated settings
@@ -225,9 +325,82 @@ export default function AdminDashboard() {
       }
     } catch (error) {
       setError('Failed to update model');
-      console.error('Error updating Ollama model:', error);
+      console.error('Error updating provider model:', error);
     } finally {
       setUpdatingModel(false);
+    }
+  };
+
+  const saveApiKey = async () => {
+    try {
+      const response = await fetch(`/api/llm/providers/${editingProvider}/api-key`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
+        },
+        body: JSON.stringify({ apiKey })
+      });
+      
+      if (response.ok) {
+        setApiKeyDialogOpen(false);
+        setApiKey('');
+        
+        // Immediately refresh everything
+        await Promise.all([
+          loadApiKeyStatus(editingProvider),
+          loadLLMProviders(),
+          fetch('/api/llm/refresh', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
+            }
+          }).catch(error => console.error('Failed to refresh LLM router:', error))
+        ]);
+        
+        setLastRefresh(new Date());
+      } else {
+        const error = await response.json();
+        setError(error.error || 'Failed to save API key');
+      }
+    } catch (error) {
+      setError('Failed to save API key');
+      console.error('Error saving API key:', error);
+    }
+  };
+
+  const removeApiKey = async () => {
+    try {
+      const response = await fetch(`/api/llm/providers/${editingProvider}/api-key`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
+        }
+      });
+      
+      if (response.ok) {
+        setApiKeyDialogOpen(false);
+        setApiKey('');
+        // Immediately refresh everything
+        await Promise.all([
+          loadApiKeyStatus(editingProvider),
+          loadLLMProviders(),
+          fetch('/api/llm/refresh', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
+            }
+          }).catch(error => console.error('Failed to refresh LLM router:', error))
+        ]);
+        
+        setLastRefresh(new Date());
+      } else {
+        const error = await response.json();
+        setError(error.error || 'Failed to remove API key');
+      }
+    } catch (error) {
+      setError('Failed to remove API key');
+      console.error('Error removing API key:', error);
     }
   };
 
@@ -258,132 +431,206 @@ export default function AdminDashboard() {
       setLoading(true);
       setError(null);
 
-      const [flagsRes, settingsRes, llmRes] = await Promise.all([
-        fetch('/api/feature-flags', {
-          headers: { 'Authorization': `Bearer ${localStorage.getItem('accessToken')}` }
-        }),
-        fetch('/api/settings', {
-          headers: { 'Authorization': `Bearer ${localStorage.getItem('accessToken')}` }
-        }),
-        fetch('/api/settings/llm', {
-          headers: { 'Authorization': `Bearer ${localStorage.getItem('accessToken')}` }
-        })
-      ]);
-
-      // Load LLM providers status
+      // Load LLM providers
       await loadLLMProviders();
+      await loadAllApiKeyStatus();
 
-      if (flagsRes.ok) {
-        const flagsData = await flagsRes.json();
-        setFeatureFlags(flagsData.flags);
-      }
-
-      if (settingsRes.ok) {
-        const settingsData = await settingsRes.json();
-        setSettings(settingsData.settings);
-      }
-
+      // Load LLM settings to get provider order and enabled state
+      const llmRes = await fetch('/api/settings/llm', {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
+        }
+      });
       if (llmRes.ok) {
         const llmData = await llmRes.json();
-        setLlmConfig(llmData.config);
-        setLlmForm(llmData.config);
+        
+        // Extract provider order and enabled state from settings
+        if (llmData.config?.providers) {
+          const providers = llmData.config.providers;
+          const orderedProviders = Object.entries(providers)
+            .sort(([_, a], [__, b]) => (a as any).priority - (b as any).priority)
+            .map(([key, _]) => key);
+          
+          setProviderOrder(orderedProviders);
+          
+          const enabledState: Record<string, boolean> = {};
+          Object.entries(providers).forEach(([key, config]) => {
+            enabledState[key] = (config as any).enabled;
+          });
+          setProviderEnabled(enabledState);
+        }
       }
     } catch (err) {
-      setError('Failed to load data');
+      setError('Failed to load admin data');
       console.error('Error loading admin data:', err);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
-    setTabValue(newValue);
-  };
-
-  const openFlagDialog = (flag?: FeatureFlag) => {
-    if (flag) {
-      setEditingFlag(flag);
-      setFlagForm({
-        key: flag.key,
-        name: flag.name,
-        description: flag.description || '',
-        enabled: flag.enabled,
-        rolloutPercentage: flag.rolloutPercentage
-      });
-    } else {
-      setEditingFlag(null);
-      setFlagForm({
-        key: '',
-        name: '',
-        description: '',
-        enabled: false,
-        rolloutPercentage: 0
-      });
+  // Helper function to format pricing display
+  const formatPricing = (provider: any) => {
+    if (!provider.pricing) return 'N/A';
+    
+    const { pricing, model } = provider;
+    
+    if (pricing.type === 'free') {
+      return 'Free';
     }
-    setFlagDialogOpen(true);
+    
+    if (pricing.type === 'flat') {
+      return `$${pricing.costPer1k}/1k tokens`;
+    }
+    
+    if (pricing.type === 'input_output') {
+      // Get model-specific pricing if available
+      let inputCost = pricing.inputCostPer1k;
+      let outputCost = pricing.outputCostPer1k;
+      
+      if (model && pricing.modelPricing && pricing.modelPricing[model]) {
+        const modelPricing = pricing.modelPricing[model];
+        inputCost = modelPricing.inputCostPer1k || inputCost;
+        outputCost = modelPricing.outputCostPer1k || outputCost;
+      }
+      
+      if (inputCost === outputCost) {
+        return `$${inputCost}/1k tokens`;
+      } else {
+        return `$${inputCost}/1k input, $${outputCost}/1k output`;
+      }
+    }
+    
+    return 'N/A';
   };
 
-  const saveFeatureFlag = async () => {
+  // Helper function to get cost for priority calculation
+  const getProviderCost = (provider: any) => {
+    if (!provider.pricing) return 0;
+    
+    const { pricing, model } = provider;
+    
+    if (pricing.type === 'free') {
+      return 0;
+    }
+    
+    if (pricing.type === 'flat') {
+      return pricing.costPer1k || 0;
+    }
+    
+    if (pricing.type === 'input_output') {
+      // Get model-specific pricing if available
+      let inputCost = pricing.inputCostPer1k || 0;
+      let outputCost = pricing.outputCostPer1k || 0;
+      
+      if (model && pricing.modelPricing && pricing.modelPricing[model]) {
+        const modelPricing = pricing.modelPricing[model];
+        inputCost = modelPricing.inputCostPer1k || inputCost;
+        outputCost = modelPricing.outputCostPer1k || outputCost;
+      }
+      
+      // Return average cost for priority calculation
+      return (inputCost + outputCost) / 2;
+    }
+    
+    return 0;
+  };
+
+  // Function to open the dialog and prefill endpoint
+  const openOllamaEndpointDialog = (currentEndpoint: string) => {
+    setOllamaEndpoint(currentEndpoint);
+    setOllamaEndpointError(null);
+    setOllamaEndpointDialogOpen(true);
+  };
+
+  // Function to update the endpoint
+  const updateOllamaEndpoint = async () => {
+    setOllamaEndpointLoading(true);
+    setOllamaEndpointError(null);
     try {
-      const response = await fetch('/api/feature-flags', {
-        method: editingFlag ? 'PUT' : 'POST',
+      const response = await fetch('/api/llm/providers/ollama/endpoint', {
+        method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
         },
-        body: JSON.stringify(flagForm)
+        body: JSON.stringify({ endpoint: ollamaEndpoint })
       });
-
       if (response.ok) {
-        setFlagDialogOpen(false);
-        loadData();
+        setOllamaEndpointDialogOpen(false);
+        await loadLLMProviders();
       } else {
-        setError('Failed to save feature flag');
+        const error = await response.json();
+        setOllamaEndpointError(error.error || 'Failed to update endpoint');
       }
-    } catch (err) {
-      setError('Failed to save feature flag');
-      console.error('Error saving feature flag:', err);
+    } catch (error) {
+      setOllamaEndpointError('Failed to update endpoint');
+    } finally {
+      setOllamaEndpointLoading(false);
     }
   };
 
-  const deleteFeatureFlag = async (key: string) => {
-    try {
-      const response = await fetch(`/api/feature-flags/${key}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('accessToken')}` }
-      });
-
-      if (response.ok) {
-        loadData();
-      } else {
-        setError('Failed to delete feature flag');
-      }
-    } catch (err) {
-      setError('Failed to delete feature flag');
-      console.error('Error deleting feature flag:', err);
-    }
+  // Handle up/down priority movement
+  const moveProviderUp = async (index: number) => {
+    if (index === 0) return; // Already at top
+    const newOrder = Array.from(providerOrder);
+    [newOrder[index], newOrder[index - 1]] = [newOrder[index - 1], newOrder[index]];
+    setProviderOrder(newOrder);
+    
+    // Save the new order to database
+    await saveProviderSettings(newOrder, providerEnabled);
   };
 
-  const saveLLMConfig = async () => {
+  const moveProviderDown = async (index: number) => {
+    if (index === providerOrder.length - 1) return; // Already at bottom
+    const newOrder = Array.from(providerOrder);
+    [newOrder[index], newOrder[index + 1]] = [newOrder[index + 1], newOrder[index]];
+    setProviderOrder(newOrder);
+    
+    // Save the new order to database
+    await saveProviderSettings(newOrder, providerEnabled);
+  };
+
+  // Handle enable/disable toggle
+  const handleProviderToggle = async (key: string) => {
+    const newEnabled = { ...providerEnabled, [key]: !providerEnabled[key] };
+    setProviderEnabled(newEnabled);
+    
+    // Save the new enabled state to database
+    await saveProviderSettings(providerOrder, newEnabled);
+  };
+
+  // Save provider settings to database
+  const saveProviderSettings = async (order: string[], enabled: Record<string, boolean>) => {
     try {
+      const settings = {
+        selectedModel: 'llama3.2:3b',
+        selectedProvider: 'ollama',
+        latencyWeight: 0.5,
+        costWeight: 0.5,
+        providers: {
+          ollama: { enabled: enabled.ollama ?? true, priority: order.indexOf('ollama') + 1 },
+          openai: { enabled: enabled.openai ?? true, priority: order.indexOf('openai') + 1 },
+          groq: { enabled: enabled.groq ?? true, priority: order.indexOf('groq') + 1 },
+          anthropic: { enabled: enabled.anthropic ?? true, priority: order.indexOf('anthropic') + 1 },
+          aws: { enabled: enabled.aws ?? true, priority: order.indexOf('aws') + 1 },
+          azure: { enabled: enabled.azure ?? true, priority: order.indexOf('azure') + 1 },
+        }
+      };
+
       const response = await fetch('/api/settings/llm', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
         },
-        body: JSON.stringify(llmForm)
+        body: JSON.stringify(settings)
       });
 
-      if (response.ok) {
-        setLlmDialogOpen(false);
-        loadData();
-      } else {
-        setError('Failed to save LLM config');
+      if (!response.ok) {
+        console.error('Failed to save provider settings');
       }
-    } catch (err) {
-      setError('Failed to save LLM config');
-      console.error('Error saving LLM config:', err);
+    } catch (error) {
+      console.error('Error saving provider settings:', error);
     }
   };
 
@@ -420,487 +667,294 @@ export default function AdminDashboard() {
         )}
 
         <Paper sx={{ width: '100%' }}>
-          <Tabs value={tabValue} onChange={handleTabChange}>
-            <Tab label="Feature Flags" />
-            <Tab label="Settings" />
-            <Tab label="LLM Router" />
-            <Tab label="LLM Providers" />
-          </Tabs>
+          <Box sx={{ p: 3 }}>
+            {/* Global Settings Section */}
 
-          {/* Feature Flags Tab */}
-          {tabValue === 0 && (
-            <Box sx={{ p: 3 }}>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
-                <Typography variant="h6">Feature Flags</Typography>
-                <Button variant="contained" onClick={() => openFlagDialog()}>
-                  Add Feature Flag
+
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
+              <Typography variant="h6">LLM Provider Status</Typography>
+              <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                <Typography variant="caption" color="text.secondary" sx={{ mr: 1 }}>
+                  Last: {lastRefresh.toLocaleTimeString()}
+                </Typography>
+                <Button 
+                  variant="outlined" 
+                  onClick={async () => {
+                    setLlmLoading(true);
+                    try {
+                      const response = await fetch('/api/llm/providers', {
+                        headers: { 'Authorization': `Bearer ${localStorage.getItem('accessToken')}` }
+                      });
+                      if (response.ok) {
+                        const data = await response.json();
+                        const newProviders = data.providers || [];
+                        
+                        // Update only the status information, preserving the existing structure
+                        setLlmProviders(prevProviders => {
+                          const updatedProviders = prevProviders.map(prevProvider => {
+                            const newProvider = newProviders.find((p: any) => p.key === prevProvider.key);
+                            if (newProvider) {
+                              return {
+                                ...prevProvider,
+                                isAvailable: newProvider.isAvailable,
+                                avgLatencyMs: newProvider.avgLatencyMs,
+                                model: newProvider.model
+                              };
+                            }
+                            return prevProvider;
+                          });
+                          return updatedProviders;
+                        });
+                        
+                        await loadAllApiKeyStatus();
+                        setLastRefresh(new Date());
+                      }
+                    } catch (error) {
+                      console.error('Error during manual refresh:', error);
+                    } finally {
+                      setLlmLoading(false);
+                    }
+                  }}
+                  disabled={llmLoading}
+                  size="small"
+                >
+                  {llmLoading ? <CircularProgress size={16} /> : 'Refresh Now'}
                 </Button>
               </Box>
-
-              {featureFlags.map((flag) => (
-                <Card key={flag.id} sx={{ mb: 2 }}>
-                  <CardContent>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <Box>
-                        <Typography variant="h6">{flag.name}</Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          Key: {flag.key}
-                        </Typography>
-                        {flag.description && (
+            </Box>
+            <Grid container spacing={2}>
+              {providerOrder.length === 0 && llmProviders.length === 0 && (
+                <Grid item xs={12}>
+                  <Alert severity="info">
+                    No providers loaded. Please check the console for debugging information.
+                  </Alert>
+                </Grid>
+              )}
+              {providerOrder.map((key, index) => {
+                const provider = llmProviders.find(p => p.key === key);
+                console.log(`Rendering provider ${key}:`, provider);
+                if (!provider) {
+                  console.log(`Provider ${key} not found in llmProviders`);
+                  return (
+                    <Grid item xs={12} md={6} key={`provider-${key}`}>
+                      <Card>
+                        <CardContent>
+                          <Typography variant="h6">{key}</Typography>
                           <Typography variant="body2" color="text.secondary">
-                            {flag.description}
+                            Provider not loaded yet...
+                          </Typography>
+                        </CardContent>
+                      </Card>
+                    </Grid>
+                  );
+                }
+                return (
+                  <Grid item xs={12} md={6} key={`provider-${provider.key}`}>
+                    <Card>
+                      <CardContent>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Typography variant="h6">{provider.name}</Typography>
+                            <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+                              <Button
+                                size="small"
+                                onClick={() => moveProviderUp(index)}
+                                disabled={index === 0}
+                                sx={{ minWidth: 'auto', p: 0.5 }}
+                              >
+                                ↑
+                              </Button>
+                              <Button
+                                size="small"
+                                onClick={() => moveProviderDown(index)}
+                                disabled={index === providerOrder.length - 1}
+                                sx={{ minWidth: 'auto', p: 0.5 }}
+                              >
+                                ↓
+                              </Button>
+                            </Box>
+                          </Box>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <FormControlLabel
+                              control={
+                                <Switch
+                                  checked={providerEnabled[provider.key] ?? true}
+                                  onChange={() => handleProviderToggle(provider.key)}
+                                  size="small"
+                                />
+                              }
+                              label={providerEnabled[provider.key] ? 'Enabled' : 'Disabled'}
+                              sx={{ mr: 1 }}
+                            />
+                            <Typography 
+                              variant="caption" 
+                              color="text.secondary"
+                              sx={{
+                                transition: 'color 0.3s ease',
+                                color: provider.isAvailable ? 'success.main' : 'error.main'
+                              }}
+                            >
+                              {provider.isAvailable ? 'Online' : 'Offline'}
+                            </Typography>
+                            <Box sx={{
+                              width: 12,
+                              height: 12,
+                              borderRadius: '50%',
+                              backgroundColor: provider.isAvailable ? '#4caf50' : '#f44336',
+                              boxShadow: provider.isAvailable ? '0 0 8px rgba(76, 175, 80, 0.5)' : 'none',
+                              transition: 'all 0.3s ease',
+                              animation: provider.isAvailable ? 'pulse 2s infinite' : 'none',
+                              '@keyframes pulse': {
+                                '0%': {
+                                  boxShadow: '0 0 8px rgba(76, 175, 80, 0.5)'
+                                },
+                                '50%': {
+                                  boxShadow: '0 0 12px rgba(76, 175, 80, 0.8)'
+                                },
+                                '100%': {
+                                  boxShadow: '0 0 8px rgba(76, 175, 80, 0.5)'
+                                }
+                              }
+                            }} />
+                          </Box>
+                        </Box>
+                        <Typography variant="body2" color="text.secondary" gutterBottom>
+                          Endpoint: {provider.endpoint}
+                        </Typography>
+                        {provider.model && (
+                          <Typography variant="body2" color="text.secondary" gutterBottom>
+                            Model: {provider.model}
                           </Typography>
                         )}
-                        <Box sx={{ mt: 1 }}>
-                          <Chip 
-                            label={flag.enabled ? 'Enabled' : 'Disabled'} 
-                            color={flag.enabled ? 'success' : 'default'}
+                        <Typography 
+                          variant="body2" 
+                          color="text.secondary" 
+                          gutterBottom
+                          sx={{
+                            transition: 'color 0.3s ease',
+                            color: provider.avgLatencyMs < 100 ? 'success.main' : 
+                                   provider.avgLatencyMs < 500 ? 'warning.main' : 'error.main'
+                          }}
+                        >
+                          Latency: {provider.avgLatencyMs}ms
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary" gutterBottom>
+                          Cost: {formatPricing(provider)}
+                        </Typography>
+                        {provider.key !== 'ollama' && apiKeyStatus[provider.key]?.hasKey && !provider.isAvailable && (
+                          <Alert severity="warning" sx={{ mt: 1, mb: 1 }}>
+                            API key present but provider offline. Try refreshing.
+                          </Alert>
+                        )}
+                        {provider.key !== 'ollama' && !apiKeyStatus[provider.key]?.hasKey && (
+                          <Alert severity="info" sx={{ mt: 1, mb: 1 }}>
+                            No API key configured
+                          </Alert>
+                        )}
+                        <Box sx={{ mt: 2, display: 'flex', gap: 1 }}>
+                          <Button
+                            variant="outlined"
                             size="small"
-                          />
-                          {flag.enabled && (
-                            <Chip 
-                              label={`${flag.rolloutPercentage}% rollout`} 
+                            onClick={() => testLLMProvider(provider.key)}
+                            disabled={testing || !provider.isAvailable}
+                          >
+                            {testing ? 'Testing...' : 'Test Provider'}
+                          </Button>
+                          <Button
+                            variant="outlined"
+                            size="small"
+                            onClick={() => openModelDialog(provider.key, provider.model || '')}
+                            disabled={!provider.isAvailable}
+                          >
+                            Change Model
+                          </Button>
+                          {provider.key === 'ollama' && (
+                            <Button
                               variant="outlined"
                               size="small"
+                              onClick={() => openOllamaEndpointDialog(provider.endpoint)}
                               sx={{ ml: 1 }}
-                            />
+                            >
+                              Update Endpoint
+                            </Button>
+                          )}
+                          {provider.key !== 'ollama' && (
+                            <Button
+                              variant="outlined"
+                              size="small"
+                              onClick={() => openApiKeyDialog(provider.key)}
+                              sx={{ ml: 1 }}
+                            >
+                              {apiKeyStatus[provider.key]?.hasKey ? 'Update API Key' : 'Add API Key'}
+                            </Button>
                           )}
                         </Box>
-                      </Box>
-                      <Box>
-                        <IconButton onClick={() => openFlagDialog(flag)}>
-                          <EditIcon />
-                        </IconButton>
-                        <IconButton onClick={() => deleteFeatureFlag(flag.key)}>
-                          <DeleteIcon />
-                        </IconButton>
-                      </Box>
-                    </Box>
-                  </CardContent>
-                </Card>
-              ))}
-            </Box>
-          )}
-
-          {/* Settings Tab */}
-          {tabValue === 1 && (
-            <Box sx={{ p: 3 }}>
-              <Typography variant="h6" gutterBottom>
-                System Settings
-              </Typography>
-              {settings.map((setting) => (
-                <Card key={setting.id} sx={{ mb: 2 }}>
+                      </CardContent>
+                    </Card>
+                  </Grid>
+                );
+              })}
+            </Grid>
+            
+            {/* Status Notifications */}
+            {statusNotifications.length > 0 && (
+              <Box sx={{ mt: 2 }}>
+                {statusNotifications.map((notification, index) => (
+                  <Alert 
+                    key={index} 
+                    severity="success" 
+                    sx={{ mb: 1 }}
+                    onClose={() => setStatusNotifications(prev => prev.filter((_, i) => i !== index))}
+                  >
+                    {notification}
+                  </Alert>
+                ))}
+              </Box>
+            )}
+            
+            {/* Test Result */}
+            {testResult && (
+              <Box sx={{ mt: 3 }}>
+                <Typography variant="h6" gutterBottom>
+                  Test Result
+                </Typography>
+                <Card>
                   <CardContent>
-                    <Typography variant="h6">{setting.key}</Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      {setting.value}
-                    </Typography>
-                    {setting.description && (
-                      <Typography variant="body2" color="text.secondary">
-                        {setting.description}
+                    {testResult.success ? (
+                      <Box>
+                        <Typography variant="body2" color="success.main" gutterBottom>
+                          ✅ Test successful using {testResult.provider}
+                        </Typography>
+                        <Typography variant="body1" gutterBottom>
+                          Response: {testResult.content}
+                        </Typography>
+                        {testResult.usage && (
+                          <Typography variant="body2" color="text.secondary">
+                            Tokens used: {testResult.usage.totalTokens}
+                          </Typography>
+                        )}
+                      </Box>
+                    ) : (
+                      <Typography variant="body2" color="error.main">
+                        ❌ Test failed: {testResult.error}
                       </Typography>
                     )}
                   </CardContent>
                 </Card>
-              ))}
-            </Box>
-          )}
-
-          {/* LLM Router Tab */}
-          {tabValue === 2 && (
-            <Box sx={{ p: 3 }}>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
-                <Typography variant="h6">LLM Router Configuration</Typography>
-                <Button variant="contained" onClick={() => setLlmDialogOpen(true)}>
-                  Edit Configuration
-                </Button>
-              </Box>
-
-              {llmConfig && (
-                <Card>
-                  <CardContent>
-                    <Typography variant="h6" gutterBottom>
-                      Weights
-                    </Typography>
-                    <Typography variant="body2">
-                      Latency Weight: {llmConfig.latencyWeight}
-                    </Typography>
-                    <Typography variant="body2">
-                      Cost Weight: {llmConfig.costWeight}
-                    </Typography>
-
-                    <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
-                      Providers
-                    </Typography>
-                    {Object.entries(llmConfig.providers).map(([name, config]) => (
-                      <Box key={name} sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                        <Chip 
-                          label={name} 
-                          color={config.enabled ? 'success' : 'default'}
-                          size="small"
-                        />
-                        <Typography variant="body2" sx={{ ml: 1 }}>
-                          Priority: {config.priority}
-                        </Typography>
-                      </Box>
-                    ))}
-                  </CardContent>
-                </Card>
-              )}
-            </Box>
-          )}
-
-          {/* LLM Providers Tab */}
-          {tabValue === 3 && (
-            <Box sx={{ p: 3 }}>
-              {/* Global Settings Section */}
-              {llmConfig && (
-                <Card sx={{ mb: 3 }}>
-                  <CardContent>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                      <Typography variant="h6">Global LLM Settings</Typography>
-                      <Button 
-                        variant="outlined" 
-                        onClick={() => setLlmDialogOpen(true)}
-                        size="small"
-                      >
-                        Configure
-                      </Button>
-                    </Box>
-                    <Grid container spacing={2}>
-                      <Grid item xs={12} md={6}>
-                        <Typography variant="body2" color="text.secondary" gutterBottom>
-                          Current Provider: <strong>{llmConfig.selectedProvider}</strong>
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary" gutterBottom>
-                          Current Model: <strong>{llmConfig.selectedModel}</strong>
-                        </Typography>
-                      </Grid>
-                      <Grid item xs={12} md={6}>
-                        <Typography variant="body2" color="text.secondary" gutterBottom>
-                          Latency Weight: <strong>{llmConfig.latencyWeight}</strong>
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary" gutterBottom>
-                          Cost Weight: <strong>{llmConfig.costWeight}</strong>
-                        </Typography>
-                      </Grid>
-                    </Grid>
-                    <Typography variant="body2" color="text.secondary" sx={{ mt: 1, fontStyle: 'italic' }}>
-                      These settings apply to all users globally
-                    </Typography>
-                  </CardContent>
-                </Card>
-              )}
-
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
-                <Typography variant="h6">LLM Provider Status</Typography>
-                <Box sx={{ display: 'flex', gap: 1 }}>
-                  <Button 
-                    variant="outlined" 
-                    onClick={clearLLMCache}
-                    size="small"
-                  >
-                    Clear Cache
-                  </Button>
-                  <Button 
-                    variant="outlined" 
-                    onClick={loadLLMProviders}
-                    disabled={llmLoading}
-                  >
-                    {llmLoading ? <CircularProgress size={20} /> : 'Refresh'}
-                  </Button>
-                </Box>
-              </Box>
-
-              {llmLoading ? (
-                <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
-                  <CircularProgress />
-                </Box>
-              ) : (
-                <Grid container spacing={2}>
-                  {llmProviders.map((provider) => (
-                    <Grid item xs={12} md={6} key={provider.name}>
-                      <Card>
-                        <CardContent>
-                          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                            <Typography variant="h6">{provider.name}</Typography>
-                            <Chip 
-                              label={provider.isAvailable ? 'Available' : 'Unavailable'} 
-                              color={provider.isAvailable ? 'success' : 'error'}
-                              size="small"
-                            />
-                          </Box>
-                          
-                          <Typography variant="body2" color="text.secondary" gutterBottom>
-                            Endpoint: {provider.endpoint}
-                          </Typography>
-                          
-                          {provider.model && (
-                            <Typography variant="body2" color="text.secondary" gutterBottom>
-                              Model: {provider.model}
-                            </Typography>
-                          )}
-                          
-                          <Typography variant="body2" color="text.secondary" gutterBottom>
-                            Latency: {provider.avgLatencyMs}ms
-                          </Typography>
-                          
-                          <Typography variant="body2" color="text.secondary" gutterBottom>
-                            Cost: ${provider.costPer1k}/1k tokens
-                          </Typography>
-                          
-                          <Box sx={{ mt: 2, display: 'flex', gap: 1 }}>
-                            <Button
-                              variant="outlined"
-                              size="small"
-                              onClick={() => testLLMProvider(provider.key)}
-                              disabled={testing || !provider.isAvailable}
-                            >
-                              {testing ? 'Testing...' : 'Test Provider'}
-                            </Button>
-                            
-                            {provider.name === 'Ollama' && (
-                              <Button
-                                variant="outlined"
-                                size="small"
-                                onClick={() => openModelDialog(provider.model || '')}
-                                disabled={!provider.isAvailable}
-                              >
-                                Change Model
-                              </Button>
-                            )}
-                          </Box>
-                        </CardContent>
-                      </Card>
-                    </Grid>
-                  ))}
-                  
-                  {llmProviders.length === 0 && (
-                    <Grid item xs={12}>
-                      <Paper sx={{ p: 3, textAlign: 'center' }}>
-                        <Typography variant="body1" color="text.secondary">
-                          No LLM providers configured. Check your environment variables.
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                          Required: OLLAMA_BASE_URL, OPENAI_API_KEY, GROQ_API_KEY, or ANTHROPIC_API_KEY
-                        </Typography>
-                      </Paper>
-                    </Grid>
-                  )}
-                </Grid>
-              )}
-              
-              {/* Test Result */}
-              {testResult && (
-                <Box sx={{ mt: 3 }}>
-                  <Typography variant="h6" gutterBottom>
-                    Test Result
-                  </Typography>
-                  <Card>
-                    <CardContent>
-                      {testResult.success ? (
-                        <Box>
-                          <Typography variant="body2" color="success.main" gutterBottom>
-                            ✅ Test successful using {testResult.provider}
-                          </Typography>
-                          <Typography variant="body1" gutterBottom>
-                            Response: {testResult.content}
-                          </Typography>
-                          {testResult.usage && (
-                            <Typography variant="body2" color="text.secondary">
-                              Tokens used: {testResult.usage.totalTokens}
-                            </Typography>
-                          )}
-                        </Box>
-                      ) : (
-                        <Typography variant="body2" color="error.main">
-                          ❌ Test failed: {testResult.error}
-                        </Typography>
-                      )}
-                    </CardContent>
-                  </Card>
-                </Box>
-              )}
-            </Box>
-          )}
-        </Paper>
-
-        {/* Feature Flag Dialog */}
-        <Dialog open={flagDialogOpen} onClose={() => setFlagDialogOpen(false)} maxWidth="sm" fullWidth>
-          <DialogTitle>
-            {editingFlag ? 'Edit Feature Flag' : 'Add Feature Flag'}
-          </DialogTitle>
-          <DialogContent>
-            <TextField
-              fullWidth
-              label="Key"
-              value={flagForm.key}
-              onChange={(e) => setFlagForm({ ...flagForm, key: e.target.value })}
-              margin="normal"
-              disabled={!!editingFlag}
-            />
-            <TextField
-              fullWidth
-              label="Name"
-              value={flagForm.name}
-              onChange={(e) => setFlagForm({ ...flagForm, name: e.target.value })}
-              margin="normal"
-            />
-            <TextField
-              fullWidth
-              label="Description"
-              value={flagForm.description}
-              onChange={(e) => setFlagForm({ ...flagForm, description: e.target.value })}
-              margin="normal"
-              multiline
-              rows={3}
-            />
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={flagForm.enabled}
-                  onChange={(e) => setFlagForm({ ...flagForm, enabled: e.target.checked })}
-                />
-              }
-              label="Enabled"
-              sx={{ mt: 2 }}
-            />
-            {flagForm.enabled && (
-              <Box sx={{ mt: 2 }}>
-                <Typography gutterBottom>Rollout Percentage</Typography>
-                <Slider
-                  value={flagForm.rolloutPercentage}
-                  onChange={(e, value) => setFlagForm({ ...flagForm, rolloutPercentage: value as number })}
-                  min={0}
-                  max={100}
-                  step={5}
-                  marks
-                  valueLabelDisplay="auto"
-                />
               </Box>
             )}
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setFlagDialogOpen(false)}>Cancel</Button>
-            <Button onClick={saveFeatureFlag} variant="contained">
-              Save
-            </Button>
-          </DialogActions>
-        </Dialog>
+          </Box>
+        </Paper>
 
-        {/* LLM Config Dialog */}
-        <Dialog open={llmDialogOpen} onClose={() => setLlmDialogOpen(false)} maxWidth="md" fullWidth>
-          <DialogTitle>LLM Router Configuration</DialogTitle>
-          <DialogContent>
-            <Typography variant="h6" gutterBottom>
-              Global Model & Provider Settings
-            </Typography>
-            
-            <TextField
-              select
-              fullWidth
-              label="Selected Provider"
-              value={llmForm.selectedProvider}
-              onChange={(e) => setLlmForm({ ...llmForm, selectedProvider: e.target.value })}
-              margin="normal"
-            >
-              <MenuItem value="ollama">Ollama (Local)</MenuItem>
-              <MenuItem value="openai">OpenAI</MenuItem>
-              <MenuItem value="groq">Groq</MenuItem>
-              <MenuItem value="anthropic">Anthropic</MenuItem>
-              <MenuItem value="aws">AWS Bedrock</MenuItem>
-              <MenuItem value="azure">Azure AI</MenuItem>
-            </TextField>
-
-            <TextField
-              fullWidth
-              label="Selected Model"
-              value={llmForm.selectedModel}
-              onChange={(e) => setLlmForm({ ...llmForm, selectedModel: e.target.value })}
-              margin="normal"
-              helperText="This model will be used for all users"
-            />
-
-            <Typography variant="h6" gutterBottom sx={{ mt: 3 }}>
-              Router Weights
-            </Typography>
-            
-            <Typography gutterBottom>Latency Weight</Typography>
-            <Slider
-              value={llmForm.latencyWeight}
-              onChange={(e, value) => setLlmForm({ ...llmForm, latencyWeight: value as number })}
-              min={0}
-              max={1}
-              step={0.1}
-              marks
-              valueLabelDisplay="auto"
-            />
-            
-            <Typography gutterBottom sx={{ mt: 2 }}>Cost Weight</Typography>
-            <Slider
-              value={llmForm.costWeight}
-              onChange={(e, value) => setLlmForm({ ...llmForm, costWeight: value as number })}
-              min={0}
-              max={1}
-              step={0.1}
-              marks
-              valueLabelDisplay="auto"
-            />
-
-            <Typography variant="h6" gutterBottom sx={{ mt: 3 }}>
-              Providers
-            </Typography>
-            {Object.entries(llmForm.providers).map(([name, config]) => (
-              <Box key={name} sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                <FormControlLabel
-                  control={
-                    <Switch
-                      checked={config.enabled}
-                      onChange={(e) => setLlmForm({
-                        ...llmForm,
-                        providers: {
-                          ...llmForm.providers,
-                          [name]: { ...config, enabled: e.target.checked }
-                        }
-                      })}
-                    />
-                  }
-                  label={name}
-                />
-                <TextField
-                  type="number"
-                  label="Priority"
-                  value={config.priority}
-                  onChange={(e) => setLlmForm({
-                    ...llmForm,
-                    providers: {
-                      ...llmForm.providers,
-                      [name]: { ...config, priority: parseInt(e.target.value) }
-                    }
-                  })}
-                  sx={{ ml: 2, width: 100 }}
-                  inputProps={{ min: 1, max: 10 }}
-                />
-              </Box>
-            ))}
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setLlmDialogOpen(false)}>Cancel</Button>
-            <Button onClick={saveLLMConfig} variant="contained">
-              Save
-            </Button>
-          </DialogActions>
-        </Dialog>
-
-        {/* Ollama Model Selection Dialog */}
+        {/* Provider Model Selection Dialog */}
         <Dialog open={modelDialogOpen} onClose={() => setModelDialogOpen(false)} maxWidth="sm" fullWidth>
-          <DialogTitle>Select Ollama Model</DialogTitle>
+          <DialogTitle>Select {selectedProvider} Model</DialogTitle>
           <DialogContent>
             <Typography variant="body2" color="text.secondary" gutterBottom>
-              Choose a model from your installed Ollama models:
+              Choose a model from available {selectedProvider} models:
             </Typography>
             
-            {ollamaModels.length === 0 ? (
+            {!providerModels[selectedProvider] || providerModels[selectedProvider].length === 0 ? (
               <Box sx={{ textAlign: 'center', py: 2 }}>
                 <CircularProgress size={24} />
                 <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
@@ -909,30 +963,24 @@ export default function AdminDashboard() {
               </Box>
             ) : (
               <Box sx={{ mt: 2 }}>
-                {ollamaModels.map((model) => (
+                {providerModels[selectedProvider].map((model: string) => (
                   <Box
-                    key={model.name}
+                    key={model}
                     sx={{
                       p: 2,
-                      border: selectedModel === model.name ? '2px solid #1976d2' : '1px solid #e0e0e0',
+                      border: selectedModel === model ? '2px solid #1976d2' : '1px solid #e0e0e0',
                       borderRadius: 1,
                       mb: 1,
                       cursor: 'pointer',
-                      backgroundColor: selectedModel === model.name ? '#f3f6ff' : 'transparent',
+                      backgroundColor: selectedModel === model ? '#f3f6ff' : 'transparent',
                       '&:hover': {
-                        backgroundColor: selectedModel === model.name ? '#f3f6ff' : '#f5f5f5'
+                        backgroundColor: selectedModel === model ? '#f3f6ff' : '#f5f5f5'
                       }
                     }}
-                    onClick={() => setSelectedModel(model.name)}
+                    onClick={() => setSelectedModel(model)}
                   >
                     <Typography variant="subtitle1" fontWeight="medium">
-                      {model.name}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      Size: {(model.size / 1024 / 1024 / 1024).toFixed(1)} GB
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      Modified: {new Date(model.modified_at).toLocaleDateString()}
+                      {model}
                     </Typography>
                   </Box>
                 ))}
@@ -942,11 +990,73 @@ export default function AdminDashboard() {
           <DialogActions>
             <Button onClick={() => setModelDialogOpen(false)}>Cancel</Button>
             <Button 
-              onClick={updateOllamaModel} 
+              onClick={updateProviderModel} 
               variant="contained"
               disabled={updatingModel || !selectedModel}
             >
               {updatingModel ? 'Updating...' : 'Update Model'}
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* API Key Management Dialog */}
+        <Dialog open={apiKeyDialogOpen} onClose={() => setApiKeyDialogOpen(false)} maxWidth="sm" fullWidth>
+          <DialogTitle>Manage {editingProvider} API Key</DialogTitle>
+          <DialogContent>
+            <Typography variant="body2" color="text.secondary" gutterBottom>
+              {apiKeyStatus[editingProvider]?.hasKey 
+                ? `Current API Key: ${apiKeyStatus[editingProvider]?.maskedKey}`
+                : 'No API key configured. Add one to enable this provider.'
+              }
+            </Typography>
+            
+            <TextField
+              fullWidth
+              label="API Key"
+              type="password"
+              value={apiKey}
+              onChange={(e) => setApiKey(e.target.value)}
+              margin="normal"
+              placeholder="Enter your API key"
+            />
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setApiKeyDialogOpen(false)}>Cancel</Button>
+            {apiKeyStatus[editingProvider]?.hasKey && (
+              <Button onClick={removeApiKey} color="error">
+                Remove Key
+              </Button>
+            )}
+            <Button 
+              onClick={saveApiKey} 
+              variant="contained"
+              disabled={!apiKey.trim()}
+            >
+              Save API Key
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* Ollama Endpoint Dialog */}
+        <Dialog open={ollamaEndpointDialogOpen} onClose={() => setOllamaEndpointDialogOpen(false)}>
+          <DialogTitle>Update Ollama Endpoint</DialogTitle>
+          <DialogContent>
+            <TextField
+              label="Ollama Endpoint"
+              fullWidth
+              value={ollamaEndpoint}
+              onChange={e => setOllamaEndpoint(e.target.value)}
+              margin="normal"
+              autoFocus
+            />
+            {ollamaEndpointError && (
+              <Alert severity="error" sx={{ mt: 1 }}>{ollamaEndpointError}</Alert>
+            )}
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setOllamaEndpointDialogOpen(false)} disabled={ollamaEndpointLoading}>Cancel</Button>
+            <Button onClick={updateOllamaEndpoint} variant="contained" disabled={ollamaEndpointLoading}>
+              {ollamaEndpointLoading ? <CircularProgress size={20} /> : 'Save'}
             </Button>
           </DialogActions>
         </Dialog>

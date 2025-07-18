@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { featureFlagService } from '@/lib/featureFlagService';
+import { SettingService } from '@/lib/services/SettingService';
 import { requireRole } from '@/lib/middleware/auth';
 import { z } from 'zod';
 
@@ -13,9 +13,11 @@ const llmRouterConfigSchema = z.object({
   })).optional()
 });
 
+const settingService = SettingService.getInstance();
+
 export const GET = requireRole('ADMIN')(async (req) => {
   try {
-    const config = await featureFlagService.getLLMRouterConfig();
+    const config = await settingService.getLLMRouterConfig();
     return NextResponse.json({ config });
   } catch (error) {
     console.error('Error fetching LLM router config:', error);
@@ -31,10 +33,10 @@ export const PUT = requireRole('ADMIN')(async (req) => {
     const body = await req.json();
     const validatedData = llmRouterConfigSchema.parse(body);
 
-    await featureFlagService.updateLLMRouterConfig(validatedData);
+    await settingService.updateLLMRouterConfig(validatedData);
     
     // Return updated config
-    const config = await featureFlagService.getLLMRouterConfig();
+    const config = await settingService.getLLMRouterConfig();
     return NextResponse.json({ config });
   } catch (error) {
     if (error instanceof z.ZodError) {
