@@ -20,8 +20,17 @@ import {
   Card,
   CardContent,
   Grid,
-  MenuItem
+  MenuItem,
+  Tabs,
+  Tab,
+  List,
+  ListItem,
+  ListItemText,
+  ListItemSecondaryAction,
+  IconButton,
+  Chip
 } from '@mui/material';
+import { Edit as EditIcon, Delete as DeleteIcon, Visibility as VisibilityIcon, VisibilityOff as VisibilityOffIcon } from '@mui/icons-material';
 import Navigation from '../components/Navigation';
 
 
@@ -81,6 +90,24 @@ export default function AdminDashboard() {
   const [ollamaEndpoint, setOllamaEndpoint] = useState('');
   const [ollamaEndpointLoading, setOllamaEndpointLoading] = useState(false);
   const [ollamaEndpointError, setOllamaEndpointError] = useState<string | null>(null);
+
+  // Tab state
+  const [activeTab, setActiveTab] = useState(0);
+
+  // System messages state
+  const [systemMessages, setSystemMessages] = useState<any[]>([]);
+  const [systemMessagesLoading, setSystemMessagesLoading] = useState(false);
+  const [systemMessageCategories, setSystemMessageCategories] = useState<string[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [systemMessageDialogOpen, setSystemMessageDialogOpen] = useState(false);
+  const [editingMessage, setEditingMessage] = useState<any>(null);
+  const [systemMessageForm, setSystemMessageForm] = useState({
+    key: '',
+    title: '',
+    content: '',
+    category: '',
+    description: ''
+  });
 
   useEffect(() => {
     // Get user from localStorage
@@ -420,6 +447,39 @@ export default function AdminDashboard() {
     }
   };
 
+  const loadSystemMessages = async () => {
+    setSystemMessagesLoading(true);
+    try {
+      const response = await fetch('/api/system-messages', {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('accessToken')}` }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setSystemMessages(data.data || []);
+      } else {
+        console.error('Failed to load system messages:', response.status);
+      }
+    } catch (error) {
+      console.error('Error loading system messages:', error);
+    } finally {
+      setSystemMessagesLoading(false);
+    }
+  };
+
+  const loadSystemMessageCategories = async () => {
+    try {
+      const response = await fetch('/api/system-messages/categories', {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('accessToken')}` }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setSystemMessageCategories(data.data || []);
+      }
+    } catch (error) {
+      console.error('Error loading system message categories:', error);
+    }
+  };
+
   const loadData = async () => {
     try {
       setLoading(true);
@@ -428,6 +488,8 @@ export default function AdminDashboard() {
       // Load LLM providers
       await loadLLMProviders();
       await loadAllApiKeyStatus();
+      await loadSystemMessages();
+      await loadSystemMessageCategories();
 
       // Load LLM settings to get provider order and enabled state
       const llmRes = await fetch('/api/settings/llm', {
@@ -668,6 +730,107 @@ export default function AdminDashboard() {
     }
   };
 
+  // System message management functions
+  const openSystemMessageDialog = (message?: any) => {
+    if (message) {
+      setEditingMessage(message);
+      setSystemMessageForm({
+        key: message.key,
+        title: message.title,
+        content: message.content,
+        category: message.category,
+        description: message.description || ''
+      });
+    } else {
+      setEditingMessage(null);
+      setSystemMessageForm({
+        key: '',
+        title: '',
+        content: '',
+        category: '',
+        description: ''
+      });
+    }
+    setSystemMessageDialogOpen(true);
+  };
+
+  const saveSystemMessage = async () => {
+    try {
+      const url = editingMessage 
+        ? `/api/system-messages/${editingMessage.key}`
+        : '/api/system-messages';
+      
+      const method = editingMessage ? 'PUT' : 'POST';
+      
+      const response = await fetch(url, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
+        },
+        body: JSON.stringify(systemMessageForm)
+      });
+
+      if (response.ok) {
+        setSystemMessageDialogOpen(false);
+        await loadSystemMessages();
+        setError(null);
+      } else {
+        const error = await response.json();
+        setError(error.error || 'Failed to save system message');
+      }
+    } catch (error) {
+      setError('Failed to save system message');
+      console.error('Error saving system message:', error);
+    }
+  };
+
+  const deleteSystemMessage = async (key: string) => {
+    if (!confirm('Are you sure you want to delete this system message?')) return;
+    
+    try {
+      const response = await fetch(`/api/system-messages/${key}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
+        }
+      });
+
+      if (response.ok) {
+        await loadSystemMessages();
+        setError(null);
+      } else {
+        const error = await response.json();
+        setError(error.error || 'Failed to delete system message');
+      }
+    } catch (error) {
+      setError('Failed to delete system message');
+      console.error('Error deleting system message:', error);
+    }
+  };
+
+  const toggleSystemMessageActive = async (key: string) => {
+    try {
+      const response = await fetch(`/api/system-messages/${key}/toggle`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
+        }
+      });
+
+      if (response.ok) {
+        await loadSystemMessages();
+        setError(null);
+      } else {
+        const error = await response.json();
+        setError(error.error || 'Failed to toggle system message');
+      }
+    } catch (error) {
+      setError('Failed to toggle system message');
+      console.error('Error toggling system message:', error);
+    }
+  };
+
   if (user?.role !== 'ADMIN') {
     return (
       <Container maxWidth="md" sx={{ mt: 4 }}>
@@ -701,310 +864,387 @@ export default function AdminDashboard() {
         )}
 
         <Paper sx={{ width: '100%' }}>
-          <Box sx={{ p: 3 }}>
-            {/* Global Settings Section */}
+          <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+            <Tabs value={activeTab} onChange={(_, newValue) => setActiveTab(newValue)}>
+              <Tab label="LLM Providers" />
+              <Tab label="System Messages" />
+            </Tabs>
+          </Box>
 
-
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
-              <Typography variant="h6">LLM Provider Status</Typography>
-              <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-                <Typography variant="caption" color="text.secondary" sx={{ mr: 1 }}>
-                  Last: {lastRefresh.toLocaleTimeString()}
-                </Typography>
-                <Button 
-                  variant="outlined" 
-                  onClick={async () => {
-                    setLlmLoading(true);
-                    try {
-                      const response = await fetch('/api/llm/providers', {
-                        headers: { 'Authorization': `Bearer ${localStorage.getItem('accessToken')}` }
-                      });
-                      if (response.ok) {
-                        const data = await response.json();
-                        const newProviders = data.providers || [];
-                        
-                        // Update only the status information, preserving the existing structure
-                        setLlmProviders(prevProviders => {
-                          const updatedProviders = prevProviders.map(prevProvider => {
-                            const newProvider = newProviders.find((p: any) => p.key === prevProvider.key);
-                            if (newProvider) {
-                              return {
-                                ...prevProvider,
-                                isAvailable: newProvider.isAvailable,
-                                avgLatencyMs: newProvider.avgLatencyMs,
-                                model: newProvider.model
-                              };
-                            }
-                            return prevProvider;
-                          });
-                          return updatedProviders;
+          {/* LLM Providers Tab */}
+          {activeTab === 0 && (
+            <Box sx={{ p: 3 }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
+                <Typography variant="h6">LLM Provider Status</Typography>
+                <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                  <Typography variant="caption" color="text.secondary" sx={{ mr: 1 }}>
+                    Last: {lastRefresh.toLocaleTimeString()}
+                  </Typography>
+                  <Button 
+                    variant="outlined" 
+                    onClick={async () => {
+                      setLlmLoading(true);
+                      try {
+                        const response = await fetch('/api/llm/providers', {
+                          headers: { 'Authorization': `Bearer ${localStorage.getItem('accessToken')}` }
                         });
-                        
-                        await loadAllApiKeyStatus();
-                        setLastRefresh(new Date());
+                        if (response.ok) {
+                          const data = await response.json();
+                          const newProviders = data.providers || [];
+                          
+                          // Update only the status information, preserving the existing structure
+                          setLlmProviders(prevProviders => {
+                            const updatedProviders = prevProviders.map(prevProvider => {
+                              const newProvider = newProviders.find((p: any) => p.key === prevProvider.key);
+                              if (newProvider) {
+                                return {
+                                  ...prevProvider,
+                                  isAvailable: newProvider.isAvailable,
+                                  avgLatencyMs: newProvider.avgLatencyMs,
+                                  model: newProvider.model
+                                };
+                              }
+                              return prevProvider;
+                            });
+                            return updatedProviders;
+                          });
+                          
+                          await loadAllApiKeyStatus();
+                          setLastRefresh(new Date());
+                        }
+                      } catch (error) {
+                        console.error('Error during manual refresh:', error);
+                      } finally {
+                        setLlmLoading(false);
                       }
-                    } catch (error) {
-                      console.error('Error during manual refresh:', error);
-                    } finally {
-                      setLlmLoading(false);
-                    }
-                  }}
-                  disabled={llmLoading}
-                  size="small"
-                >
-                  {llmLoading ? <CircularProgress size={16} /> : 'Refresh Now'}
-                </Button>
+                    }}
+                    disabled={llmLoading}
+                    size="small"
+                  >
+                    {llmLoading ? <CircularProgress size={16} /> : 'Refresh Now'}
+                  </Button>
+                </Box>
               </Box>
-            </Box>
-            <Grid container spacing={2}>
-              {providerOrder.length === 0 && llmProviders.length === 0 && (
-                <Grid item xs={12}>
-                  <Alert severity="info">
-                    {llmLoading ? 'Initializing LLM providers... This may take a few seconds.' : 'No providers loaded. Please check the console for debugging information.'}
-                  </Alert>
-                </Grid>
-              )}
-              {providerOrder.map((key, index) => {
-                const provider = llmProviders.find(p => p.key === key);
-                console.log(`Rendering provider ${key}:`, provider);
-                if (!provider) {
-                  console.log(`Provider ${key} not found in llmProviders`);
+              <Grid container spacing={2}>
+                {providerOrder.length === 0 && llmProviders.length === 0 && (
+                  <Grid item xs={12}>
+                    <Alert severity="info">
+                      {llmLoading ? 'Initializing LLM providers... This may take a few seconds.' : 'No providers loaded. Please check the console for debugging information.'}
+                    </Alert>
+                  </Grid>
+                )}
+                {providerOrder.map((key, index) => {
+                  const provider = llmProviders.find(p => p.key === key);
+                  console.log(`Rendering provider ${key}:`, provider);
+                  if (!provider) {
+                    console.log(`Provider ${key} not found in llmProviders`);
+                    return (
+                      <Grid item xs={12} md={6} key={`provider-${key}`}>
+                        <Card>
+                          <CardContent>
+                            <Typography variant="h6">{key}</Typography>
+                            <Typography variant="body2" color="text.secondary">
+                              Provider not loaded yet...
+                            </Typography>
+                          </CardContent>
+                        </Card>
+                      </Grid>
+                    );
+                  }
                   return (
-                    <Grid item xs={12} md={6} key={`provider-${key}`}>
+                    <Grid item xs={12} md={6} key={`provider-${provider.key}`}>
                       <Card>
                         <CardContent>
-                          <Typography variant="h6">{key}</Typography>
-                          <Typography variant="body2" color="text.secondary">
-                            Provider not loaded yet...
-                          </Typography>
-                        </CardContent>
-                      </Card>
-                    </Grid>
-                  );
-                }
-                return (
-                  <Grid item xs={12} md={6} key={`provider-${provider.key}`}>
-                    <Card>
-                      <CardContent>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <Typography variant="h6">{provider.name}</Typography>
-                            <Box sx={{ display: 'flex', flexDirection: 'column' }}>
-                              <Button
-                                size="small"
-                                onClick={() => moveProviderUp(index)}
-                                disabled={index === 0}
-                                sx={{ minWidth: 'auto', p: 0.5 }}
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                              <Typography variant="h6">{provider.name}</Typography>
+                              <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+                                <Button
+                                  size="small"
+                                  onClick={() => moveProviderUp(index)}
+                                  disabled={index === 0}
+                                  sx={{ minWidth: 'auto', p: 0.5 }}
+                                >
+                                  ↑
+                                </Button>
+                                <Button
+                                  size="small"
+                                  onClick={() => moveProviderDown(index)}
+                                  disabled={index === providerOrder.length - 1}
+                                  sx={{ minWidth: 'auto', p: 0.5 }}
+                                >
+                                  ↓
+                                </Button>
+                              </Box>
+                            </Box>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                              <FormControlLabel
+                                control={
+                                  <Switch
+                                    checked={providerEnabled[provider.key] ?? true}
+                                    onChange={() => handleProviderToggle(provider.key)}
+                                    size="small"
+                                  />
+                                }
+                                label={providerEnabled[provider.key] ? 'Enabled' : 'Disabled'}
+                                sx={{ mr: 1 }}
+                              />
+                              <Typography 
+                                variant="caption" 
+                                color="text.secondary"
+                                sx={{
+                                  transition: 'color 0.3s ease',
+                                  color: provider.isAvailable ? 'success.main' : 'error.main'
+                                }}
                               >
-                                ↑
-                              </Button>
-                              <Button
-                                size="small"
-                                onClick={() => moveProviderDown(index)}
-                                disabled={index === providerOrder.length - 1}
-                                sx={{ minWidth: 'auto', p: 0.5 }}
-                              >
-                                ↓
-                              </Button>
+                                {provider.isAvailable ? 'Online' : 'Offline'}
+                              </Typography>
+                              <Box sx={{
+                                width: 12,
+                                height: 12,
+                                borderRadius: '50%',
+                                backgroundColor: provider.isAvailable ? '#4caf50' : '#f44336',
+                                boxShadow: provider.isAvailable ? '0 0 8px rgba(76, 175, 80, 0.5)' : 'none',
+                                transition: 'all 0.3s ease',
+                                animation: provider.isAvailable ? 'pulse 2s infinite' : 'none',
+                                '@keyframes pulse': {
+                                  '0%': {
+                                    boxShadow: '0 0 8px rgba(76, 175, 80, 0.5)'
+                                  },
+                                  '50%': {
+                                    boxShadow: '0 0 12px rgba(76, 175, 80, 0.8)'
+                                  },
+                                  '100%': {
+                                    boxShadow: '0 0 8px rgba(76, 175, 80, 0.5)'
+                                  }
+                                }
+                              }} />
                             </Box>
                           </Box>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <FormControlLabel
-                              control={
-                                <Switch
-                                  checked={providerEnabled[provider.key] ?? true}
-                                  onChange={() => handleProviderToggle(provider.key)}
-                                  size="small"
-                                />
-                              }
-                              label={providerEnabled[provider.key] ? 'Enabled' : 'Disabled'}
-                              sx={{ mr: 1 }}
-                            />
-                            <Typography 
-                              variant="caption" 
-                              color="text.secondary"
-                              sx={{
-                                transition: 'color 0.3s ease',
-                                color: provider.isAvailable ? 'success.main' : 'error.main'
-                              }}
-                            >
-                              {provider.isAvailable ? 'Online' : 'Offline'}
-                            </Typography>
-                            <Box sx={{
-                              width: 12,
-                              height: 12,
-                              borderRadius: '50%',
-                              backgroundColor: provider.isAvailable ? '#4caf50' : '#f44336',
-                              boxShadow: provider.isAvailable ? '0 0 8px rgba(76, 175, 80, 0.5)' : 'none',
-                              transition: 'all 0.3s ease',
-                              animation: provider.isAvailable ? 'pulse 2s infinite' : 'none',
-                              '@keyframes pulse': {
-                                '0%': {
-                                  boxShadow: '0 0 8px rgba(76, 175, 80, 0.5)'
-                                },
-                                '50%': {
-                                  boxShadow: '0 0 12px rgba(76, 175, 80, 0.8)'
-                                },
-                                '100%': {
-                                  boxShadow: '0 0 8px rgba(76, 175, 80, 0.5)'
-                                }
-                              }
-                            }} />
-                          </Box>
-                        </Box>
-                        <Typography variant="body2" color="text.secondary" gutterBottom>
-                          Endpoint: {provider.endpoint}
-                        </Typography>
-                        {provider.model && (
                           <Typography variant="body2" color="text.secondary" gutterBottom>
-                            Model: {provider.model}
+                            Endpoint: {provider.endpoint}
                           </Typography>
-                        )}
-                        <Typography 
-                          variant="body2" 
-                          color="text.secondary" 
-                          gutterBottom
-                          sx={{
-                            transition: 'color 0.3s ease',
-                            color: provider.avgLatencyMs < 100 ? 'success.main' : 
-                                   provider.avgLatencyMs < 500 ? 'warning.main' : 'error.main'
-                          }}
-                        >
-                          Latency: {provider.avgLatencyMs}ms
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary" gutterBottom>
-                          Cost: {formatPricing(provider)}
-                        </Typography>
-                        {provider.usage && (
-                          <Box sx={{ mt: 1, p: 1, backgroundColor: '#f5f5f5', borderRadius: 1 }}>
+                          {provider.model && (
                             <Typography variant="body2" color="text.secondary" gutterBottom>
-                              <strong>Usage Statistics:</strong>
+                              Model: {provider.model}
                             </Typography>
-                            <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.875rem' }}>
-                              Total Tokens: {provider.usage.totalTokens.toLocaleString()}
-                            </Typography>
-                            <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.875rem' }}>
-                              Total Cost: ${provider.usage.totalCost.toFixed(4)}
-                            </Typography>
-                            <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.875rem' }}>
-                              Requests: {provider.usage.requestCount}
-                            </Typography>
-                            <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.875rem' }}>
-                              Last Reset: {new Date(provider.usage.lastResetAt).toLocaleDateString()}
-                            </Typography>
+                          )}
+                          <Typography 
+                            variant="body2" 
+                            color="text.secondary" 
+                            gutterBottom
+                            sx={{
+                              transition: 'color 0.3s ease',
+                              color: provider.avgLatencyMs < 100 ? 'success.main' : 
+                                     provider.avgLatencyMs < 500 ? 'warning.main' : 'error.main'
+                            }}
+                          >
+                            Latency: {provider.avgLatencyMs}ms
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary" gutterBottom>
+                            Cost: {formatPricing(provider)}
+                          </Typography>
+                          {provider.usage && (
+                            <Box sx={{ mt: 1, p: 1, backgroundColor: '#f5f5f5', borderRadius: 1 }}>
+                              <Typography variant="body2" color="text.secondary" gutterBottom>
+                                <strong>Usage Statistics:</strong>
+                              </Typography>
+                              <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.875rem' }}>
+                                Total Tokens: {provider.usage.totalTokens.toLocaleString()}
+                              </Typography>
+                              <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.875rem' }}>
+                                Total Cost: ${provider.usage.totalCost.toFixed(4)}
+                              </Typography>
+                              <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.875rem' }}>
+                                Requests: {provider.usage.requestCount}
+                              </Typography>
+                              <Button
+                                size="small"
+                                variant="outlined"
+                                onClick={() => resetUsageStats(provider.key)}
+                                sx={{ mt: 1 }}
+                              >
+                                Reset Stats
+                              </Button>
+                            </Box>
+                          )}
+                          <Box sx={{ display: 'flex', gap: 1, mt: 2 }}>
                             <Button
-                              variant="outlined"
                               size="small"
-                              onClick={() => resetUsageStats(provider.key)}
-                              sx={{ mt: 1 }}
+                              variant="outlined"
+                              onClick={() => openApiKeyDialog(provider.key)}
+                              disabled={!provider.apiKeyStatus?.hasKey}
                             >
-                              Reset Usage
+                              {provider.apiKeyStatus?.hasKey ? 'Update API Key' : 'Add API Key'}
+                            </Button>
+                            {provider.apiKeyStatus?.hasKey && (
+                              <Button
+                                size="small"
+                                variant="outlined"
+                                color="error"
+                                onClick={() => removeApiKey(provider.key)}
+                              >
+                                Remove Key
+                              </Button>
+                            )}
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              onClick={() => openModelDialog(provider.key, provider.model || '')}
+                              disabled={!provider.apiKeyStatus?.hasKey || !provider.isAvailable}
+                            >
+                              Change Model
+                            </Button>
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              onClick={() => testLLMProvider(provider.key)}
+                              disabled={!provider.apiKeyStatus?.hasKey || !provider.isAvailable}
+                            >
+                              Test
                             </Button>
                           </Box>
-                        )}
-                        {provider.key !== 'ollama' && apiKeyStatus[provider.key]?.hasKey && !provider.isAvailable && (
-                          <Alert severity="warning" sx={{ mt: 1, mb: 1 }}>
-                            API key present but provider offline. Try refreshing.
-                          </Alert>
-                        )}
-                        {provider.key !== 'ollama' && !apiKeyStatus[provider.key]?.hasKey && (
-                          <Alert severity="info" sx={{ mt: 1, mb: 1 }}>
-                            No API key configured
-                          </Alert>
-                        )}
-                        <Box sx={{ mt: 2, display: 'flex', gap: 1 }}>
-                          <Button
-                            variant="outlined"
-                            size="small"
-                            onClick={() => testLLMProvider(provider.key)}
-                            disabled={testing || !provider.isAvailable}
-                          >
-                            {testing ? 'Testing...' : 'Test Provider'}
-                          </Button>
-                          <Button
-                            variant="outlined"
-                            size="small"
-                            onClick={() => openModelDialog(provider.key, provider.model || '')}
-                            disabled={!provider.isAvailable}
-                          >
-                            Change Model
-                          </Button>
                           {provider.key === 'ollama' && (
                             <Button
-                              variant="outlined"
                               size="small"
+                              variant="outlined"
                               onClick={() => openOllamaEndpointDialog(provider.endpoint)}
-                              sx={{ ml: 1 }}
+                              sx={{ mt: 1 }}
                             >
                               Update Endpoint
                             </Button>
                           )}
-                          {provider.key !== 'ollama' && (
-                            <Button
-                              variant="outlined"
-                              size="small"
-                              onClick={() => openApiKeyDialog(provider.key)}
-                              sx={{ ml: 1 }}
+                        </CardContent>
+                      </Card>
+                    </Grid>
+                  );
+                })}
+              </Grid>
+            </Box>
+          )}
+
+          {/* System Messages Tab */}
+          {activeTab === 1 && (
+            <Box sx={{ p: 3 }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                <Typography variant="h6">System Messages</Typography>
+                <Button
+                  variant="contained"
+                  onClick={() => openSystemMessageDialog()}
+                >
+                  Add New Message
+                </Button>
+              </Box>
+
+              {/* Category Filter */}
+              <Box sx={{ mb: 2 }}>
+                <TextField
+                  select
+                  label="Filter by Category"
+                  value={selectedCategory}
+                  onChange={(e) => setSelectedCategory(e.target.value)}
+                  sx={{ minWidth: 200 }}
+                >
+                  <MenuItem value="all">All Categories</MenuItem>
+                  {systemMessageCategories.map((category) => (
+                    <MenuItem key={category} value={category}>
+                      {category}
+                    </MenuItem>
+                  ))}
+                </TextField>
+              </Box>
+
+              {systemMessagesLoading ? (
+                <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
+                  <CircularProgress />
+                </Box>
+              ) : (
+                <List>
+                  {systemMessages
+                    .filter(message => selectedCategory === 'all' || message.category === selectedCategory)
+                    .map((message) => (
+                      <ListItem
+                        key={message.key}
+                        sx={{
+                          border: 1,
+                          borderColor: 'divider',
+                          borderRadius: 1,
+                          mb: 1,
+                          backgroundColor: message.isActive ? 'background.paper' : 'action.hover'
+                        }}
+                      >
+                        <ListItemText
+                          primary={
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                              <Typography variant="h6">{message.title}</Typography>
+                              <Chip 
+                                label={message.category} 
+                                size="small" 
+                                color="primary" 
+                                variant="outlined"
+                              />
+                              <Chip 
+                                label={message.isActive ? 'Active' : 'Inactive'} 
+                                size="small" 
+                                color={message.isActive ? 'success' : 'default'}
+                              />
+                            </Box>
+                          }
+                          secondary={
+                            <Box>
+                              <Typography variant="body2" color="text.secondary" gutterBottom>
+                                <strong>Key:</strong> {message.key}
+                              </Typography>
+                              {message.description && (
+                                <Typography variant="body2" color="text.secondary" gutterBottom>
+                                  {message.description}
+                                </Typography>
+                              )}
+                              <Typography 
+                                variant="body2" 
+                                color="text.secondary"
+                                sx={{
+                                  maxHeight: 100,
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
+                                  display: '-webkit-box',
+                                  WebkitLineClamp: 3,
+                                  WebkitBoxOrient: 'vertical'
+                                }}
+                              >
+                                <strong>Content:</strong> {message.content}
+                              </Typography>
+                            </Box>
+                          }
+                        />
+                        <ListItemSecondaryAction>
+                          <Box sx={{ display: 'flex', gap: 1 }}>
+                            <IconButton
+                              onClick={() => toggleSystemMessageActive(message.key)}
+                              color={message.isActive ? 'success' : 'default'}
                             >
-                              {apiKeyStatus[provider.key]?.hasKey ? 'Update API Key' : 'Add API Key'}
-                            </Button>
-                          )}
-                        </Box>
-                      </CardContent>
-                    </Card>
-                  </Grid>
-                );
-              })}
-            </Grid>
-            
-            {/* Status Notifications */}
-            {statusNotifications.length > 0 && (
-              <Box sx={{ mt: 2 }}>
-                {statusNotifications.map((notification, index) => (
-                  <Alert 
-                    key={index} 
-                    severity="success" 
-                    sx={{ mb: 1 }}
-                    onClose={() => setStatusNotifications(prev => prev.filter((_, i) => i !== index))}
-                  >
-                    {notification}
-                  </Alert>
-                ))}
-              </Box>
-            )}
-            
-            {/* Test Result */}
-            {testResult && (
-              <Box sx={{ mt: 3 }}>
-                <Typography variant="h6" gutterBottom>
-                  Test Result
-                </Typography>
-                <Card>
-                  <CardContent>
-                    {testResult.success ? (
-                      <Box>
-                        <Typography variant="body2" color="success.main" gutterBottom>
-                          ✅ Test successful using {testResult.provider}
-                        </Typography>
-                        <Typography variant="body1" gutterBottom>
-                          Response: {testResult.content}
-                        </Typography>
-                        {testResult.usage && (
-                          <Typography variant="body2" color="text.secondary">
-                            Tokens used: {testResult.usage.totalTokens}
-                          </Typography>
-                        )}
-                      </Box>
-                    ) : (
-                      <Typography variant="body2" color="error.main">
-                        ❌ Test failed: {testResult.error}
-                      </Typography>
-                    )}
-                  </CardContent>
-                </Card>
-              </Box>
-            )}
-          </Box>
+                              {message.isActive ? <VisibilityIcon /> : <VisibilityOffIcon />}
+                            </IconButton>
+                            <IconButton
+                              onClick={() => openSystemMessageDialog(message)}
+                              color="primary"
+                            >
+                              <EditIcon />
+                            </IconButton>
+                            <IconButton
+                              onClick={() => deleteSystemMessage(message.key)}
+                              color="error"
+                            >
+                              <DeleteIcon />
+                            </IconButton>
+                          </Box>
+                        </ListItemSecondaryAction>
+                      </ListItem>
+                    ))}
+                </List>
+              )}
+            </Box>
+          )}
         </Paper>
 
         {/* Provider Model Selection Dialog */}
@@ -1118,6 +1358,76 @@ export default function AdminDashboard() {
             <Button onClick={() => setOllamaEndpointDialogOpen(false)} disabled={ollamaEndpointLoading}>Cancel</Button>
             <Button onClick={updateOllamaEndpoint} variant="contained" disabled={ollamaEndpointLoading}>
               {ollamaEndpointLoading ? <CircularProgress size={20} /> : 'Save'}
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* System Message Dialog */}
+        <Dialog open={systemMessageDialogOpen} onClose={() => setSystemMessageDialogOpen(false)} maxWidth="md" fullWidth>
+          <DialogTitle>
+            {editingMessage ? 'Edit System Message' : 'Add New System Message'}
+          </DialogTitle>
+          <DialogContent>
+            <TextField
+              fullWidth
+              label="Key"
+              value={systemMessageForm.key}
+              onChange={(e) => setSystemMessageForm(prev => ({ ...prev, key: e.target.value }))}
+              margin="normal"
+              disabled={!!editingMessage}
+              helperText="Unique identifier for this message (e.g., 'chat.welcome')"
+            />
+            <TextField
+              fullWidth
+              label="Title"
+              value={systemMessageForm.title}
+              onChange={(e) => setSystemMessageForm(prev => ({ ...prev, title: e.target.value }))}
+              margin="normal"
+              helperText="Display name for this message"
+            />
+            <TextField
+              select
+              fullWidth
+              label="Category"
+              value={systemMessageForm.category}
+              onChange={(e) => setSystemMessageForm(prev => ({ ...prev, category: e.target.value }))}
+              margin="normal"
+            >
+              {systemMessageCategories.map((category) => (
+                <MenuItem key={category} value={category}>
+                  {category}
+                </MenuItem>
+              ))}
+            </TextField>
+            <TextField
+              fullWidth
+              label="Description"
+              value={systemMessageForm.description}
+              onChange={(e) => setSystemMessageForm(prev => ({ ...prev, description: e.target.value }))}
+              margin="normal"
+              multiline
+              rows={2}
+              helperText="Optional description of what this message is used for"
+            />
+            <TextField
+              fullWidth
+              label="Content"
+              value={systemMessageForm.content}
+              onChange={(e) => setSystemMessageForm(prev => ({ ...prev, content: e.target.value }))}
+              margin="normal"
+              multiline
+              rows={8}
+              helperText="The actual message content. Use {placeholder} for dynamic values."
+            />
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setSystemMessageDialogOpen(false)}>Cancel</Button>
+            <Button 
+              onClick={saveSystemMessage} 
+              variant="contained"
+              disabled={!systemMessageForm.key || !systemMessageForm.title || !systemMessageForm.content || !systemMessageForm.category}
+            >
+              {editingMessage ? 'Update Message' : 'Add Message'}
             </Button>
           </DialogActions>
         </Dialog>

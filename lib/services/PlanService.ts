@@ -1,5 +1,6 @@
 import { BaseService } from './BaseService';
 import { LLMRouter } from '../llmRouter';
+import { SystemMessageService } from './SystemMessageService';
 import { prisma } from '../prisma';
 
 export interface MealPlanData {
@@ -46,6 +47,13 @@ export interface PlanPreferences {
 }
 
 export class PlanService extends BaseService {
+  private systemMessageService: SystemMessageService;
+
+  constructor() {
+    super();
+    this.systemMessageService = new SystemMessageService();
+  }
+
   async generateMealPlan(
     userId: string,
     durationDays: number,
@@ -61,10 +69,29 @@ export class PlanService extends BaseService {
       throw new Error('User not found');
     }
 
+    // Get prompt from system messages
+    let prompt = await this.systemMessageService.getMessageContent('prompts.meal_plan_generation');
+    
+    if (!prompt) {
+      // Fallback to default prompt
+      prompt = `Generate a {durationDays}-day meal plan for a person with:
+- Daily calorie target: {calorieTarget} calories
+- Dietary preferences: {preferences}
+- Include balanced macronutrients (protein, carbs, fats, fiber)
+- Provide specific recipes with ingredients and instructions
+- Format as structured JSON with daily meal breakdowns`;
+    }
+
+    // Replace placeholders with actual values
+    const formattedPrompt = prompt
+      .replace('{durationDays}', durationDays.toString())
+      .replace('{calorieTarget}', calorieTarget.toString())
+      .replace('{preferences}', JSON.stringify(preferences));
+
     // Call LLM to generate plan
     const llmRouter = LLMRouter.getInstance();
     const response = await llmRouter.generateResponse({
-      prompt: `Generate a ${durationDays}-day meal plan for ${calorieTarget} calories per day with these preferences: ${JSON.stringify(preferences)}`,
+      prompt: formattedPrompt,
       userId,
       tool: 'generate_meal_plan',
       args: { durationDays, calorieTarget, preferences },

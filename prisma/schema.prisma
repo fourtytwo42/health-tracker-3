@@ -285,3 +285,17 @@ model LLMUsageSummary {
   
   @@map("llm_usage_summary")
 }
+
+model SystemMessage {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  title       String
+  content     String
+  category    String   // e.g., "chat", "mcp", "prompts", "errors", "quick_replies"
+  description String?
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  
+  @@map("system_messages")
+}

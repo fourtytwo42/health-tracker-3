@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { LLMRouter } from './llmRouter';
 import { AuthService, JWTPayload } from './auth';
+import { SystemMessageService } from './services/SystemMessageService';
 
 export interface MCPTool {
   name: string;
@@ -25,9 +26,11 @@ export class MCPHandler {
   private static instance: MCPHandler;
   private tools: Map<string, MCPTool> = new Map();
   private llmRouter: LLMRouter;
+  private systemMessageService: SystemMessageService;
 
   private constructor() {
     this.llmRouter = LLMRouter.getInstance();
+    this.systemMessageService = new SystemMessageService();
     this.registerDefaultTools();
   }
 
@@ -334,8 +337,22 @@ export class MCPHandler {
         budget: z.number().optional().describe('Budget limit'),
       }).partial(),
       handler: async (args, authInfo) => {
+        // Get prompt from system messages
+        let prompt = await this.systemMessageService.getMessageContent('prompts.grocery_list_generation');
+        
+        if (!prompt) {
+          // Fallback to default prompt
+          prompt = `Generate a grocery list for {meal_plan_days} days{preferences}{budget}. Group by aisle and include quantities.`;
+        }
+
+        // Replace placeholders with actual values
+        const formattedPrompt = prompt
+          .replace('{meal_plan_days}', (args.meal_plan_days || 7).toString())
+          .replace('{preferences}', args.dietary_preferences ? ` considering: ${args.dietary_preferences.join(', ')}` : '')
+          .replace('{budget}', args.budget ? ` with a budget of $${args.budget}` : '');
+
         const response = await this.llmRouter.generateResponse({
-          prompt: `Generate a grocery list for ${args.meal_plan_days || 7} days${args.dietary_preferences ? ` considering: ${args.dietary_preferences.join(', ')}` : ''}${args.budget ? ` with a budget of $${args.budget}` : ''}. Group by aisle and include quantities.`,
+          prompt: formattedPrompt,
           userId: authInfo.userId,
           tool: 'generate_grocery_list',
         });
@@ -410,40 +427,24 @@ export class MCPHandler {
     try {
       await this.ensureLLMInitialized();
 
-      // Create a prompt that helps the AI understand what tools are available and extract proper arguments
-      const systemPrompt = `You are an AI Health Companion. Your job is to analyze user messages and determine which tool to use.
+      // Get system prompt from database
+      const systemPrompt = await this.systemMessageService.getMessageContent('mcp.natural_language_router');
+      
+      if (!systemPrompt) {
+        throw new Error('System prompt not found in database');
+      }
 
-Available tools:
-- generate_meal_plan: For creating meal plans, weekly menus, diet plans
-- log_meal: For logging food intake, meals eaten, nutrition tracking
-- get_leaderboard: For showing rankings, points, progress, competition
-- log_biomarker: For tracking health metrics like weight, blood pressure, glucose, etc.
-- create_goal: For setting fitness goals, health objectives, targets
-- generate_grocery_list: For creating shopping lists, grocery planning
+      // Replace placeholder with actual message
+      const formattedPrompt = systemPrompt.replace('{message}', message);
 
-User message: "${message}"
-
-Based on the user's message, respond with ONLY a JSON object containing the tool name and arguments:
-
-Examples:
-- "create a week long meal plan" → {"tool": "generate_meal_plan", "args": {"duration_days": 7}}
-- "make a meal plan for this week" → {"tool": "generate_meal_plan", "args": {"duration_days": 7}}
-- "I ate a turkey sandwich for lunch" → {"tool": "log_meal", "args": {"name": "turkey sandwich", "meal_type": "LUNCH"}}
-- "Show me my health progress and leaderboard" → {"tool": "get_leaderboard", "args": {"type": "global", "limit": 10}}
-- "I want to log my weight as 150 pounds" → {"tool": "log_biomarker", "args": {"metric": "weight", "value": 150, "unit": "pounds"}}
-- "I want to set a goal to lose 10 pounds" → {"tool": "create_goal", "args": {"title": "Lose 10 pounds", "type": "weight", "target": "Lose 10 pounds"}}
-- "Create a grocery list for my meal plan" → {"tool": "generate_grocery_list", "args": {}}
-
-Respond with ONLY the JSON, no other text or explanation.`;
-
-              // Clear cache for natural language requests to prevent stale responses
-        this.llmRouter.clearCache();
-        
-        const response = await this.llmRouter.generateResponse({
-          prompt: systemPrompt,
-          userId: authInfo.userId,
-          tool: 'natural_language_router',
-        });
+      // Clear cache for natural language requests to prevent stale responses
+      this.llmRouter.clearCache();
+      
+      const response = await this.llmRouter.generateResponse({
+        prompt: formattedPrompt,
+        userId: authInfo.userId,
+        tool: 'natural_language_router',
+      });
 
       // Try to parse the response as JSON to extract tool call
       try {

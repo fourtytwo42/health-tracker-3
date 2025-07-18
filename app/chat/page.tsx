@@ -27,6 +27,7 @@ import Navigation from '../components/Navigation';
 import ComponentRenderer, { ComponentJson } from '../components/ComponentRenderer';
 import QuickReplies from '../components/QuickReplies';
 import axios from 'axios';
+import { SystemMessageService } from '@/lib/services/SystemMessageService';
 
 interface Message {
   id: string;
@@ -44,6 +45,7 @@ export default function ChatPage() {
   const [error, setError] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [user, setUser] = useState<any>(null);
+  const systemMessageService = new SystemMessageService();
 
   useEffect(() => {
     // Check authentication
@@ -54,20 +56,46 @@ export default function ChatPage() {
 
     // Add welcome message
     if (messages.length === 0) {
-      setMessages([
-        {
-          id: 'welcome',
-          content: "Hello! I'm your AI Health Companion. I can help you with meal planning, activity tracking, biomarker logging, and more. What would you like to do today?",
-          sender: 'bot',
-          timestamp: new Date(),
-          quickReplies: [
-            { label: 'Create a meal plan', value: 'I want to create a meal plan for this week' },
-            { label: 'Log a meal', value: 'I want to log what I ate for lunch' },
-            { label: 'Check my progress', value: 'Show me my health progress and leaderboard' },
-            { label: 'Set a goal', value: 'I want to set a new fitness goal' },
-          ],
-        },
-      ]);
+      const loadWelcomeMessage = async () => {
+        try {
+          const welcomeContent = await systemMessageService.getMessageContent('chat.welcome');
+          const quickRepliesContent = await systemMessageService.getMessageContent('quick_replies.welcome');
+          
+          const welcomeMessage: Message = {
+            id: 'welcome',
+            content: welcomeContent || "Hello! I'm your AI Health Companion. I can help you with meal planning, activity tracking, biomarker logging, and more. What would you like to do today?",
+            sender: 'bot',
+            timestamp: new Date(),
+            quickReplies: quickRepliesContent ? JSON.parse(quickRepliesContent) : [
+              { label: 'Create a meal plan', value: 'I want to create a meal plan for this week' },
+              { label: 'Log a meal', value: 'I want to log what I ate for lunch' },
+              { label: 'Check my progress', value: 'Show me my health progress and leaderboard' },
+              { label: 'Set a goal', value: 'I want to set a new fitness goal' },
+            ],
+          };
+          
+          setMessages([welcomeMessage]);
+        } catch (error) {
+          console.error('Error loading welcome message:', error);
+          // Fallback to default message
+          setMessages([
+            {
+              id: 'welcome',
+              content: "Hello! I'm your AI Health Companion. I can help you with meal planning, activity tracking, biomarker logging, and more. What would you like to do today?",
+              sender: 'bot',
+              timestamp: new Date(),
+              quickReplies: [
+                { label: 'Create a meal plan', value: 'I want to create a meal plan for this week' },
+                { label: 'Log a meal', value: 'I want to log what I ate for lunch' },
+                { label: 'Check my progress', value: 'Show me my health progress and leaderboard' },
+                { label: 'Set a goal', value: 'I want to set a new fitness goal' },
+              ],
+            },
+          ]);
+        }
+      };
+      
+      loadWelcomeMessage();
     }
   }, []);
 
@@ -93,13 +121,31 @@ export default function ChatPage() {
     setError(null);
 
     // Add loading message to show the AI is thinking
-    const loadingMessage: Message = {
-      id: (Date.now() + 1).toString(),
-      content: '🤔 Thinking... (this may take a moment on first request)',
-      sender: 'bot',
-      timestamp: new Date(),
+    const loadLoadingMessage = async () => {
+      try {
+        const loadingContent = await systemMessageService.getMessageContent('chat.loading');
+        const loadingMessage: Message = {
+          id: (Date.now() + 1).toString(),
+          content: loadingContent || '🤔 Thinking... (this may take a moment on first request)',
+          sender: 'bot',
+          timestamp: new Date(),
+        };
+        setMessages(prev => [...prev, loadingMessage]);
+        return loadingMessage;
+      } catch (error) {
+        console.error('Error loading loading message:', error);
+        const loadingMessage: Message = {
+          id: (Date.now() + 1).toString(),
+          content: '🤔 Thinking... (this may take a moment on first request)',
+          sender: 'bot',
+          timestamp: new Date(),
+        };
+        setMessages(prev => [...prev, loadingMessage]);
+        return loadingMessage;
+      }
     };
-    setMessages(prev => [...prev, loadingMessage]);
+    
+    const loadingMessage = await loadLoadingMessage();
 
     const maxRetries = 3;
     let retryCount = 0;
@@ -171,23 +217,56 @@ export default function ChatPage() {
           
           setError(err.response?.data?.error || err.message || 'Failed to send message');
           
-          const errorMessage: Message = {
-            id: (Date.now() + 1).toString(),
-            content: retryCount > 1 
-              ? 'I\'m having trouble connecting right now. This might be due to the AI model loading. Please try again in a moment.'
-              : 'Sorry, I encountered an error. Please try again.',
-            sender: 'bot',
-            timestamp: new Date(),
+          const loadErrorMessage = async () => {
+            try {
+              const errorKey = retryCount > 1 ? 'chat.error_retry' : 'chat.error';
+              const errorContent = await systemMessageService.getMessageContent(errorKey);
+              const errorMessage: Message = {
+                id: (Date.now() + 1).toString(),
+                content: errorContent || (retryCount > 1 
+                  ? 'I\'m having trouble connecting right now. This might be due to the AI model loading. Please try again in a moment.'
+                  : 'Sorry, I encountered an error. Please try again.'),
+                sender: 'bot',
+                timestamp: new Date(),
+              };
+              setMessages(prev => [...prev, errorMessage]);
+            } catch (error) {
+              console.error('Error loading error message:', error);
+              const errorMessage: Message = {
+                id: (Date.now() + 1).toString(),
+                content: retryCount > 1 
+                  ? 'I\'m having trouble connecting right now. This might be due to the AI model loading. Please try again in a moment.'
+                  : 'Sorry, I encountered an error. Please try again.',
+                sender: 'bot',
+                timestamp: new Date(),
+              };
+              setMessages(prev => [...prev, errorMessage]);
+            }
           };
           
-          setMessages(prev => [...prev, errorMessage]);
+          await loadErrorMessage();
         } else {
           // Update loading message to show retry attempt
-          setMessages(prev => prev.map(msg => 
-            msg.id === loadingMessage.id 
-              ? { ...msg, content: `🤔 Thinking... (attempt ${retryCount + 1} - model may be loading)` }
-              : msg
-          ));
+          const updateLoadingMessage = async () => {
+            try {
+              const retryContent = await systemMessageService.getMessageContent('chat.loading_retry');
+              const updatedContent = retryContent ? retryContent.replace('{retry}', (retryCount + 1).toString()) : `🤔 Thinking... (attempt ${retryCount + 1} - model may be loading)`;
+              setMessages(prev => prev.map(msg => 
+                msg.id === loadingMessage.id 
+                  ? { ...msg, content: updatedContent }
+                  : msg
+              ));
+            } catch (error) {
+              console.error('Error loading retry message:', error);
+              setMessages(prev => prev.map(msg => 
+                msg.id === loadingMessage.id 
+                  ? { ...msg, content: `🤔 Thinking... (attempt ${retryCount + 1} - model may be loading)` }
+                  : msg
+              ));
+            }
+          };
+          
+          await updateLoadingMessage();
           
           // Wait before retrying (exponential backoff)
           await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));

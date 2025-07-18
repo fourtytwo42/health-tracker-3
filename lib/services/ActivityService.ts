@@ -1,5 +1,6 @@
 import { BaseService } from './BaseService';
 import { LLMRouter } from '../llmRouter';
+import { SystemMessageService } from './SystemMessageService';
 import { z } from 'zod';
 const ActivityLogSchema = z.object({
   name: z.string(),
@@ -13,44 +14,58 @@ const ActivityLogSchema = z.object({
 
 export class ActivityService extends BaseService {
   private llmRouter: LLMRouter;
+  private systemMessageService: SystemMessageService;
 
   constructor() {
     super();
     this.llmRouter = LLMRouter.getInstance();
+    this.systemMessageService = new SystemMessageService();
   }
 
   async generateActivityPlan(
     userId: string,
-    span: 'daily' | 'weekly' | 'nthly',
+    span: 'daily' | 'weekly' | 'monthly',
     targetCalories: number,
     preferences?: string
   ) {
-    const prompt = `Generate a ${span} activity plan for a user targeting ${targetCalories} calories per day. 
-    Preferences: ${preferences || 'none specified'}
+    // Get prompt from system messages
+    let prompt = await this.systemMessageService.getMessageContent('prompts.activity_plan_generation');
     
-    Return a JSON object with this structure:
+    if (!prompt) {
+      // Fallback to default prompt
+      prompt = `Generate a {span} activity plan for a user targeting {targetCalories} calories per day. 
+Preferences: {preferences}
+    
+Return a JSON object with this structure:
+{
+  "days": [
     {
-      "days": [
+      "date": "YYYY-MM-DD",
+      "activities": [
         {
-          "date": "YYYY-MM-DD",
-          "activities": [
-            {
-              "type": "CARDIO|STRENGTH|FLEXIBILITY|SPORTS|WALKING|RUNNING|CYCLING|SWIMMING|YOGA|PILATES|OTHER",
-              "name": "Activity name",
-              "duration": 30,
-              "intensity": "LIGHT|MODERATE|VIGOROUS",
-              "calories": 150,
-              "description": "Brief description"
-            }
-          ],
-          "totalCalories": 30
+          "type": "CARDIO|STRENGTH|FLEXIBILITY|SPORTS|WALKING|RUNNING|CYCLING|SWIMMING|YOGA|PILATES|OTHER",
+          "name": "Activity name",
+          "duration": 30,
+          "intensity": "LIGHT|MODERATE|VIGOROUS",
+          "calories": 150,
+          "description": "Brief description"
         }
-      ]
-    }`;
+      ],
+      "totalCalories": 30
+    }
+  ]
+}`;
+    }
+
+    // Replace placeholders with actual values
+    const formattedPrompt = prompt
+      .replace('{span}', span)
+      .replace('{targetCalories}', targetCalories.toString())
+      .replace('{preferences}', preferences || 'none specified');
 
     try {
       const response = await this.llmRouter.generateResponse({
-        prompt,
+        prompt: formattedPrompt,
         userId,
         tool: 'generate_activity_plan',
         args: { span, targetCalories, preferences }
