@@ -105,11 +105,30 @@ export default function ChatPage() {
     let retryCount = 0;
 
     while (retryCount < maxRetries) {
+          try {
+      const accessToken = localStorage.getItem('accessToken');
+      if (!accessToken) {
+        throw new Error('Not authenticated');
+      }
+
+      // Check if token is expired
       try {
-        const accessToken = localStorage.getItem('accessToken');
-        if (!accessToken) {
-          throw new Error('Not authenticated');
+        const tokenPayload = JSON.parse(atob(accessToken.split('.')[1]));
+        const currentTime = Math.floor(Date.now() / 1000);
+        if (tokenPayload.exp && tokenPayload.exp < currentTime) {
+          // Token is expired, redirect to login
+          localStorage.removeItem('accessToken');
+          localStorage.removeItem('user');
+          window.location.href = '/';
+          return;
         }
+      } catch (error) {
+        // Invalid token, redirect to login
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('user');
+        window.location.href = '/';
+        return;
+      }
 
         const response = await axios.post('/api/mcp/sse', {
           tool: 'chat',

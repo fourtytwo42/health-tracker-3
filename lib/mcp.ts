@@ -298,7 +298,7 @@ export class MCPHandler {
         meal_plan_days: z.number().optional().describe('Number of days to plan for'),
         dietary_preferences: z.array(z.string()).optional().describe('Dietary preferences'),
         budget: z.number().optional().describe('Budget limit'),
-      }),
+      }).partial(),
       handler: async (args, authInfo) => {
         const response = await this.llmRouter.generateResponse({
           prompt: `Generate a grocery list for ${args.meal_plan_days || 7} days${args.dietary_preferences ? ` considering: ${args.dietary_preferences.join(', ')}` : ''}${args.budget ? ` with a budget of $${args.budget}` : ''}. Group by aisle and include quantities.`,
@@ -364,6 +364,84 @@ export class MCPHandler {
         };
       }
       
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
+    }
+  }
+
+  // Add method to handle natural language and route to appropriate tools
+  async handleNaturalLanguage(message: string, authInfo: JWTPayload): Promise<MCPResponse> {
+    try {
+      await this.ensureLLMInitialized();
+
+      // Create a prompt that helps the AI understand what tools are available and extract proper arguments
+      const systemPrompt = `You are an AI Health Companion. Based on the user's message, determine which tool to use and extract the proper arguments.
+
+Available tools and their required arguments:
+- generate_meal_plan: duration_days (number), calorie_target (optional number), dietary_preferences (optional array), goal (optional: "weight_loss", "muscle_gain", "maintenance")
+- log_meal: name (string), meal_type ("BREAKFAST", "LUNCH", "DINNER", "SNACK"), calories (optional number), protein (optional number), carbs (optional number), fat (optional number), ingredients (optional array), notes (optional string)
+- get_leaderboard: type (optional: "global", "around_me"), limit (optional number)
+- log_biomarker: metric ("weight", "blood_pressure", "glucose", "heart_rate", "body_fat", "muscle_mass"), value (number), unit (string), notes (optional string)
+- create_goal: title (string), type ("weight", "fitness", "nutrition", "general"), target (string), deadline (optional string), description (optional string)
+- generate_grocery_list: meal_plan_days (optional number), dietary_preferences (optional array), budget (optional number)
+
+User message: "${message}"
+
+Extract the tool and arguments from the user's message. For example:
+- "I want to create a meal plan for this week" → {"tool": "generate_meal_plan", "args": {"duration_days": 7}}
+- "I ate a turkey sandwich for lunch" → {"tool": "log_meal", "args": {"name": "turkey sandwich", "meal_type": "LUNCH"}}
+- "Show me my health progress and leaderboard" → {"tool": "get_leaderboard", "args": {"type": "global", "limit": 10}}
+- "I want to log my weight as 150 pounds" → {"tool": "log_biomarker", "args": {"metric": "weight", "value": 150, "unit": "pounds"}}
+- "I want to set a goal to lose 10 pounds" → {"tool": "create_goal", "args": {"title": "Lose 10 pounds", "type": "weight", "target": "Lose 10 pounds"}}
+- "Create a grocery list for my meal plan" → {"tool": "generate_grocery_list", "args": {}}
+
+IMPORTANT: Only include arguments that are explicitly mentioned or can be reasonably inferred. For optional arguments that are not mentioned, omit them entirely from the args object.
+
+Respond with ONLY the JSON, no other text:
+{
+  "tool": "tool_name",
+  "args": { "param1": "value1", "param2": "value2" }
+}
+
+If no specific tool is needed, respond with:
+{
+  "tool": "chat",
+  "args": { "message": "your response" }
+}`;
+
+      const response = await this.llmRouter.generateResponse({
+        prompt: systemPrompt,
+        userId: authInfo.userId,
+        tool: 'natural_language_router',
+      });
+
+      // Try to parse the response as JSON to extract tool call
+      try {
+        const jsonMatch = response.content.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          const parsed = JSON.parse(jsonMatch[0]);
+          if (parsed.tool && parsed.args) {
+            console.log('Parsed tool call:', parsed);
+            // Call the appropriate tool
+            return await this.handleToolCall(parsed, authInfo);
+          }
+        }
+      } catch (parseError) {
+        console.log('Could not parse tool call from response, treating as chat');
+      }
+
+      // Fallback to chat response
+      return {
+        success: true,
+        data: {
+          message: response.content,
+          provider: response.provider,
+        },
+      };
+    } catch (error) {
+      console.error('Natural language handling failed:', error);
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error',

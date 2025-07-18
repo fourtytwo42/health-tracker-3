@@ -17,10 +17,27 @@ export async function POST(request: NextRequest) {
     }
 
     const token = authHeader.substring(7);
+    
+    try {
+      const authInfo = AuthService.verifyAccessToken(token);
+    } catch (error) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Token expired or invalid' }),
+        { status: 401, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+    
     const authInfo = AuthService.verifyAccessToken(token);
     const body = await request.json();
     
-    const response = await mcpHandler.handleToolCall(body, authInfo);
+    let response;
+    if (body.tool === 'chat') {
+      // Use natural language handler for chat messages
+      response = await mcpHandler.handleNaturalLanguage(body.args.message, authInfo);
+    } else {
+      // Use direct tool call for specific tools
+      response = await mcpHandler.handleToolCall(body, authInfo);
+    }
     
     return new Response(JSON.stringify(response), {
       status: 200,

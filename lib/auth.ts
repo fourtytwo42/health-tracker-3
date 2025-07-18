@@ -22,7 +22,7 @@ export interface AuthUser {
 export class AuthService {
   private static readonly ACCESS_TOKEN_SECRET = process.env.JWT_ACCESS_SECRET!;
   private static readonly REFRESH_TOKEN_SECRET = process.env.JWT_REFRESH_SECRET!;
-  private static readonly ACCESS_TOKEN_EXPIRY = '15m';
+  private static readonly ACCESS_TOKEN_EXPIRY = '7d';
   private static readonly REFRESH_TOKEN_EXPIRY = '7d';
   private static readonly SALT_ROUNDS = 12;
 
