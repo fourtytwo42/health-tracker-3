@@ -569,6 +569,29 @@ export default function AdminDashboard() {
     }
   };
 
+  const resetUsageStats = async (providerKey: string) => {
+    try {
+      const response = await fetch(`/api/llm/usage/${providerKey}/reset`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
+        }
+      });
+      
+      if (response.ok) {
+        // Refresh the providers to show updated usage stats
+        await loadLLMProviders();
+        setError(null);
+      } else {
+        const error = await response.json();
+        setError(error.error || 'Failed to reset usage statistics');
+      }
+    } catch (error) {
+      setError('Failed to reset usage statistics');
+      console.error('Error resetting usage stats:', error);
+    }
+  };
+
   // Handle up/down priority movement
   const moveProviderUp = async (index: number) => {
     if (index === 0) return; // Already at top
@@ -841,6 +864,33 @@ export default function AdminDashboard() {
                         <Typography variant="body2" color="text.secondary" gutterBottom>
                           Cost: {formatPricing(provider)}
                         </Typography>
+                        {provider.usage && (
+                          <Box sx={{ mt: 1, p: 1, backgroundColor: '#f5f5f5', borderRadius: 1 }}>
+                            <Typography variant="body2" color="text.secondary" gutterBottom>
+                              <strong>Usage Statistics:</strong>
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.875rem' }}>
+                              Total Tokens: {provider.usage.totalTokens.toLocaleString()}
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.875rem' }}>
+                              Total Cost: ${provider.usage.totalCost.toFixed(4)}
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.875rem' }}>
+                              Requests: {provider.usage.requestCount}
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.875rem' }}>
+                              Last Reset: {new Date(provider.usage.lastResetAt).toLocaleDateString()}
+                            </Typography>
+                            <Button
+                              variant="outlined"
+                              size="small"
+                              onClick={() => resetUsageStats(provider.key)}
+                              sx={{ mt: 1 }}
+                            >
+                              Reset Usage
+                            </Button>
+                          </Box>
+                        )}
                         {provider.key !== 'ollama' && apiKeyStatus[provider.key]?.hasKey && !provider.isAvailable && (
                           <Alert severity="warning" sx={{ mt: 1, mb: 1 }}>
                             API key present but provider offline. Try refreshing.

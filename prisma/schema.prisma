@@ -31,6 +31,7 @@ model User {
   activityPlans ActivityPlan[]
   groceryLists GroceryList[]
   reports      Report[]
+  llmUsage     LLMUsage[]
   
   @@map("users")
 }
@@ -246,4 +247,41 @@ model Setting {
   updatedAt   DateTime @updatedAt @map("updated_at")
   
   @@map("settings")
+}
+
+model LLMUsage {
+  id              String   @id @default(cuid())
+  providerKey     String   @map("provider_key")
+  model           String
+  promptTokens    Int      @map("prompt_tokens")
+  completionTokens Int     @map("completion_tokens")
+  totalTokens     Int      @map("total_tokens")
+  inputCost       Float    @map("input_cost")
+  outputCost      Float    @map("output_cost")
+  totalCost       Float    @map("total_cost")
+  userId          String?  @map("user_id")
+  requestType     String?  @map("request_type") // e.g., "chat", "meal_plan", "test"
+  createdAt       DateTime @default(now()) @map("created_at")
+  
+  // Relations
+  user            User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  
+  @@map("llm_usage")
+}
+
+model LLMUsageSummary {
+  id              String   @id @default(cuid())
+  providerKey     String   @unique @map("provider_key")
+  totalPromptTokens Int    @default(0) @map("total_prompt_tokens")
+  totalCompletionTokens Int @default(0) @map("total_completion_tokens")
+  totalTokens     Int      @default(0) @map("total_tokens")
+  totalInputCost  Float    @default(0) @map("total_input_cost")
+  totalOutputCost Float    @default(0) @map("total_output_cost")
+  totalCost       Float    @default(0) @map("total_cost")
+  requestCount    Int      @default(0) @map("request_count")
+  lastResetAt     DateTime @default(now()) @map("last_reset_at")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+  
+  @@map("llm_usage_summary")
 }

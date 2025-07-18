@@ -1,6 +1,7 @@
 import QuickLRU from 'quick-lru';
 import crypto from 'crypto';
 import { SettingService, LLMSettings } from './services/SettingService';
+import { LLMUsageService, UsageData } from './services/LLMUsageService';
 
 export interface LLMProvider {
   name: string;
@@ -49,6 +50,7 @@ export class LLMRouter {
   private readonly CACHE_TTL_MS = 6 * 60 * 60 * 1000; // 6 hours
   private settingService: SettingService;
   private settings: LLMSettings | null = null;
+  private usageService: LLMUsageService;
 
   private constructor() {
     this.cache = new QuickLRU({
@@ -57,6 +59,7 @@ export class LLMRouter {
     });
     
     this.settingService = SettingService.getInstance();
+    this.usageService = LLMUsageService.getInstance();
     // Initialize providers asynchronously
     this.initializeProviders().catch(error => {
       console.error('Failed to initialize LLM providers:', error);
@@ -525,6 +528,26 @@ export class LLMRouter {
         // Cache the response
         this.cache.set(cacheKey, response);
         
+        // Record usage if we have token information
+        if (response.usage) {
+          try {
+            const usageData: UsageData = {
+              providerKey: this.getProviderKey(provider.name),
+              model: provider.model || 'unknown',
+              promptTokens: response.usage.promptTokens,
+              completionTokens: response.usage.completionTokens,
+              totalTokens: response.usage.totalTokens,
+              userId: request.userId,
+              requestType: request.tool || 'chat',
+            };
+            
+            await this.usageService.recordUsage(usageData, provider.pricing);
+            console.log(`Recorded usage for ${provider.name}: ${response.usage.totalTokens} tokens`);
+          } catch (error) {
+            console.error('Failed to record usage:', error);
+          }
+        }
+        
         console.log(`Successfully routed request to ${provider.name}`);
         return response;
         
@@ -587,6 +610,19 @@ export class LLMRouter {
     });
     
     return sortedProviders;
+  }
+
+  // Helper function to get provider key from name
+  private getProviderKey(providerName: string): string {
+    const nameToKey: Record<string, string> = {
+      'Ollama': 'ollama',
+      'OpenAI': 'openai',
+      'Groq': 'groq',
+      'Anthropic': 'anthropic',
+      'AWS Bedrock': 'aws',
+      'Azure OpenAI': 'azure'
+    };
+    return nameToKey[providerName] || providerName.toLowerCase();
   }
 
   // Helper function to get provider cost for priority calculation
@@ -661,6 +697,26 @@ export class LLMRouter {
 
     // Test the specific provider without caching
     const response = await this.callProvider(provider, request);
+    
+    // Record usage for test requests
+    if (response.usage) {
+      try {
+        const usageData: UsageData = {
+          providerKey: this.getProviderKey(provider.name),
+          model: provider.model || 'unknown',
+          promptTokens: response.usage.promptTokens,
+          completionTokens: response.usage.completionTokens,
+          totalTokens: response.usage.totalTokens,
+          userId: request.userId,
+          requestType: 'test',
+        };
+        
+        await this.usageService.recordUsage(usageData, provider.pricing);
+        console.log(`Recorded test usage for ${provider.name}: ${response.usage.totalTokens} tokens`);
+      } catch (error) {
+        console.error('Failed to record test usage:', error);
+      }
+    }
     
     return response;
   }
