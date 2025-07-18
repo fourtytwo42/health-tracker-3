@@ -1,5 +1,6 @@
 import QuickLRU from 'quick-lru';
 import crypto from 'crypto';
+import { SettingService, LLMSettings } from './services/SettingService';
 
 export interface LLMProvider {
   name: string;
@@ -36,8 +37,8 @@ export class LLMRouter {
   private providers: Map<string, LLMProvider> = new Map();
   private cache: QuickLRU<string, LLMResponse>;
   private readonly CACHE_TTL_MS = 6 * 60 * 60 * 1000; // 6 hours
-  private readonly LATENCY_WEIGHT = 0.7;
-  private readonly COST_WEIGHT = 0.3;
+  private settingService: SettingService;
+  private settings: LLMSettings | null = null;
 
   private constructor() {
     this.cache = new QuickLRU({
@@ -45,7 +46,11 @@ export class LLMRouter {
       maxAge: this.CACHE_TTL_MS,
     });
     
-    this.initializeProviders();
+    this.settingService = SettingService.getInstance();
+    // Initialize providers asynchronously
+    this.initializeProviders().catch(error => {
+      console.error('Failed to initialize LLM providers:', error);
+    });
   }
 
   static getInstance(): LLMRouter {
@@ -55,7 +60,111 @@ export class LLMRouter {
     return LLMRouter.instance;
   }
 
-  private initializeProviders(): void {
+  // Add method to refresh providers
+  async refreshProviders(): Promise<void> {
+    // Reload settings from database
+    try {
+      this.settings = await this.settingService.getLLMSettings();
+      
+      // Update provider models based on settings
+      const ollamaProvider = this.providers.get('ollama');
+      if (ollamaProvider && this.settings?.selectedProvider === 'ollama') {
+        ollamaProvider.model = this.settings.selectedModel;
+      }
+    } catch (error) {
+      console.error('Failed to refresh LLM settings:', error);
+    }
+    
+    await this.probeProviders();
+  }
+
+  // Add method to update model for a specific provider
+  async updateProviderModel(providerName: string, model: string): Promise<boolean> {
+    const provider = Array.from(this.providers.values()).find(p => p.name === providerName);
+    
+    if (!provider) {
+      return false;
+    }
+    
+    // Check if model is actually changing
+    const modelChanged = provider.model !== model;
+    
+    // Update the model
+    provider.model = model;
+    
+    // For Ollama, verify the model exists
+    if (providerName === 'Ollama') {
+      try {
+        const response = await fetch(`${provider.endpoint}/api/tags`);
+        if (response.ok) {
+          const data = await response.json();
+          const modelExists = data.models?.some((m: any) => m.name === model);
+          if (!modelExists) {
+            console.error(`Model ${model} not found in Ollama`);
+            return false;
+          }
+        }
+      } catch (error) {
+        console.error('Failed to verify Ollama model:', error);
+        return false;
+      }
+    }
+    
+    // Clear cache if model changed to prevent stale responses
+    if (modelChanged) {
+      this.clearCache();
+      console.log(`Cleared cache due to model change: ${providerName} -> ${model}`);
+    }
+    
+    console.log(`Updated ${providerName} model to: ${model}`);
+    return true;
+  }
+
+  // Add method to clear the cache
+  clearCache(): void {
+    this.cache.clear();
+    console.log('LLM cache cleared');
+  }
+
+  private async ensureOllamaModelLoaded(provider: LLMProvider): Promise<void> {
+    if (!provider.model) {
+      throw new Error('No model specified for Ollama');
+    }
+
+    try {
+      // Check if the model is already loaded by making a simple request
+      const response = await fetch(`${provider.endpoint}/api/generate`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: provider.model,
+          prompt: 'test',
+          stream: false,
+        }),
+      });
+
+      if (!response.ok) {
+        // If the model isn't loaded, it will return an error
+        // We'll let the main request handle the actual loading
+        console.log(`Ollama model ${provider.model} may need to be loaded`);
+      }
+    } catch (error) {
+      // Model loading will happen on the first actual request
+      console.log(`Ollama model ${provider.model} will be loaded on first request`);
+    }
+  }
+
+  private async initializeProviders(): Promise<void> {
+    // Load settings from database
+    try {
+      this.settings = await this.settingService.getLLMSettings();
+    } catch (error) {
+      console.error('Failed to load LLM settings:', error);
+      this.settings = null;
+    }
+
     // Ollama (Local)
     if (process.env.OLLAMA_BASE_URL) {
       this.providers.set('ollama', {
@@ -65,7 +174,7 @@ export class LLMRouter {
         costPer1k: 0, // Free local model
         avgLatencyMs: 0,
         isAvailable: false,
-        model: 'llama2',
+        model: this.settings?.selectedModel || 'llama3.2:3b',
       });
     }
 
@@ -108,7 +217,10 @@ export class LLMRouter {
       });
     }
 
-    this.probeProviders();
+    // Initialize providers asynchronously
+    this.probeProviders().catch(error => {
+      console.error('Failed to initialize LLM providers:', error);
+    });
   }
 
   private async probeProviders(): Promise<void> {
@@ -122,6 +234,31 @@ export class LLMRouter {
         
         provider.isAvailable = isAvailable;
         provider.avgLatencyMs = latency;
+        
+        // For Ollama, verify the selected model exists, otherwise use first available
+        if (provider.name === 'Ollama' && isAvailable) {
+          try {
+            const response = await fetch(`${provider.endpoint}/api/tags`);
+            if (response.ok) {
+              const data = await response.json();
+              if (data.models && data.models.length > 0) {
+                // Check if the selected model exists
+                const selectedModel = this.settings?.selectedModel;
+                const modelExists = data.models.some((m: any) => m.name === selectedModel);
+                
+                if (selectedModel && modelExists) {
+                  provider.model = selectedModel;
+                  console.log(`Ollama model set to selected model: ${provider.model}`);
+                } else {
+                  provider.model = data.models[0].name;
+                  console.log(`Ollama model set to first available: ${provider.model} (selected model ${selectedModel} not found)`);
+                }
+              }
+            }
+          } catch (error) {
+            console.error('Failed to get Ollama models:', error);
+          }
+        }
         
         console.log(`Provider ${provider.name}: ${isAvailable ? 'Available' : 'Unavailable'} (${latency}ms)`);
       } catch (error) {
@@ -138,18 +275,31 @@ export class LLMRouter {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 5000);
         
-        const response = await fetch(`${provider.endpoint}/api/tags`, {
-          method: 'GET',
-          signal: controller.signal,
-        });
-        
-        clearTimeout(timeoutId);
-        return response.ok;
+        try {
+          const response = await fetch(`${provider.endpoint}/api/tags`, {
+            method: 'GET',
+            signal: controller.signal,
+          });
+          
+          clearTimeout(timeoutId);
+          
+          if (response.ok) {
+            const data = await response.json();
+            // Check if we have at least one model available
+            return data.models && data.models.length > 0;
+          }
+          return false;
+        } catch (error) {
+          clearTimeout(timeoutId);
+          console.error('Ollama health check failed:', error);
+          return false;
+        }
       } else {
         // For other providers, just check if the endpoint is reachable
         return true; // Assume available if we have API key
       }
-    } catch {
+    } catch (error) {
+      console.error(`Health check failed for ${provider.name}:`, error);
       return false;
     }
   }
@@ -162,7 +312,17 @@ export class LLMRouter {
       return null;
     }
 
-    // Normalize latency and cost
+    // If we have a selected provider from settings, prioritize it
+    if (this.settings?.selectedProvider) {
+      const selectedProvider = availableProviders.find(p => 
+        p.name.toLowerCase() === this.settings!.selectedProvider.toLowerCase()
+      );
+      if (selectedProvider) {
+        return selectedProvider;
+      }
+    }
+
+    // Fall back to scoring-based selection
     const maxLatency = Math.max(...availableProviders.map(p => p.avgLatencyMs));
     const maxCost = Math.max(...availableProviders.map(p => p.costPer1k));
 
@@ -172,7 +332,9 @@ export class LLMRouter {
     for (const provider of availableProviders) {
       const latencyNorm = maxLatency > 0 ? provider.avgLatencyMs / maxLatency : 0;
       const costNorm = maxCost > 0 ? provider.costPer1k / maxCost : 0;
-      const score = this.LATENCY_WEIGHT * latencyNorm + this.COST_WEIGHT * costNorm;
+      const latencyWeight = this.settings?.latencyWeight || 0.7;
+      const costWeight = this.settings?.costWeight || 0.3;
+      const score = latencyWeight * latencyNorm + costWeight * costNorm;
 
       if (score < bestScore) {
         bestScore = score;
@@ -183,22 +345,36 @@ export class LLMRouter {
     return bestProvider;
   }
 
-  private generateCacheKey(request: LLMRequest): string {
+  private generateCacheKey(request: LLMRequest, provider?: LLMProvider): string {
     const keyData = {
       userId: request.userId,
       tool: request.tool || 'chat',
       args: request.args || {},
       prompt: request.prompt,
+      // Include provider and model information in cache key
+      provider: provider?.name || 'unknown',
+      model: provider?.model || 'unknown',
     };
     
     const hash = crypto.createHash('sha256');
     hash.update(JSON.stringify(keyData));
-    return `${request.userId}|${request.tool || 'chat'}|${hash.digest('hex')}`;
+    return `${request.userId}|${request.tool || 'chat'}|${provider?.name || 'unknown'}|${provider?.model || 'unknown'}|${hash.digest('hex')}`;
   }
 
   async generateResponse(request: LLMRequest): Promise<LLMResponse> {
-    // Check cache first
-    const cacheKey = this.generateCacheKey(request);
+    // Ensure providers are initialized
+    if (this.providers.size === 0) {
+      await this.initializeProviders();
+    }
+    
+    // Select best provider first
+    const provider = this.selectProvider();
+    if (!provider) {
+      throw new Error('No available LLM providers');
+    }
+
+    // Check cache with provider-specific key
+    const cacheKey = this.generateCacheKey(request, provider);
     const cachedResponse = this.cache.get(cacheKey);
     
     if (cachedResponse) {
@@ -206,13 +382,12 @@ export class LLMRouter {
       return cachedResponse;
     }
 
-    // Select best provider
-    const provider = this.selectProvider();
-    if (!provider) {
-      throw new Error('No available LLM providers');
-    }
-
     console.log(`Routing request to ${provider.name}`);
+
+    // For Ollama, ensure the model is loaded before making the request
+    if (provider.name === 'Ollama') {
+      await this.ensureOllamaModelLoaded(provider);
+    }
 
     try {
       const response = await this.callProvider(provider, request);
@@ -229,8 +404,9 @@ export class LLMRouter {
       const fallbackProvider = this.selectProvider();
       if (fallbackProvider) {
         console.log(`Retrying with fallback provider: ${fallbackProvider.name}`);
+        const fallbackCacheKey = this.generateCacheKey(request, fallbackProvider);
         const response = await this.callProvider(fallbackProvider, request);
-        this.cache.set(cacheKey, response);
+        this.cache.set(fallbackCacheKey, response);
         return response;
       }
       
@@ -253,33 +429,51 @@ export class LLMRouter {
   }
 
   private async callOllama(provider: LLMProvider, request: LLMRequest): Promise<LLMResponse> {
-    const response = await fetch(`${provider.endpoint}/api/generate`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: provider.model,
-        prompt: request.prompt,
-        stream: false,
-      }),
-    });
+    const maxRetries = 2;
+    let lastError: Error | null = null;
 
-    if (!response.ok) {
-      throw new Error(`Ollama request failed: ${response.statusText}`);
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        const response = await fetch(`${provider.endpoint}/api/generate`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: provider.model,
+            prompt: request.prompt,
+            stream: false,
+          }),
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`Ollama request failed (${response.status}): ${errorText}`);
+        }
+
+        const data = await response.json();
+        
+        return {
+          content: data.response,
+          provider: provider.name,
+          usage: {
+            promptTokens: 0,
+            completionTokens: 0,
+            totalTokens: 0,
+          },
+        };
+      } catch (error) {
+        lastError = error as Error;
+        console.error(`Ollama attempt ${attempt} failed:`, error);
+        
+        if (attempt < maxRetries) {
+          // Wait before retrying (model might be loading)
+          await new Promise(resolve => setTimeout(resolve, 2000 * attempt));
+        }
+      }
     }
 
-    const data = await response.json();
-    
-    return {
-      content: data.response,
-      provider: provider.name,
-      usage: {
-        promptTokens: 0,
-        completionTokens: 0,
-        totalTokens: 0,
-      },
-    };
+    throw lastError || new Error('Ollama request failed after all retries');
   }
 
   private async callOpenAICompatible(provider: LLMProvider, request: LLMRequest): Promise<LLMResponse> {

@@ -1,196 +1,192 @@
 # AI Health Companion
 
-A Next.js 14 PWA monorepo offering a chat-first health management platform with AI-driven meal planning, activity tracking, biomarker logging, and gamified leaderboards.
+A Next.js 14 PWA monorepo offering a chat-first health management platform with AI integration.
 
-## 🚀 Features
+## Features
 
-- **Chat-First Interface**: Natural conversation with AI for health management
-- **PWA Support**: Offline-capable, installable progressive web app
-- **AI-Powered Planning**: Personalized meal and activity plans
-- **Biomarker Tracking**: Weight, blood pressure, glucose, ketones with photo logging
-- **Gamification**: Leaderboards and point-based motivation system
-- **Grocery Lists**: AI-generated shopping lists from meal plans
-- **Health Reports**: PDF/DOCX exports with comprehensive health data
-- **Goal Management**: Set and track health goals with certificates
-- **Multi-LLM Support**: Ollama, OpenAI, Anthropic, Groq, AWS Bedrock, Azure AI
+### 🤖 Chat-First AI Interface
+- **Conversational Health Management**: Interact with an AI assistant through natural conversation
+- **MCP Integration**: Model Context Protocol for tool calling and structured responses
+- **Component JSON Rendering**: Rich UI components embedded in chat responses
+- **Quick Replies**: Clickable response options for seamless interaction
 
-## 🛠 Tech Stack
+### 🍽️ Meal Planning & Tracking
+- AI-generated personalized meal plans
+- Meal logging with nutritional information
+- Recipe cards with ingredients and instructions
+- Grocery list generation
 
-- **Frontend**: Next.js 14, React 18, TypeScript
-- **UI**: Material-UI v6, Emotion, Framer Motion
-- **State**: Zustand, SWR
-- **Database**: PostgreSQL 16, Prisma ORM
-- **File Storage**: Minio S3-compatible
-- **AI**: MCP (Model Context Protocol), multiple LLM providers
-- **PWA**: next-pwa, Service Worker
-- **Testing**: Vitest, Playwright, Lighthouse CI
-- **Deployment**: Docker, Vercel-ready
+### 🏃‍♂️ Activity & Fitness
+- Workout planning and logging
+- Progress tracking with visual charts
+- Goal setting and achievement tracking
 
-## 📋 Prerequisites
+### 📊 Health Monitoring
+- Biomarker logging (weight, blood pressure, glucose, etc.)
+- Trend analysis and visualization
+- Target range monitoring
 
+### 🏆 Gamification
+- Leaderboard system with points
+- Achievement badges and certificates
+- Social features and challenges
+
+### 📱 PWA Features
+- Offline-capable progressive web app
+- Mobile-first responsive design
+- Installable on mobile devices
+
+## Chat & MCP Integration
+
+The chat interface is powered by a comprehensive MCP (Model Context Protocol) system that enables:
+
+### Available Tools
+- `chat` - General conversation with AI
+- `generate_meal_plan` - Create personalized meal plans
+- `log_meal` - Log meals with nutritional data
+- `get_leaderboard` - View leaderboard standings
+- `log_biomarker` - Log health measurements
+- `create_goal` - Set health and fitness goals
+- `generate_grocery_list` - Create shopping lists
+
+### Component Types
+- `RecipeCard` - Display recipe information
+- `PlanSummary` - Show meal/activity plans
+- `LeaderboardSnippet` - Display rankings
+- `GroceryListCard` - Shopping list with aisle grouping
+- `GoalBadge` - Goal progress visualization
+- `BiomarkerChart` - Health data trends
+- `MealCard` - Meal information display
+
+### Quick Replies
+Each tool response can include quick reply options for seamless user interaction, allowing users to:
+- Follow up on generated content
+- Navigate to related actions
+- Continue conversations naturally
+
+## Getting Started
+
+### Prerequisites
 - Node.js 20+
-- Docker & Docker Compose
-- Git
+- SQLite (for local development)
+- Ollama (for local LLM)
 
-## 🚀 Quick Start
+### Installation
 
-1. **Clone the repository**
-   ```bash
-   git clone <repository-url>
-   cd ai-health-companion
-   ```
-
-2. **Set up environment variables**
-   ```bash
-   cp env.example .env.local
-   # Edit .env.local with your configuration
-   ```
-
-3. **Start the development environment**
-   ```bash
-   npm run setup
-   # This will:
-   # - Start PostgreSQL and Minio containers
-   # - Run database migrations
-   # - Seed initial data
-   ```
-
-4. **Install dependencies and start development server**
-   ```bash
-   npm install
-   npm run dev
-   ```
-
-5. **Open your browser**
-   Navigate to [http://localhost:3000](http://localhost:3000)
-
-## 🗄 Database Setup
-
-The project uses PostgreSQL 16 with Prisma ORM. The setup script will:
-
-- Create the database schema
-- Run all migrations
-- Seed demo data including:
-  - Demo admin account: `admin/demo`
-  - Demo user account: `user/demo`
-  - Ingredient taxonomy for grocery lists
-
-## 🔧 Available Scripts
-
-- `npm run dev` - Start development server
-- `npm run build` - Build for production
-- `npm run start` - Start production server
-- `npm run test` - Run all tests
-- `npm run test:unit` - Run unit tests
-- `npm run test:api` - Run API tests
-- `npm run test:e2e` - Run end-to-end tests
-- `npm run db:migrate` - Run database migrations
-- `npm run db:seed` - Seed database with demo data
-- `npm run docker:up` - Start Docker services
-- `npm run docker:down` - Stop Docker services
-- `npm run setup` - Complete setup (Docker + DB + Seed)
-
-## 🏗 Project Structure
-
-```
-/
-├── app/                    # Next.js App Router
-│   ├── api/               # API routes
-│   ├── components/        # Shared React components
-│   ├── context/          # Zustand stores & Auth context
-│   ├── hooks/            # Custom React hooks
-│   ├── styles/           # MUI theme & global styles
-│   └── lib/              # Business logic services
-├── lib/                   # Core utilities & services
-├── prisma/               # Database schema & migrations
-├── scripts/              # Database seeders & utilities
-├── tests/                # Test suites
-├── public/               # Static assets & PWA files
-└── docker-compose.yml    # Development services
-```
-
-## 🔐 Authentication
-
-The app uses JWT-based authentication with:
-- Access tokens (15 min expiry)
-- Refresh tokens (7 day expiry)
-- bcrypt password hashing (12 rounds)
-- Protected API routes
-
-Demo accounts:
-- **Admin**: `admin` / `demo`
-- **User**: `user` / `demo`
-
-## 🤖 AI Integration
-
-The app uses MCP (Model Context Protocol) for AI interactions:
-- Multiple LLM provider support
-- Intelligent routing based on latency/cost
-- In-memory caching for performance
-- Tool calling for structured operations
-
-## 📱 PWA Features
-
-- Offline support with service worker
-- Installable on mobile and desktop
-- Background sync for offline actions
-- Push notifications (future)
-
-## 🧪 Testing
-
-- **Unit Tests**: 90%+ coverage with Vitest
-- **API Tests**: Integration tests with supertest
-- **E2E Tests**: Playwright for full user flows
-- **Lighthouse**: Performance and accessibility audits
-
-## 🚀 Deployment
-
-### Development
+1. Clone the repository:
 ```bash
-npm run setup
+git clone <repository-url>
+cd health-tracker-3
+```
+
+2. Install dependencies:
+```bash
+npm install
+```
+
+3. Set up environment variables:
+```bash
+cp env.example .env.local
+# Edit .env.local with your configuration
+```
+
+4. Set up the database:
+```bash
+npx prisma migrate dev
+npx prisma db seed
+```
+
+5. Start the development server:
+```bash
 npm run dev
 ```
 
-### Production
-```bash
-npm run build
-npm run start
+6. Open [http://localhost:3000](http://localhost:3000) in your browser
+
+### Default Users
+- **Admin**: `admin` / `demo123`
+- **User**: `user` / `demo123`
+
+## Usage
+
+### Chat Interface
+1. Log in to the application
+2. Navigate to the Chat page
+3. Start a conversation with the AI assistant
+4. Use quick replies or type natural language requests
+5. View rich component responses for structured data
+
+### Example Conversations
+- "I want to create a meal plan for this week"
+- "Log my lunch: grilled chicken salad, 350 calories"
+- "Show me my health progress and leaderboard"
+- "I want to set a new fitness goal"
+- "Create a grocery list for my meal plan"
+
+## Architecture
+
+### Frontend
+- **Next.js 14** with App Router
+- **Material-UI (MUI)** for components
+- **TypeScript** for type safety
+- **PWA** with offline support
+
+### Backend
+- **Next.js API Routes** for REST endpoints
+- **MCP Handler** for AI tool integration
+- **LLM Router** for provider selection
+- **Prisma ORM** for database access
+- **SQLite** for data storage
+
+### AI Integration
+- **Ollama** for local LLM processing
+- **MCP Protocol** for structured tool calling
+- **Component JSON** for rich UI responses
+- **Quick Replies** for conversational flow
+
+## Development
+
+### Project Structure
+```
+/app
+├── /api/mcp          # MCP protocol endpoints
+├── /chat             # Chat interface
+├── /components       # React components
+│   ├── /cards        # Component JSON renderers
+│   └── ComponentRenderer.tsx
+└── /lib
+    ├── mcp.ts        # MCP handler
+    └── llmRouter.ts  # LLM provider router
 ```
 
-### Docker
+### Testing
 ```bash
-docker-compose -f docker-compose.prod.yml up -d
+# Run all tests
+npm test
+
+# Run specific test suites
+npm run test:unit
+npm run test:api
+npm run test:ui
+npm run test:e2e
 ```
 
-## 📊 Monitoring
+### Database
+```bash
+# Run migrations
+npx prisma migrate dev
 
-- Prometheus metrics on `/api/metrics`
-- Sentry for error tracking
-- Health check endpoints
-- Performance monitoring
+# Seed database
+npx prisma db seed
 
-## 🤝 Contributing
+# Open Prisma Studio
+npx prisma studio
+```
 
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+## Contributing
 
-## 📄 License
+Please read [CONTRIBUTING.md](CONTRIBUTING.md) for details on our code of conduct and the process for submitting pull requests.
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+## License
 
-## 🆘 Support
-
-For support, email support@aihealthcompanion.com or create an issue in the repository.
-
-## 🔄 Roadmap
-
-- [ ] Mobile app (React Native)
-- [ ] Advanced analytics dashboard
-- [ ] Integration with wearable devices
-- [ ] Social features and challenges
-- [ ] AI-powered meal recommendations
-- [ ] Voice interface
-- [ ] Multi-language support 
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details. 

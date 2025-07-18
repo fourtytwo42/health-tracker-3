@@ -9,6 +9,9 @@ export const POST = requireRole('ADMIN')(async (req) => {
 
     const llmRouter = LLMRouter.getInstance();
     
+    // Clear cache for test requests to ensure fresh responses
+    llmRouter.clearCache();
+    
     // Test the specific provider
     const testRequest = {
       prompt: prompt || 'Hello, this is a test message.',

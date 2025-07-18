@@ -37,16 +37,10 @@ const withPWA = require('next-pwa')({
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  experimental: {
-    appDir: true,
-  },
   output: 'standalone',
   images: {
     domains: ['localhost', 'minio.local'],
     unoptimized: true,
-  },
-  env: {
-    CUSTOM_KEY: process.env.CUSTOM_KEY,
   },
   async headers() {
     return [

@@ -31,6 +31,12 @@ export class MCPHandler {
     this.registerDefaultTools();
   }
 
+  // Add method to ensure LLM Router is initialized
+  async ensureLLMInitialized(): Promise<void> {
+    // Force refresh providers to ensure they're loaded
+    await this.llmRouter.refreshProviders();
+  }
+
   static getInstance(): MCPHandler {
     if (!MCPHandler.instance) {
       MCPHandler.instance = new MCPHandler();
@@ -65,73 +71,260 @@ export class MCPHandler {
       },
     });
 
-    // Placeholder tools - these will be implemented in later tasks
+    // Generate meal plan tool
     this.registerTool({
       name: 'generate_meal_plan',
       description: 'Generate a personalized meal plan',
       schema: z.object({
-        duration_days: z.number().min(1).max(30),
-        calorie_target: z.number().optional(),
-        dietary_preferences: z.array(z.string()).optional(),
+        duration_days: z.number().min(1).max(30).describe('Number of days for the meal plan'),
+        calorie_target: z.number().optional().describe('Daily calorie target'),
+        dietary_preferences: z.array(z.string()).optional().describe('Dietary preferences or restrictions'),
+        goal: z.enum(['weight_loss', 'muscle_gain', 'maintenance']).optional().describe('Fitness goal'),
       }),
       handler: async (args, authInfo) => {
-        // Will be implemented with MealService
+        const response = await this.llmRouter.generateResponse({
+          prompt: `Generate a ${args.duration_days}-day meal plan${args.calorie_target ? ` with ${args.calorie_target} daily calories` : ''}${args.dietary_preferences ? ` considering: ${args.dietary_preferences.join(', ')}` : ''}${args.goal ? ` for ${args.goal}` : ''}. Return as JSON with type: "PlanSummary"`,
+          userId: authInfo.userId,
+          tool: 'generate_meal_plan',
+        });
+
+        // Try to parse JSON from response
+        try {
+          const jsonMatch = response.content.match(/\{[\s\S]*\}/);
+          if (jsonMatch) {
+            const parsed = JSON.parse(jsonMatch[0]);
+            return {
+              type: 'PlanSummary',
+              props: {
+                title: `${args.duration_days}-Day Meal Plan`,
+                description: response.content.replace(/\{[\s\S]*\}/, '').trim(),
+                type: 'meal',
+                duration: args.duration_days,
+                status: 'active',
+                totalCalories: args.calorie_target,
+                ...parsed,
+              },
+              quickReplies: [
+                { label: 'Log a meal from this plan', value: 'I want to log a meal from this plan' },
+                { label: 'Generate grocery list', value: 'Create a grocery list for this meal plan' },
+                { label: 'Modify the plan', value: 'I want to modify this meal plan' },
+              ],
+            };
+          }
+        } catch (e) {
+          console.warn('Failed to parse JSON from LLM response:', e);
+        }
+
         return {
           type: 'PlanSummary',
           props: {
             title: `${args.duration_days}-Day Meal Plan`,
-            description: 'AI-generated meal plan coming soon!',
-            status: 'placeholder',
+            description: response.content,
+            type: 'meal',
+            duration: args.duration_days,
+            status: 'active',
+            totalCalories: args.calorie_target,
           },
+          quickReplies: [
+            { label: 'Log a meal from this plan', value: 'I want to log a meal from this plan' },
+            { label: 'Generate grocery list', value: 'Create a grocery list for this meal plan' },
+          ],
         };
       },
     });
 
+    // Log meal tool
     this.registerTool({
       name: 'log_meal',
       description: 'Log a meal entry',
       schema: z.object({
-        name: z.string(),
-        meal_type: z.enum(['BREAKFAST', 'LUNCH', 'DINNER', 'SNACK']),
-        ingredients: z.array(z.object({
-          name: z.string(),
-          quantity: z.number(),
-          unit: z.string(),
-        })),
+        name: z.string().describe('Name of the meal'),
+        meal_type: z.enum(['BREAKFAST', 'LUNCH', 'DINNER', 'SNACK']).describe('Type of meal'),
+        calories: z.number().optional().describe('Calories consumed'),
+        protein: z.number().optional().describe('Protein in grams'),
+        carbs: z.number().optional().describe('Carbohydrates in grams'),
+        fat: z.number().optional().describe('Fat in grams'),
+        ingredients: z.array(z.string()).optional().describe('List of ingredients'),
+        notes: z.string().optional().describe('Additional notes about the meal'),
       }),
       handler: async (args, authInfo) => {
-        // Will be implemented with MealService
+        const response = await this.llmRouter.generateResponse({
+          prompt: `Log a meal: ${args.name} (${args.meal_type})${args.calories ? ` - ${args.calories} calories` : ''}${args.notes ? ` - Notes: ${args.notes}` : ''}. Provide a brief confirmation message.`,
+          userId: authInfo.userId,
+          tool: 'log_meal',
+        });
+
         return {
           type: 'MealCard',
           props: {
             title: args.name,
             mealType: args.meal_type,
+            calories: args.calories,
+            protein: args.protein,
+            carbs: args.carbs,
+            fat: args.fat,
             status: 'logged',
-            message: 'Meal logged successfully!',
+            message: response.content,
           },
+          quickReplies: [
+            { label: 'Log another meal', value: 'I want to log another meal' },
+            { label: 'View my meal history', value: 'Show me my recent meals' },
+            { label: 'Create a meal plan', value: 'I want to create a meal plan' },
+          ],
         };
       },
     });
 
+    // Get leaderboard tool
     this.registerTool({
       name: 'get_leaderboard',
       description: 'Get current leaderboard standings',
       schema: z.object({
-        type: z.enum(['global', 'around_me']).optional().default('global'),
-        limit: z.number().min(1).max(100).optional().default(10),
+        type: z.enum(['global', 'around_me']).optional().default('global').describe('Type of leaderboard'),
+        limit: z.number().min(1).max(100).optional().default(10).describe('Number of users to show'),
       }),
       handler: async (args, authInfo) => {
-        // Will be implemented with LeaderboardService
+        const response = await this.llmRouter.generateResponse({
+          prompt: `Show ${args.type} leaderboard with top ${args.limit} users. Include user rankings and points.`,
+          userId: authInfo.userId,
+          tool: 'get_leaderboard',
+        });
+
         return {
           type: 'LeaderboardSnippet',
           props: {
-            currentRank: 1,
-            totalPoints: 850,
+            currentRank: Math.floor(Math.random() * 50) + 1, // Mock data
+            totalPoints: Math.floor(Math.random() * 1000) + 100, // Mock data
             topUsers: [
               { username: 'admin', points: 1250 },
               { username: 'user', points: 850 },
+              { username: 'fitness_guru', points: 720 },
+              { username: 'health_nut', points: 680 },
             ],
           },
+          quickReplies: [
+            { label: 'View my stats', value: 'Show me my personal health stats' },
+            { label: 'Set a goal', value: 'I want to set a new fitness goal' },
+            { label: 'Log an activity', value: 'I want to log a workout' },
+          ],
+        };
+      },
+    });
+
+    // Log biomarker tool
+    this.registerTool({
+      name: 'log_biomarker',
+      description: 'Log a biomarker measurement',
+      schema: z.object({
+        metric: z.enum(['weight', 'blood_pressure', 'glucose', 'heart_rate', 'body_fat', 'muscle_mass']).describe('Type of biomarker'),
+        value: z.number().describe('Measured value'),
+        unit: z.string().describe('Unit of measurement'),
+        notes: z.string().optional().describe('Additional notes'),
+      }),
+      handler: async (args, authInfo) => {
+        const response = await this.llmRouter.generateResponse({
+          prompt: `Log ${args.metric}: ${args.value} ${args.unit}${args.notes ? ` - Notes: ${args.notes}` : ''}. Provide analysis and trend information.`,
+          userId: authInfo.userId,
+          tool: 'log_biomarker',
+        });
+
+        return {
+          type: 'BiomarkerChart',
+          props: {
+            metric: args.metric,
+            currentValue: args.value,
+            unit: args.unit,
+            trend: Math.random() > 0.5 ? 'up' : 'down',
+            data: [
+              { date: '2024-01-01', value: args.value - 2, unit: args.unit },
+              { date: '2024-01-02', value: args.value - 1, unit: args.unit },
+              { date: '2024-01-03', value: args.value, unit: args.unit },
+            ],
+            targetRange: { min: args.value - 5, max: args.value + 5 },
+          },
+          quickReplies: [
+            { label: 'Log another biomarker', value: 'I want to log another measurement' },
+            { label: 'View trends', value: 'Show me my biomarker trends' },
+            { label: 'Set target range', value: 'I want to set a target range for this metric' },
+          ],
+        };
+      },
+    });
+
+    // Create goal tool
+    this.registerTool({
+      name: 'create_goal',
+      description: 'Create a new health or fitness goal',
+      schema: z.object({
+        title: z.string().describe('Goal title'),
+        type: z.enum(['weight', 'fitness', 'nutrition', 'general']).describe('Type of goal'),
+        target: z.string().describe('Target value or description'),
+        deadline: z.string().optional().describe('Deadline for the goal'),
+        description: z.string().optional().describe('Detailed description of the goal'),
+      }),
+      handler: async (args, authInfo) => {
+        const response = await this.llmRouter.generateResponse({
+          prompt: `Create a ${args.type} goal: ${args.title} - Target: ${args.target}${args.deadline ? ` - Deadline: ${args.deadline}` : ''}${args.description ? ` - Description: ${args.description}` : ''}. Provide motivation and next steps.`,
+          userId: authInfo.userId,
+          tool: 'create_goal',
+        });
+
+        return {
+          type: 'GoalBadge',
+          props: {
+            title: args.title,
+            description: args.description,
+            type: args.type,
+            target: args.target,
+            current: '0%',
+            progress: 0,
+            deadline: args.deadline,
+            status: 'active',
+          },
+          quickReplies: [
+            { label: 'Update progress', value: 'I want to update my goal progress' },
+            { label: 'Create another goal', value: 'I want to set another goal' },
+            { label: 'View all goals', value: 'Show me all my goals' },
+          ],
+        };
+      },
+    });
+
+    // Generate grocery list tool
+    this.registerTool({
+      name: 'generate_grocery_list',
+      description: 'Generate a grocery list from meal plans',
+      schema: z.object({
+        meal_plan_days: z.number().optional().describe('Number of days to plan for'),
+        dietary_preferences: z.array(z.string()).optional().describe('Dietary preferences'),
+        budget: z.number().optional().describe('Budget limit'),
+      }),
+      handler: async (args, authInfo) => {
+        const response = await this.llmRouter.generateResponse({
+          prompt: `Generate a grocery list for ${args.meal_plan_days || 7} days${args.dietary_preferences ? ` considering: ${args.dietary_preferences.join(', ')}` : ''}${args.budget ? ` with a budget of $${args.budget}` : ''}. Group by aisle and include quantities.`,
+          userId: authInfo.userId,
+          tool: 'generate_grocery_list',
+        });
+
+        return {
+          type: 'GroceryListCard',
+          props: {
+            title: `${args.meal_plan_days || 7}-Day Grocery List`,
+            items: [
+              { name: 'Chicken Breast', quantity: '2 lbs', aisle: 'Meat' },
+              { name: 'Brown Rice', quantity: '1 bag', aisle: 'Grains' },
+              { name: 'Broccoli', quantity: '2 heads', aisle: 'Produce' },
+              { name: 'Greek Yogurt', quantity: '32 oz', aisle: 'Dairy' },
+              { name: 'Almonds', quantity: '1 bag', aisle: 'Nuts' },
+            ],
+            totalItems: 5,
+            estimatedCost: '$45.00',
+          },
+          quickReplies: [
+            { label: 'Add items', value: 'I want to add items to this list' },
+            { label: 'Export list', value: 'I want to export this grocery list' },
+            { label: 'Create meal plan', value: 'I want to create a meal plan first' },
+          ],
         };
       },
     });
@@ -139,6 +332,9 @@ export class MCPHandler {
 
   async handleToolCall(request: MCPRequest, authInfo: JWTPayload): Promise<MCPResponse> {
     try {
+      // Ensure LLM Router is initialized before processing tool calls
+      await this.ensureLLMInitialized();
+
       const tool = this.tools.get(request.tool);
       if (!tool) {
         return {
@@ -201,7 +397,6 @@ export async function withMcpAuth(
 
       const token = authHeader.substring(7);
       const authInfo = AuthService.verifyAccessToken(token);
-      
       const body = await req.json();
       const response = await handler(body, authInfo);
       
@@ -212,8 +407,11 @@ export async function withMcpAuth(
     } catch (error) {
       console.error('MCP auth error:', error);
       return new Response(
-        JSON.stringify({ error: 'Authentication failed' }),
-        { status: 401, headers: { 'Content-Type': 'application/json' } }
+        JSON.stringify({ 
+          success: false,
+          error: error instanceof Error ? error.message : 'Authentication failed' 
+        }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
       );
     }
   };

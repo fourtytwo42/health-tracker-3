@@ -24,7 +24,8 @@ import {
   CardActions,
   IconButton,
   Chip,
-  Grid
+  Grid,
+  MenuItem
 } from '@mui/material';
 import { Delete as DeleteIcon, Edit as EditIcon } from '@mui/icons-material';
 import Navigation from '../components/Navigation';
@@ -50,6 +51,8 @@ interface Setting {
 }
 
 interface LLMRouterConfig {
+  selectedModel: string;
+  selectedProvider: string;
   latencyWeight: number;
   costWeight: number;
   providers: {
@@ -83,6 +86,8 @@ export default function AdminDashboard() {
   // LLM config dialog state
   const [llmDialogOpen, setLlmDialogOpen] = useState(false);
   const [llmForm, setLlmForm] = useState({
+    selectedModel: 'llama3.2:3b',
+    selectedProvider: 'ollama',
     latencyWeight: 0.7,
     costWeight: 0.3,
     providers: {
@@ -100,6 +105,12 @@ export default function AdminDashboard() {
   const [llmLoading, setLlmLoading] = useState(false);
   const [testResult, setTestResult] = useState<any>(null);
   const [testing, setTesting] = useState(false);
+
+  // Ollama model selection state
+  const [ollamaModels, setOllamaModels] = useState<any[]>([]);
+  const [modelDialogOpen, setModelDialogOpen] = useState(false);
+  const [selectedModel, setSelectedModel] = useState('');
+  const [updatingModel, setUpdatingModel] = useState(false);
 
   useEffect(() => {
     // Get user from localStorage
@@ -159,6 +170,89 @@ export default function AdminDashboard() {
     }
   };
 
+  const loadOllamaModels = async () => {
+    try {
+      const response = await fetch('/api/llm/ollama-models', {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('accessToken')}` }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setOllamaModels(data.models || []);
+      }
+    } catch (error) {
+      console.error('Error loading Ollama models:', error);
+    }
+  };
+
+  const openModelDialog = async (currentModel: string) => {
+    setSelectedModel(currentModel);
+    await loadOllamaModels();
+    setModelDialogOpen(true);
+  };
+
+  const updateOllamaModel = async () => {
+    setUpdatingModel(true);
+    try {
+      // Update the LLM settings with the new model
+      const currentSettings = await fetch('/api/settings/llm', {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('accessToken')}` }
+      }).then(res => res.json());
+
+      const updatedSettings = {
+        ...currentSettings.config,
+        selectedModel: selectedModel,
+        selectedProvider: 'ollama'
+      };
+
+      const response = await fetch('/api/settings/llm', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
+        },
+        body: JSON.stringify(updatedSettings)
+      });
+      
+      if (response.ok) {
+        setModelDialogOpen(false);
+        // Refresh the providers to show the updated model
+        await loadLLMProviders();
+        // Reload data to show updated settings
+        await loadData();
+      } else {
+        const error = await response.json();
+        setError(error.error || 'Failed to update model');
+      }
+    } catch (error) {
+      setError('Failed to update model');
+      console.error('Error updating Ollama model:', error);
+    } finally {
+      setUpdatingModel(false);
+    }
+  };
+
+  const clearLLMCache = async () => {
+    try {
+      const response = await fetch('/api/llm/clear-cache', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
+        }
+      });
+      
+      if (response.ok) {
+        // Show success message
+        setError(null);
+        // You could add a success state here if needed
+      } else {
+        setError('Failed to clear cache');
+      }
+    } catch (error) {
+      setError('Failed to clear cache');
+      console.error('Error clearing LLM cache:', error);
+    }
+  };
+
   const loadData = async () => {
     try {
       setLoading(true);
@@ -171,7 +265,7 @@ export default function AdminDashboard() {
         fetch('/api/settings', {
           headers: { 'Authorization': `Bearer ${localStorage.getItem('accessToken')}` }
         }),
-        fetch('/api/settings/llm-router', {
+        fetch('/api/settings/llm', {
           headers: { 'Authorization': `Bearer ${localStorage.getItem('accessToken')}` }
         })
       ]);
@@ -272,7 +366,7 @@ export default function AdminDashboard() {
 
   const saveLLMConfig = async () => {
     try {
-      const response = await fetch('/api/settings/llm-router', {
+      const response = await fetch('/api/settings/llm', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -459,15 +553,63 @@ export default function AdminDashboard() {
           {/* LLM Providers Tab */}
           {tabValue === 3 && (
             <Box sx={{ p: 3 }}>
+              {/* Global Settings Section */}
+              {llmConfig && (
+                <Card sx={{ mb: 3 }}>
+                  <CardContent>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                      <Typography variant="h6">Global LLM Settings</Typography>
+                      <Button 
+                        variant="outlined" 
+                        onClick={() => setLlmDialogOpen(true)}
+                        size="small"
+                      >
+                        Configure
+                      </Button>
+                    </Box>
+                    <Grid container spacing={2}>
+                      <Grid item xs={12} md={6}>
+                        <Typography variant="body2" color="text.secondary" gutterBottom>
+                          Current Provider: <strong>{llmConfig.selectedProvider}</strong>
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary" gutterBottom>
+                          Current Model: <strong>{llmConfig.selectedModel}</strong>
+                        </Typography>
+                      </Grid>
+                      <Grid item xs={12} md={6}>
+                        <Typography variant="body2" color="text.secondary" gutterBottom>
+                          Latency Weight: <strong>{llmConfig.latencyWeight}</strong>
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary" gutterBottom>
+                          Cost Weight: <strong>{llmConfig.costWeight}</strong>
+                        </Typography>
+                      </Grid>
+                    </Grid>
+                    <Typography variant="body2" color="text.secondary" sx={{ mt: 1, fontStyle: 'italic' }}>
+                      These settings apply to all users globally
+                    </Typography>
+                  </CardContent>
+                </Card>
+              )}
+
               <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
                 <Typography variant="h6">LLM Provider Status</Typography>
-                <Button 
-                  variant="outlined" 
-                  onClick={loadLLMProviders}
-                  disabled={llmLoading}
-                >
-                  {llmLoading ? <CircularProgress size={20} /> : 'Refresh'}
-                </Button>
+                <Box sx={{ display: 'flex', gap: 1 }}>
+                  <Button 
+                    variant="outlined" 
+                    onClick={clearLLMCache}
+                    size="small"
+                  >
+                    Clear Cache
+                  </Button>
+                  <Button 
+                    variant="outlined" 
+                    onClick={loadLLMProviders}
+                    disabled={llmLoading}
+                  >
+                    {llmLoading ? <CircularProgress size={20} /> : 'Refresh'}
+                  </Button>
+                </Box>
               </Box>
 
               {llmLoading ? (
@@ -507,7 +649,7 @@ export default function AdminDashboard() {
                             Cost: ${provider.costPer1k}/1k tokens
                           </Typography>
                           
-                          <Box sx={{ mt: 2 }}>
+                          <Box sx={{ mt: 2, display: 'flex', gap: 1 }}>
                             <Button
                               variant="outlined"
                               size="small"
@@ -516,6 +658,17 @@ export default function AdminDashboard() {
                             >
                               {testing ? 'Testing...' : 'Test Provider'}
                             </Button>
+                            
+                            {provider.name === 'Ollama' && (
+                              <Button
+                                variant="outlined"
+                                size="small"
+                                onClick={() => openModelDialog(provider.model || '')}
+                                disabled={!provider.isAvailable}
+                              >
+                                Change Model
+                              </Button>
+                            )}
                           </Box>
                         </CardContent>
                       </Card>
@@ -535,38 +688,38 @@ export default function AdminDashboard() {
                     </Grid>
                   )}
                 </Grid>
-                
-                {/* Test Result */}
-                {testResult && (
-                  <Box sx={{ mt: 3 }}>
-                    <Typography variant="h6" gutterBottom>
-                      Test Result
-                    </Typography>
-                    <Card>
-                      <CardContent>
-                        {testResult.success ? (
-                          <Box>
-                            <Typography variant="body2" color="success.main" gutterBottom>
-                              ✅ Test successful using {testResult.provider}
-                            </Typography>
-                            <Typography variant="body1" gutterBottom>
-                              Response: {testResult.content}
-                            </Typography>
-                            {testResult.usage && (
-                              <Typography variant="body2" color="text.secondary">
-                                Tokens used: {testResult.usage.totalTokens}
-                              </Typography>
-                            )}
-                          </Box>
-                        ) : (
-                          <Typography variant="body2" color="error.main">
-                            ❌ Test failed: {testResult.error}
+              )}
+              
+              {/* Test Result */}
+              {testResult && (
+                <Box sx={{ mt: 3 }}>
+                  <Typography variant="h6" gutterBottom>
+                    Test Result
+                  </Typography>
+                  <Card>
+                    <CardContent>
+                      {testResult.success ? (
+                        <Box>
+                          <Typography variant="body2" color="success.main" gutterBottom>
+                            ✅ Test successful using {testResult.provider}
                           </Typography>
-                        )}
-                      </CardContent>
-                    </Card>
-                  </Box>
-                )}
+                          <Typography variant="body1" gutterBottom>
+                            Response: {testResult.content}
+                          </Typography>
+                          {testResult.usage && (
+                            <Typography variant="body2" color="text.secondary">
+                              Tokens used: {testResult.usage.totalTokens}
+                            </Typography>
+                          )}
+                        </Box>
+                      ) : (
+                        <Typography variant="body2" color="error.main">
+                          ❌ Test failed: {testResult.error}
+                        </Typography>
+                      )}
+                    </CardContent>
+                  </Card>
+                </Box>
               )}
             </Box>
           )}
@@ -639,6 +792,39 @@ export default function AdminDashboard() {
         <Dialog open={llmDialogOpen} onClose={() => setLlmDialogOpen(false)} maxWidth="md" fullWidth>
           <DialogTitle>LLM Router Configuration</DialogTitle>
           <DialogContent>
+            <Typography variant="h6" gutterBottom>
+              Global Model & Provider Settings
+            </Typography>
+            
+            <TextField
+              select
+              fullWidth
+              label="Selected Provider"
+              value={llmForm.selectedProvider}
+              onChange={(e) => setLlmForm({ ...llmForm, selectedProvider: e.target.value })}
+              margin="normal"
+            >
+              <MenuItem value="ollama">Ollama (Local)</MenuItem>
+              <MenuItem value="openai">OpenAI</MenuItem>
+              <MenuItem value="groq">Groq</MenuItem>
+              <MenuItem value="anthropic">Anthropic</MenuItem>
+              <MenuItem value="aws">AWS Bedrock</MenuItem>
+              <MenuItem value="azure">Azure AI</MenuItem>
+            </TextField>
+
+            <TextField
+              fullWidth
+              label="Selected Model"
+              value={llmForm.selectedModel}
+              onChange={(e) => setLlmForm({ ...llmForm, selectedModel: e.target.value })}
+              margin="normal"
+              helperText="This model will be used for all users"
+            />
+
+            <Typography variant="h6" gutterBottom sx={{ mt: 3 }}>
+              Router Weights
+            </Typography>
+            
             <Typography gutterBottom>Latency Weight</Typography>
             <Slider
               value={llmForm.latencyWeight}
@@ -705,7 +891,66 @@ export default function AdminDashboard() {
             </Button>
           </DialogActions>
         </Dialog>
+
+        {/* Ollama Model Selection Dialog */}
+        <Dialog open={modelDialogOpen} onClose={() => setModelDialogOpen(false)} maxWidth="sm" fullWidth>
+          <DialogTitle>Select Ollama Model</DialogTitle>
+          <DialogContent>
+            <Typography variant="body2" color="text.secondary" gutterBottom>
+              Choose a model from your installed Ollama models:
+            </Typography>
+            
+            {ollamaModels.length === 0 ? (
+              <Box sx={{ textAlign: 'center', py: 2 }}>
+                <CircularProgress size={24} />
+                <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                  Loading models...
+                </Typography>
+              </Box>
+            ) : (
+              <Box sx={{ mt: 2 }}>
+                {ollamaModels.map((model) => (
+                  <Box
+                    key={model.name}
+                    sx={{
+                      p: 2,
+                      border: selectedModel === model.name ? '2px solid #1976d2' : '1px solid #e0e0e0',
+                      borderRadius: 1,
+                      mb: 1,
+                      cursor: 'pointer',
+                      backgroundColor: selectedModel === model.name ? '#f3f6ff' : 'transparent',
+                      '&:hover': {
+                        backgroundColor: selectedModel === model.name ? '#f3f6ff' : '#f5f5f5'
+                      }
+                    }}
+                    onClick={() => setSelectedModel(model.name)}
+                  >
+                    <Typography variant="subtitle1" fontWeight="medium">
+                      {model.name}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Size: {(model.size / 1024 / 1024 / 1024).toFixed(1)} GB
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Modified: {new Date(model.modified_at).toLocaleDateString()}
+                    </Typography>
+                  </Box>
+                ))}
+              </Box>
+            )}
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setModelDialogOpen(false)}>Cancel</Button>
+            <Button 
+              onClick={updateOllamaModel} 
+              variant="contained"
+              disabled={updatingModel || !selectedModel}
+            >
+              {updatingModel ? 'Updating...' : 'Update Model'}
+            </Button>
+          </DialogActions>
+        </Dialog>
       </Container>
     </div>
   );
-} 
+}
