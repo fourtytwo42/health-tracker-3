@@ -98,14 +98,8 @@ export default function AdminDashboard() {
     }
   }, []);
 
-  // On load, initialize order and enabled state from llmProviders
-  useEffect(() => {
-    if (llmProviders.length > 0) {
-      console.log('Setting provider order from llmProviders:', llmProviders);
-      setProviderOrder(llmProviders.map(p => p.key));
-      setProviderEnabled(Object.fromEntries(llmProviders.map(p => [p.key, p.isAvailable])));
-    }
-  }, [llmProviders]);
+  // Note: Provider order and enabled state are now loaded from database in loadData()
+  // This useEffect was causing the enabled state to be overridden with availability status
 
   // Debug effect to see current state
   useEffect(() => {
@@ -458,6 +452,23 @@ export default function AdminDashboard() {
             enabledState[key] = (config as any).enabled;
           });
           setProviderEnabled(enabledState);
+        } else {
+          // Fallback: if no settings exist, create default settings
+          const defaultOrder = ['ollama', 'openai', 'groq', 'anthropic', 'aws', 'azure'];
+          const defaultEnabled = {
+            ollama: true,
+            openai: true,
+            groq: true,
+            anthropic: true,
+            aws: false,
+            azure: false,
+          };
+          
+          setProviderOrder(defaultOrder);
+          setProviderEnabled(defaultEnabled);
+          
+          // Save the default settings to database
+          await saveProviderSettings(defaultOrder, defaultEnabled);
         }
       }
     } catch (err) {
@@ -631,12 +642,12 @@ export default function AdminDashboard() {
         latencyWeight: 0.5,
         costWeight: 0.5,
         providers: {
-          ollama: { enabled: enabled.ollama ?? true, priority: order.indexOf('ollama') + 1 },
-          openai: { enabled: enabled.openai ?? true, priority: order.indexOf('openai') + 1 },
-          groq: { enabled: enabled.groq ?? true, priority: order.indexOf('groq') + 1 },
-          anthropic: { enabled: enabled.anthropic ?? true, priority: order.indexOf('anthropic') + 1 },
-          aws: { enabled: enabled.aws ?? true, priority: order.indexOf('aws') + 1 },
-          azure: { enabled: enabled.azure ?? true, priority: order.indexOf('azure') + 1 },
+          ollama: { enabled: enabled.ollama, priority: order.indexOf('ollama') + 1 },
+          openai: { enabled: enabled.openai, priority: order.indexOf('openai') + 1 },
+          groq: { enabled: enabled.groq, priority: order.indexOf('groq') + 1 },
+          anthropic: { enabled: enabled.anthropic, priority: order.indexOf('anthropic') + 1 },
+          aws: { enabled: enabled.aws, priority: order.indexOf('aws') + 1 },
+          azure: { enabled: enabled.azure, priority: order.indexOf('azure') + 1 },
         }
       };
 
