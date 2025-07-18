@@ -300,8 +300,8 @@ export default function ChatPage() {
                           />
                         ))}
                         
-                        {/* Quick replies */}
-                        {message.quickReplies && message.quickReplies.length > 0 && (
+                        {/* Quick replies (only if no components with their own quick replies) */}
+                        {message.quickReplies && message.quickReplies.length > 0 && !message.components?.some(c => c.quickReplies) && (
                           <QuickReplies
                             replies={message.quickReplies}
                             onReply={handleQuickReply}
