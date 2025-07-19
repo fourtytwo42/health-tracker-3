@@ -149,10 +149,51 @@ export default function FoodPreferencesTab() {
   const [fiberRange, setFiberRange] = useState([0, 50]);
   const [sodiumRange, setSodiumRange] = useState([0, 2000]);
   const [preferenceTypeFilter, setPreferenceTypeFilter] = useState('');
+  
+  // Enhanced filter states
+  const [dietaryFilter, setDietaryFilter] = useState<string[]>([]);
+  const [preparationFilter, setPreparationFilter] = useState<string[]>([]);
+  const [mealTypeFilter, setMealTypeFilter] = useState<string[]>([]);
+  const [seasonalFilter, setSeasonalFilter] = useState<string[]>([]);
 
   // Available categories and aisles
   const [categories, setCategories] = useState<string[]>([]);
   const [aisles, setAisles] = useState<string[]>([]);
+
+  // Enhanced filter options
+  const dietaryOptions = [
+    { value: 'vegan', label: 'Vegan' },
+    { value: 'vegetarian', label: 'Vegetarian' },
+    { value: 'gluten-free', label: 'Gluten-Free' },
+    { value: 'dairy-free', label: 'Dairy-Free' },
+    { value: 'keto', label: 'Keto' },
+    { value: 'paleo', label: 'Paleo' }
+  ];
+
+  const preparationOptions = [
+    { value: 'raw', label: 'Raw' },
+    { value: 'cooked', label: 'Cooked' },
+    { value: 'frozen', label: 'Frozen' },
+    { value: 'canned', label: 'Canned' },
+    { value: 'fresh', label: 'Fresh' },
+    { value: 'dried', label: 'Dried' }
+  ];
+
+  const mealTypeOptions = [
+    { value: 'breakfast', label: 'Breakfast' },
+    { value: 'lunch', label: 'Lunch' },
+    { value: 'dinner', label: 'Dinner' },
+    { value: 'snack', label: 'Snack' },
+    { value: 'dessert', label: 'Dessert' }
+  ];
+
+  const seasonalOptions = [
+    { value: 'spring', label: 'Spring' },
+    { value: 'summer', label: 'Summer' },
+    { value: 'fall', label: 'Fall' },
+    { value: 'winter', label: 'Winter' },
+    { value: 'year-round', label: 'Year-Round' }
+  ];
 
   const itemsPerPage = 10;
 
@@ -210,7 +251,7 @@ export default function FoodPreferencesTab() {
       // Build query parameters for filtering
       const params = new URLSearchParams({
         q: term,
-        limit: '20'
+        limit: '50' // Get more results to filter from
       });
 
       if (categoryFilter) params.append('category', categoryFilter);
@@ -233,7 +274,89 @@ export default function FoodPreferencesTab() {
           );
         });
 
-        setSearchResults(ingredients);
+        // Apply enhanced filters on the client side
+        if (dietaryFilter.length > 0) {
+          ingredients = ingredients.filter((ingredient: Ingredient) => {
+            const nameLower = ingredient.name.toLowerCase();
+            return dietaryFilter.some(diet => {
+              switch (diet) {
+                case 'vegan':
+                  return !nameLower.includes('meat') && !nameLower.includes('chicken') && !nameLower.includes('beef') && 
+                         !nameLower.includes('pork') && !nameLower.includes('fish') && !nameLower.includes('dairy') &&
+                         !nameLower.includes('milk') && !nameLower.includes('cheese') && !nameLower.includes('egg');
+                case 'vegetarian':
+                  return !nameLower.includes('meat') && !nameLower.includes('chicken') && !nameLower.includes('beef') && 
+                         !nameLower.includes('pork') && !nameLower.includes('fish');
+                case 'gluten-free':
+                  return !nameLower.includes('wheat') && !nameLower.includes('bread') && !nameLower.includes('pasta') &&
+                         !nameLower.includes('flour') && !nameLower.includes('cereal');
+                case 'dairy-free':
+                  return !nameLower.includes('milk') && !nameLower.includes('cheese') && !nameLower.includes('yogurt') &&
+                         !nameLower.includes('cream') && !nameLower.includes('butter');
+                case 'keto':
+                  return ingredient.carbs < 10; // Low carb for keto
+                case 'paleo':
+                  return !nameLower.includes('grain') && !nameLower.includes('wheat') && !nameLower.includes('rice') &&
+                         !nameLower.includes('corn') && !nameLower.includes('bean');
+                default:
+                  return true;
+              }
+            });
+          });
+        }
+
+        if (preparationFilter.length > 0) {
+          ingredients = ingredients.filter((ingredient: Ingredient) => {
+            const nameLower = ingredient.name.toLowerCase();
+            return preparationFilter.some(prep => {
+              switch (prep) {
+                case 'raw':
+                  return nameLower.includes('raw');
+                case 'cooked':
+                  return nameLower.includes('cooked') || nameLower.includes('baked') || nameLower.includes('grilled') ||
+                         nameLower.includes('fried') || nameLower.includes('roasted');
+                case 'frozen':
+                  return nameLower.includes('frozen');
+                case 'canned':
+                  return nameLower.includes('canned');
+                case 'fresh':
+                  return nameLower.includes('fresh');
+                case 'dried':
+                  return nameLower.includes('dried') || nameLower.includes('dehydrated');
+                default:
+                  return true;
+              }
+            });
+          });
+        }
+
+        if (mealTypeFilter.length > 0) {
+          ingredients = ingredients.filter((ingredient: Ingredient) => {
+            const nameLower = ingredient.name.toLowerCase();
+            return mealTypeFilter.some(meal => {
+              switch (meal) {
+                case 'breakfast':
+                  return nameLower.includes('cereal') || nameLower.includes('oatmeal') || nameLower.includes('pancake') ||
+                         nameLower.includes('waffle') || nameLower.includes('egg') || nameLower.includes('bacon');
+                case 'lunch':
+                  return nameLower.includes('sandwich') || nameLower.includes('salad') || nameLower.includes('soup');
+                case 'dinner':
+                  return nameLower.includes('steak') || nameLower.includes('chicken') || nameLower.includes('fish') ||
+                         nameLower.includes('pasta') || nameLower.includes('rice');
+                case 'snack':
+                  return nameLower.includes('chip') || nameLower.includes('cracker') || nameLower.includes('nut') ||
+                         nameLower.includes('popcorn');
+                case 'dessert':
+                  return nameLower.includes('cake') || nameLower.includes('cookie') || nameLower.includes('ice cream') ||
+                         nameLower.includes('pie') || nameLower.includes('chocolate');
+                default:
+                  return true;
+              }
+            });
+          });
+        }
+
+        setSearchResults(ingredients.slice(0, 20)); // Limit to 20 for display
       }
     } catch (error) {
       console.error('Error searching ingredients:', error);
@@ -251,7 +374,20 @@ export default function FoodPreferencesTab() {
     if (searchTerm.length >= 2) {
       searchIngredients(searchTerm);
     }
-  }, [categoryFilter, aisleFilter, calorieRange, proteinRange, carbRange, fatRange, fiberRange, sodiumRange]);
+  }, [
+    categoryFilter, 
+    aisleFilter, 
+    calorieRange, 
+    proteinRange, 
+    carbRange, 
+    fatRange, 
+    fiberRange, 
+    sodiumRange,
+    dietaryFilter,
+    preparationFilter,
+    mealTypeFilter,
+    seasonalFilter
+  ]);
 
   const clearFilters = () => {
     setCategoryFilter('');
@@ -263,6 +399,10 @@ export default function FoodPreferencesTab() {
     setFiberRange([0, 50]);
     setSodiumRange([0, 2000]);
     setPreferenceTypeFilter('');
+    setDietaryFilter([]);
+    setPreparationFilter([]);
+    setMealTypeFilter([]);
+    setSeasonalFilter([]);
   };
 
   const handleAddPreference = (ingredient: Ingredient) => {
@@ -551,6 +691,114 @@ export default function FoodPreferencesTab() {
                         max={2000}
                         step={10}
                       />
+                    </Grid>
+
+                    {/* Enhanced Filters */}
+                    <Grid item xs={12}>
+                      <Divider sx={{ my: 2 }} />
+                      <Typography variant="h6" gutterBottom>
+                        Enhanced Filters
+                      </Typography>
+                    </Grid>
+
+                    {/* Dietary Restrictions */}
+                    <Grid item xs={12} md={6}>
+                      <FormControl fullWidth size="small">
+                        <InputLabel>Dietary Restrictions</InputLabel>
+                        <Select
+                          multiple
+                          value={dietaryFilter}
+                          onChange={(e) => setDietaryFilter(e.target.value as string[])}
+                          renderValue={(selected) => (
+                            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                              {selected.map((value) => (
+                                <Chip key={value} label={dietaryOptions.find(opt => opt.value === value)?.label || value} size="small" />
+                              ))}
+                            </Box>
+                          )}
+                        >
+                          {dietaryOptions.map((option) => (
+                            <MenuItem key={option.value} value={option.value}>
+                              {option.label}
+                            </MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+                    </Grid>
+
+                    {/* Preparation Methods */}
+                    <Grid item xs={12} md={6}>
+                      <FormControl fullWidth size="small">
+                        <InputLabel>Preparation Methods</InputLabel>
+                        <Select
+                          multiple
+                          value={preparationFilter}
+                          onChange={(e) => setPreparationFilter(e.target.value as string[])}
+                          renderValue={(selected) => (
+                            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                              {selected.map((value) => (
+                                <Chip key={value} label={preparationOptions.find(opt => opt.value === value)?.label || value} size="small" />
+                              ))}
+                            </Box>
+                          )}
+                        >
+                          {preparationOptions.map((option) => (
+                            <MenuItem key={option.value} value={option.value}>
+                              {option.label}
+                            </MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+                    </Grid>
+
+                    {/* Meal Types */}
+                    <Grid item xs={12} md={6}>
+                      <FormControl fullWidth size="small">
+                        <InputLabel>Meal Types</InputLabel>
+                        <Select
+                          multiple
+                          value={mealTypeFilter}
+                          onChange={(e) => setMealTypeFilter(e.target.value as string[])}
+                          renderValue={(selected) => (
+                            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                              {selected.map((value) => (
+                                <Chip key={value} label={mealTypeOptions.find(opt => opt.value === value)?.label || value} size="small" />
+                              ))}
+                            </Box>
+                          )}
+                        >
+                          {mealTypeOptions.map((option) => (
+                            <MenuItem key={option.value} value={option.value}>
+                              {option.label}
+                            </MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+                    </Grid>
+
+                    {/* Seasonal Availability */}
+                    <Grid item xs={12} md={6}>
+                      <FormControl fullWidth size="small">
+                        <InputLabel>Seasonal Availability</InputLabel>
+                        <Select
+                          multiple
+                          value={seasonalFilter}
+                          onChange={(e) => setSeasonalFilter(e.target.value as string[])}
+                          renderValue={(selected) => (
+                            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                              {selected.map((value) => (
+                                <Chip key={value} label={seasonalOptions.find(opt => opt.value === value)?.label || value} size="small" />
+                              ))}
+                            </Box>
+                          )}
+                        >
+                          {seasonalOptions.map((option) => (
+                            <MenuItem key={option.value} value={option.value}>
+                              {option.label}
+                            </MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
                     </Grid>
                   </Grid>
                 </Paper>

@@ -101,9 +101,49 @@ export default function ExercisePreferencesTab() {
   const [metRange, setMetRange] = useState([0, 20]);
   const [preferenceTypeFilter, setPreferenceTypeFilter] = useState('');
 
+  // Enhanced filter states
+  const [equipmentFilter, setEquipmentFilter] = useState<string[]>([]);
+  const [bodyPartsFilter, setBodyPartsFilter] = useState<string[]>([]);
+  const [exerciseTypeFilter, setExerciseTypeFilter] = useState<string[]>([]);
+  const [difficultyFilter, setDifficultyFilter] = useState<string[]>([]);
+
   // Available categories and intensities
   const [categories, setCategories] = useState<string[]>([]);
   const [intensities, setIntensities] = useState<string[]>([]);
+
+  // Enhanced filter options
+  const equipmentOptions = [
+    { value: 'none', label: 'No Equipment' },
+    { value: 'dumbbells', label: 'Dumbbells' },
+    { value: 'barbell', label: 'Barbell' },
+    { value: 'resistance-bands', label: 'Resistance Bands' },
+    { value: 'cardio-machine', label: 'Cardio Machine' },
+    { value: 'bodyweight', label: 'Bodyweight Only' }
+  ];
+
+  const bodyPartsOptions = [
+    { value: 'legs', label: 'Legs' },
+    { value: 'arms', label: 'Arms' },
+    { value: 'chest', label: 'Chest' },
+    { value: 'back', label: 'Back' },
+    { value: 'shoulders', label: 'Shoulders' },
+    { value: 'core', label: 'Core' },
+    { value: 'full-body', label: 'Full Body' }
+  ];
+
+  const exerciseTypeOptions = [
+    { value: 'strength', label: 'Strength Training' },
+    { value: 'cardio', label: 'Cardio' },
+    { value: 'flexibility', label: 'Flexibility' },
+    { value: 'balance', label: 'Balance' },
+    { value: 'sports', label: 'Sports' }
+  ];
+
+  const difficultyOptions = [
+    { value: 'beginner', label: 'Beginner' },
+    { value: 'intermediate', label: 'Intermediate' },
+    { value: 'advanced', label: 'Advanced' }
+  ];
 
   const itemsPerPage = 10;
 
