@@ -166,14 +166,14 @@ export default function FoodPreferencesTab() {
   const loadCategoriesAndAisles = async () => {
     try {
       // Load categories and aisles from the ingredients database
-      const response = await fetch('/api/ingredients/search?q=&limit=1000');
+      const response = await fetch('/api/ingredients/search?loadCategories=true&limit=1000');
       if (response.ok) {
         const data = await response.json();
         const ingredients = data.ingredients || [];
         
         // Extract unique categories and aisles
-        const uniqueCategories = [...new Set(ingredients.map((i: Ingredient) => i.category).filter(Boolean))];
-        const uniqueAisles = [...new Set(ingredients.map((i: Ingredient) => i.aisle).filter(Boolean))];
+        const uniqueCategories = Array.from(new Set(ingredients.map((i: Ingredient) => i.category).filter(Boolean))) as string[];
+        const uniqueAisles = Array.from(new Set(ingredients.map((i: Ingredient) => i.aisle).filter(Boolean))) as string[];
         
         setCategories(uniqueCategories.sort());
         setAisles(uniqueAisles.sort());

@@ -4,12 +4,35 @@ import { portablePrisma } from '@/lib/prisma';
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const query = searchParams.get('q');
+    const query = searchParams.get('q') || '';
     const limit = parseInt(searchParams.get('limit') || '10');
     const category = searchParams.get('category');
     const intensity = searchParams.get('intensity');
+    const loadCategories = searchParams.get('loadCategories') === 'true';
+    const loadIntensities = searchParams.get('loadIntensities') === 'true';
 
-    if (!query || query.length < 2) {
+    // If loading categories or intensities, return all exercises
+    if (loadCategories || loadIntensities) {
+      const exercises = await portablePrisma.exercise.findMany({
+        where: { isActive: true },
+        select: {
+          id: true,
+          activity: true,
+          code: true,
+          met: true,
+          description: true,
+          category: true,
+          intensity: true
+        },
+        take: 1000,
+        orderBy: { activity: 'asc' }
+      });
+
+      return NextResponse.json({ exercises });
+    }
+
+    // For regular search, require at least 2 characters
+    if (query.length < 2) {
       return NextResponse.json({ exercises: [] });
     }
 

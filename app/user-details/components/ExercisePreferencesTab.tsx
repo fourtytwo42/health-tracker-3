@@ -117,14 +117,14 @@ export default function ExercisePreferencesTab() {
   const loadCategoriesAndIntensities = async () => {
     try {
       // Load categories and intensities from the exercises database
-      const response = await fetch('/api/exercises/search?q=&limit=1000');
+      const response = await fetch('/api/exercises/search?loadCategories=true&limit=1000');
       if (response.ok) {
         const data = await response.json();
         const exercises = data.exercises || [];
         
         // Extract unique categories and intensities
-        const uniqueCategories = [...new Set(exercises.map((e: Exercise) => e.category).filter(Boolean))];
-        const uniqueIntensities = [...new Set(exercises.map((e: Exercise) => e.intensity).filter(Boolean))];
+        const uniqueCategories = Array.from(new Set(exercises.map((e: Exercise) => e.category).filter(Boolean))) as string[];
+        const uniqueIntensities = Array.from(new Set(exercises.map((e: Exercise) => e.intensity).filter(Boolean))) as string[];
         
         setCategories(uniqueCategories.sort());
         setIntensities(uniqueIntensities.sort());
