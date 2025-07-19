@@ -35,14 +35,17 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# Prisma
+# Prisma - Main database (exclude from git)
 /prisma/dev.db
 /prisma/dev.db-journal
+
+# Large data directories (exclude from git)
+/ingredientData/
+/excerciseData/
 
 # Large USDA data files (too big for GitHub)
 ingredientData/FoodData_Central_branded_food_json_2025-04-24.json
 ingredientData/FoodData_Central_sr_legacy_food_json_2018-04.json
 ingredientData/surveyDownload.json
 
-# Portable database (can be regenerated)
-data/health-tracker-data.db 
+# Note: data/health-tracker-data.db IS included in git (portable database) 
