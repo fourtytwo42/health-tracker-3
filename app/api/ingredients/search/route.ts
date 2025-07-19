@@ -56,6 +56,16 @@ function getWordVariations(word: string): string[] {
       word.replace(/f/g, 'ph'),  // fone vs phone
       word.replace(/ck/g, 'k'),  // back vs bak
       word.replace(/k/g, 'ck'),  // bak vs back
+      word.replace(/nn/g, 'n'),  // banana vs bananna
+      word.replace(/n/g, 'nn'),  // bananna vs banana
+      word.replace(/ss/g, 's'),  // miss vs mis
+      word.replace(/s/g, 'ss'),  // mis vs miss
+      word.replace(/ll/g, 'l'),  // call vs cal
+      word.replace(/l/g, 'll'),  // cal vs call
+      word.replace(/tt/g, 't'),  // get vs gett
+      word.replace(/t/g, 'tt'),  // gett vs get
+      word.replace(/pp/g, 'p'),  // stop vs stopp
+      word.replace(/p/g, 'pp'),  // stopp vs stop
     ];
     
     fuzzyVariations.forEach(variation => {
@@ -169,7 +179,27 @@ function matchesSearchCriteria(
     const nameLower = ingredient.name.toLowerCase();
     const nameNormalized = normalizeText(ingredient.name);
     
-    if (!nameLower.includes(phraseLower) && !nameNormalized.includes(phraseNormalized)) {
+    // Check multiple variations of the phrase
+    const phraseVariations = [
+      phraseLower,
+      phraseNormalized,
+      phraseLower.replace(/\s+/g, ' '), // Normalize spaces
+      phraseNormalized.replace(/\s+/g, ' ')
+    ];
+    
+    const nameVariations = [
+      nameLower,
+      nameNormalized,
+      nameLower.replace(/\s+/g, ' '), // Normalize spaces
+      nameNormalized.replace(/\s+/g, ' ')
+    ];
+    
+    // Check if any phrase variation matches any name variation
+    const phraseFound = phraseVariations.some(phraseVar => 
+      nameVariations.some(nameVar => nameVar.includes(phraseVar))
+    );
+    
+    if (!phraseFound) {
       return false;
     }
   }
@@ -256,17 +286,29 @@ export async function GET(request: NextRequest) {
       const firstTerm = searchTerms[0];
       const normalizedTerm = normalizeText(firstTerm);
       
-      whereClause.OR = [
-        { name: { contains: firstTerm } },
-        { name: { contains: normalizedTerm } }
-      ];
+      // Create variations for better matching
+      const searchVariations = [firstTerm, normalizedTerm];
+      
+      // Add variations with and without apostrophes
+      if (firstTerm.includes("'")) {
+        searchVariations.push(firstTerm.replace(/'/g, ''));
+      } else {
+        searchVariations.push(firstTerm + "'s");
+        searchVariations.push(firstTerm + "s");
+      }
+      
+      whereClause.OR = searchVariations.map(term => ({
+        name: { contains: term }
+      }));
     }
 
     // Handle category filters from URL params and search query
     const allCategoryFilters = [...(category ? [category] : []), ...categoryFilters];
     if (allCategoryFilters.length > 0) {
+      // Normalize category names for better matching
+      const normalizedCategories = allCategoryFilters.map(cat => cat.toLowerCase());
       whereClause.category = {
-        in: allCategoryFilters
+        in: normalizedCategories
       };
     }
 

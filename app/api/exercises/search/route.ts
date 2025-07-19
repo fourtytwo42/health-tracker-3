@@ -56,6 +56,16 @@ function getWordVariations(word: string): string[] {
       word.replace(/f/g, 'ph'),  // fone vs phone
       word.replace(/ck/g, 'k'),  // back vs bak
       word.replace(/k/g, 'ck'),  // bak vs back
+      word.replace(/nn/g, 'n'),  // running vs runing
+      word.replace(/n/g, 'nn'),  // runing vs running
+      word.replace(/ss/g, 's'),  // miss vs mis
+      word.replace(/s/g, 'ss'),  // mis vs miss
+      word.replace(/ll/g, 'l'),  // call vs cal
+      word.replace(/l/g, 'll'),  // cal vs call
+      word.replace(/tt/g, 't'),  // get vs gett
+      word.replace(/t/g, 'tt'),  // gett vs get
+      word.replace(/pp/g, 'p'),  // stop vs stopp
+      word.replace(/p/g, 'pp'),  // stopp vs stop
     ];
     
     fuzzyVariations.forEach(variation => {
@@ -247,24 +257,43 @@ export async function GET(request: NextRequest) {
     // This ensures case-insensitive matching and proper word variation handling
     if (searchTerms.length > 0) {
       // Use the first search term for initial database filtering to reduce results
-      whereClause.activity = {
-        contains: searchTerms[0]
-      };
+      // Also search for normalized version (without apostrophes)
+      const firstTerm = searchTerms[0];
+      const normalizedTerm = normalizeText(firstTerm);
+      
+      // Create variations for better matching
+      const searchVariations = [firstTerm, normalizedTerm];
+      
+      // Add variations with and without apostrophes
+      if (firstTerm.includes("'")) {
+        searchVariations.push(firstTerm.replace(/'/g, ''));
+      } else {
+        searchVariations.push(firstTerm + "'s");
+        searchVariations.push(firstTerm + "s");
+      }
+      
+      whereClause.OR = searchVariations.map(term => ({
+        activity: { contains: term }
+      }));
     }
 
     // Handle category filters from URL params and search query
     const allCategoryFilters = [...(category ? [category] : []), ...categoryFilters];
     if (allCategoryFilters.length > 0) {
+      // Normalize category names for better matching
+      const normalizedCategories = allCategoryFilters.map(cat => cat.toLowerCase());
       whereClause.category = {
-        in: allCategoryFilters
+        in: normalizedCategories
       };
     }
 
     // Handle intensity filters from URL params and search query
     const allIntensityFilters = [...(intensity ? [intensity] : []), ...intensityFilters];
     if (allIntensityFilters.length > 0) {
+      // Normalize intensity names for better matching
+      const normalizedIntensities = allIntensityFilters.map(int => int.toLowerCase());
       whereClause.intensity = {
-        in: allIntensityFilters
+        in: normalizedIntensities
       };
     }
 
