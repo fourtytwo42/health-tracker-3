@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { portablePrisma } from '@/lib/prisma';
 
 export async function GET(request: NextRequest) {
   try {
@@ -15,13 +13,17 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ exercises: [] });
     }
 
+    // Build where clause for SQLite (no mode: insensitive support)
     const whereClause: any = {
-      activity: {
-        contains: query,
-        mode: 'insensitive'
-      },
       isActive: true
     };
+
+    // Add search condition
+    if (query) {
+      whereClause.activity = {
+        contains: query
+      };
+    }
 
     if (category) {
       whereClause.category = category;
@@ -31,7 +33,7 @@ export async function GET(request: NextRequest) {
       whereClause.intensity = intensity;
     }
 
-    const exercises = await prisma.exercise.findMany({
+    const exercises = await portablePrisma.exercise.findMany({
       where: whereClause,
       select: {
         id: true,
@@ -42,13 +44,20 @@ export async function GET(request: NextRequest) {
         category: true,
         intensity: true
       },
-      take: limit,
+      take: limit * 2, // Get more results to filter from
       orderBy: {
         activity: 'asc'
       }
     });
 
-    return NextResponse.json({ exercises });
+    // Filter results to ensure case-insensitive matching
+    const filteredExercises = exercises
+      .filter((exercise: any) =>
+        exercise.activity.toLowerCase().includes(query.toLowerCase())
+      )
+      .slice(0, limit); // Limit the final results
+
+    return NextResponse.json({ exercises: filteredExercises });
   } catch (error) {
     console.error('Error searching exercises:', error);
     return NextResponse.json(

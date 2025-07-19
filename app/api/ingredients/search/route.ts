@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { portablePrisma } from '@/lib/prisma';
 
 export async function GET(request: NextRequest) {
   try {
@@ -15,13 +13,17 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ ingredients: [] });
     }
 
+    // Build where clause for SQLite (no mode: insensitive support)
     const whereClause: any = {
-      name: {
-        contains: query,
-        mode: 'insensitive'
-      },
       isActive: true
     };
+
+    // Add search condition
+    if (query) {
+      whereClause.name = {
+        contains: query
+      };
+    }
 
     if (category) {
       whereClause.category = category;
@@ -31,7 +33,7 @@ export async function GET(request: NextRequest) {
       whereClause.aisle = aisle;
     }
 
-    const ingredients = await prisma.ingredient.findMany({
+    const ingredients = await portablePrisma.ingredient.findMany({
       where: whereClause,
       select: {
         id: true,
@@ -45,13 +47,20 @@ export async function GET(request: NextRequest) {
         fiber: true,
         sugar: true
       },
-      take: limit,
+      take: limit * 2, // Get more results to filter from
       orderBy: {
         name: 'asc'
       }
     });
 
-    return NextResponse.json({ ingredients });
+    // Filter results to ensure case-insensitive matching
+    const filteredIngredients = ingredients
+      .filter(ingredient =>
+        ingredient.name.toLowerCase().includes(query.toLowerCase())
+      )
+      .slice(0, limit); // Limit the final results
+
+    return NextResponse.json({ ingredients: filteredIngredients });
   } catch (error) {
     console.error('Error searching ingredients:', error);
     return NextResponse.json(

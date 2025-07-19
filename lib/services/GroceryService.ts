@@ -109,8 +109,7 @@ export class GroceryService extends BaseService {
       const taxonomy = await this.prisma.ingredientTaxonomy.findFirst({
         where: {
           name: {
-            contains: ingredientName.toLowerCase(),
-            mode: 'insensitive',
+            contains: ingredientName.toLowerCase()
           },
         },
       });
