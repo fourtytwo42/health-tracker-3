@@ -368,37 +368,104 @@ export class MCPHandler {
         goal: z.enum(['weight_loss', 'muscle_gain', 'maintenance']).optional().describe('Fitness goal'),
       }),
       handler: async (args, authInfo) => {
-        // Generate realistic meal plan
-        const mealPlan = this.generateRealisticMealPlan(args);
+        const calorieTarget = args.calorie_target || 2000;
+        const dailyCalories = Math.round(calorieTarget / 4); // Divide by 4 meals per day
         
-        const response = await this.llmRouter.generateResponse({
-          prompt: `I've created a comprehensive ${args.duration_days}-day meal plan${args.calorie_target ? ` with ${args.calorie_target} calories per day` : ''}${args.dietary_preferences ? ` considering: ${args.dietary_preferences.join(', ')}` : ''}${args.goal ? ` for ${args.goal}` : ''}. 
+        // Get system message for meal plan generation
+        let mealPlanPrompt = await this.systemMessageService.getMessageContent('prompts.meal_plan_generation');
+        
+        if (!mealPlanPrompt) {
+          // Fallback prompt if system message not found
+          mealPlanPrompt = `Generate a detailed ${args.duration_days}-day meal plan with the following requirements:
 
-The meal plan includes detailed recipes for each meal with:
-- Complete ingredient lists with measurements
-- Step-by-step cooking instructions
-- Nutritional information (calories, protein, carbs, fat)
-- Prep and cook times
-- Meal types (breakfast, lunch, dinner, snack)
+CALORIE TARGET: ${calorieTarget} calories per day (approximately ${dailyCalories} calories per meal)
+DIETARY PREFERENCES: ${args.dietary_preferences?.join(', ') || 'None specified'}
+GOAL: ${args.goal || 'maintenance'}
 
-Each day contains 4 meals with a total of ${Math.round(mealPlan.totalCalories / args.duration_days)} calories per day. The plan is designed to be healthy, balanced, and easy to follow.
+For each day, create 4 meals (breakfast, lunch, dinner, snack) with:
+1. Complete recipe with ingredients and measurements
+2. Step-by-step cooking instructions
+3. Nutritional breakdown (calories, protein, carbs, fat)
+4. Prep time and cook time
+5. Meal type (BREAKFAST, LUNCH, DINNER, SNACK)
 
-Provide a brief summary of what this meal plan includes, highlight the variety of meals, and give practical tips for following it successfully. Emphasize that this is a complete meal plan with recipes that the user can follow immediately.`,
+Format the response as a JSON object with this structure:
+{
+  "days": [
+    {
+      "day": 1,
+      "meals": [
+        {
+          "name": "Recipe Name",
+          "mealType": "BREAKFAST",
+          "calories": 400,
+          "protein": 25,
+          "carbs": 45,
+          "fat": 15,
+          "ingredients": ["1 cup ingredient", "2 tbsp ingredient"],
+          "instructions": ["Step 1", "Step 2", "Step 3"],
+          "prepTime": "10 minutes",
+          "cookTime": "15 minutes"
+        }
+      ],
+      "totalCalories": 1600
+    }
+  ],
+  "totalCalories": 11200,
+  "avgCaloriesPerDay": 1600
+}
+
+Make sure each recipe is realistic, healthy, and includes proper nutritional information.`;
+        } else {
+          // Replace placeholders in system message
+          mealPlanPrompt = mealPlanPrompt
+            .replace('{durationDays}', args.duration_days.toString())
+            .replace('{calorieTarget}', calorieTarget.toString())
+            .replace('{preferences}', args.dietary_preferences?.join(', ') || 'None specified');
+        }
+
+        const llmResponse = await this.llmRouter.generateResponse({
+          prompt: mealPlanPrompt,
           userId: authInfo.userId,
           tool: 'generate_meal_plan',
         });
+
+        // Parse the LLM response to extract the meal plan
+        let mealPlan;
+        try {
+          // Try to extract JSON from the response
+          const jsonMatch = llmResponse.content.match(/\{[\s\S]*\}/);
+          if (jsonMatch) {
+            mealPlan = JSON.parse(jsonMatch[0]);
+          } else {
+            throw new Error('No JSON found in response');
+          }
+        } catch (error) {
+          console.error('Failed to parse meal plan JSON:', error);
+          // Fallback to generating a basic structure
+          mealPlan = {
+            days: [],
+            totalCalories: args.duration_days * calorieTarget,
+            avgCaloriesPerDay: calorieTarget
+          };
+        }
+
+        // Create a simple description based on the meal plan data
+        const description = `I've created a comprehensive ${args.duration_days}-day meal plan${args.calorie_target ? ` with ${args.calorie_target} calories per day` : ''}${args.dietary_preferences ? ` considering: ${args.dietary_preferences.join(', ')}` : ''}${args.goal ? ` for ${args.goal}` : ''}. 
+
+The meal plan includes detailed recipes for each meal with complete ingredient lists, step-by-step cooking instructions, nutritional information, and prep/cook times. Each day contains 4 meals with a total of ${mealPlan.avgCaloriesPerDay || Math.round(mealPlan.totalCalories / args.duration_days)} calories per day. The plan is designed to be healthy, balanced, and easy to follow.`;
 
         return {
           type: 'PlanSummary',
           props: {
             title: `${args.duration_days}-Day Meal Plan`,
-            description: response.content || `A balanced ${args.duration_days}-day meal plan designed for your health goals.`,
+            description: description,
             type: 'meal',
             duration: args.duration_days,
             status: 'active',
-            days: mealPlan.days,
-            totalCalories: mealPlan.totalCalories,
-            avgCaloriesPerDay: Math.round(mealPlan.totalCalories / args.duration_days),
+            days: mealPlan.days || [],
+            totalCalories: mealPlan.totalCalories || (args.duration_days * calorieTarget),
+            avgCaloriesPerDay: mealPlan.avgCaloriesPerDay || Math.round(mealPlan.totalCalories / args.duration_days),
           },
           quickReplies: [
             { label: 'Log a meal from this plan', value: 'I want to log a meal from this plan' },

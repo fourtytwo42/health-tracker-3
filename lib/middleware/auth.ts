@@ -41,8 +41,8 @@ export function withAuth(handler: (req: AuthenticatedRequest) => Promise<NextRes
 }
 
 export function requireRole(role: string) {
-  return function(handler: (req: AuthenticatedRequest) => Promise<NextResponse>) {
-    return async (request: NextRequest): Promise<NextResponse> => {
+  return function(handler: (req: AuthenticatedRequest, context?: any) => Promise<NextResponse>) {
+    return async (request: NextRequest, context?: any): Promise<NextResponse> => {
       const authResult = await authMiddleware(request);
       if (authResult) {
         return authResult;
@@ -56,7 +56,24 @@ export function requireRole(role: string) {
         );
       }
 
-      return handler(request as AuthenticatedRequest);
+      return handler(request as AuthenticatedRequest, context);
     };
   };
+}
+
+export async function verifyAuth(request: NextRequest): Promise<JWTPayload | null> {
+  const authHeader = request.headers.get('authorization');
+  
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return null;
+  }
+
+  const token = authHeader.substring(7);
+
+  try {
+    const payload = AuthService.verifyAccessToken(token);
+    return payload;
+  } catch (error) {
+    return null;
+  }
 } 

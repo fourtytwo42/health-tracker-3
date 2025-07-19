@@ -242,11 +242,6 @@ export class LLMRouter {
       // Check if provider is enabled in settings
       const isEnabled = this.settings?.providers[config.key]?.enabled ?? true;
       
-      if (!isEnabled) {
-        console.log(`Skipping disabled provider: ${config.key}`);
-        continue;
-      }
-
       // Get API key from database (or environment for backward compatibility)
       let apiKey = await this.settingService.getLLMProviderAPIKey(config.key);
       
@@ -268,17 +263,21 @@ export class LLMRouter {
         endpoint = await this.settingService.getOllamaEndpoint();
       }
 
-      // Add all enabled providers to the map, even if they don't have API keys
-      // This allows them to show up in the admin interface
+      // Add ALL providers to the map, regardless of enabled status
+      // This allows them to show up in the admin interface even when disabled
       this.providers.set(config.key, {
         name: config.name,
         endpoint,
         apiKey: apiKey || '',
         pricing: config.pricing,
         avgLatencyMs: 0,
-        isAvailable: false, // Will be set to true during probing if API key is available
+        isAvailable: false, // Will be set to true during probing if enabled and has API key
         model: providerModel,
       });
+
+      if (!isEnabled) {
+        console.log(`Provider ${config.key} is disabled - will not be probed for availability`);
+      }
     }
 
     console.log(`Initialized ${this.providers.size} providers:`, Array.from(this.providers.keys()));
@@ -294,6 +293,14 @@ export class LLMRouter {
     
     for (const [key, provider] of Array.from(this.providers.entries())) {
       try {
+        // Check if provider is enabled in settings
+        const isEnabled = this.settings?.providers[key]?.enabled ?? true;
+        
+        if (!isEnabled) {
+          console.log(`Skipping disabled provider: ${provider.name}`);
+          continue;
+        }
+        
         // Check if provider has API key if required
         const configs = await this.settingService.getLLMProviderConfigs();
         const config = configs.find(c => c.key === key);

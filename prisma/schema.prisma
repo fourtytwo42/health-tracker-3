@@ -22,6 +22,7 @@ model User {
   
   // Relations
   profile      Profile?
+  userDetails  UserDetails?
   meals        Meal[]
   activities   Activity[]
   biomarkers   Biomarker[]
@@ -32,6 +33,10 @@ model User {
   groceryLists GroceryList[]
   reports      Report[]
   llmUsage     LLMUsage[]
+  foodPreferences FoodPreference[]
+  exercisePreferences ExercisePreference[]
+  scheduledMeals ScheduledMeal[]
+  scheduledActivities ScheduledActivity[]
   
   @@map("users")
 }
@@ -266,6 +271,9 @@ model Ingredient {
   createdAt             DateTime @default(now()) @map("created_at")
   updatedAt             DateTime @updatedAt @map("updated_at")
   
+  // Relations
+  foodPreferences       FoodPreference[]
+  
   @@map("ingredients")
 }
 
@@ -329,4 +337,143 @@ model SystemMessage {
   updatedAt   DateTime @updatedAt @map("updated_at")
   
   @@map("system_messages")
+}
+
+model Exercise {
+  id          String   @id @default(cuid())
+  activity    String
+  code        String   @unique
+  met         Float
+  description String
+  category    String?
+  intensity   String?  @default("MODERATE") // LIGHT, MODERATE, VIGOROUS
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  
+  // Relations
+  exercisePreferences ExercisePreference[]
+  scheduledActivities ScheduledActivity[]
+  
+  @@map("exercises")
+}
+
+model UserDetails {
+  id                    String   @id @default(cuid())
+  userId                String   @unique @map("user_id")
+  
+  // Physical measurements
+  height                Float?   // in cm
+  weight                Float?   // in kg
+  targetWeight          Float?   @map("target_weight")
+  bodyFatPercentage     Float?   @map("body_fat_percentage")
+  muscleMass            Float?   @map("muscle_mass") // in kg
+  bmi                   Float?
+  
+  // Health information
+  bloodType             String?  @map("blood_type")
+  allergies             String?  // JSON string of allergies
+  medications           String?  // JSON string of medications
+  medicalConditions     String?  @map("medical_conditions") // JSON string of conditions
+  disabilities          String?  // JSON string of disabilities and limitations
+  
+  // Exercise limitations
+  exerciseLimitations   String?  @map("exercise_limitations") // JSON string of body parts/limitations
+  mobilityIssues        String?  @map("mobility_issues") // JSON string of mobility issues
+  injuryHistory         String?  @map("injury_history") // JSON string of past injuries
+  
+  // Lifestyle
+  activityLevel         String   @default("SEDENTARY") @map("activity_level")
+  sleepQuality          String?  @map("sleep_quality")
+  stressLevel           String?  @map("stress_level")
+  smokingStatus         String?  @map("smoking_status")
+  alcoholConsumption    String?  @map("alcohol_consumption")
+  
+  // Goals and preferences
+  fitnessGoals          String?  @map("fitness_goals") // JSON string of goals
+  dietaryGoals          String?  @map("dietary_goals") // JSON string of goals
+  weightGoals           String?  @map("weight_goals") // JSON string of goals
+  
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @updatedAt @map("updated_at")
+  
+  // Relations
+  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("user_details")
+}
+
+model FoodPreference {
+  id          String   @id @default(cuid())
+  userId      String   @map("user_id")
+  ingredientId String  @map("ingredient_id")
+  preference  String   // LIKE, DISLIKE, ALLERGY, INTOLERANCE
+  notes       String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  
+  // Relations
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ingredient  Ingredient @relation(fields: [ingredientId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, ingredientId])
+  @@map("food_preferences")
+}
+
+model ExercisePreference {
+  id          String   @id @default(cuid())
+  userId      String   @map("user_id")
+  exerciseId  String   @map("exercise_id")
+  preference  String   // LIKE, DISLIKE, CANNOT_DO, MODIFIED
+  notes       String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  
+  // Relations
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  exercise    Exercise @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, exerciseId])
+  @@map("exercise_preferences")
+}
+
+model ScheduledMeal {
+  id          String   @id @default(cuid())
+  userId      String   @map("user_id")
+  title       String
+  mealType    String   @map("meal_type") // BREAKFAST, LUNCH, DINNER, SNACK
+  ingredients String   // JSON string of ingredients with quantities
+  nutritionInfo String? @map("nutrition_info") // JSON string of nutrition data
+  scheduledDate DateTime @map("scheduled_date")
+  scheduledTime String? @map("scheduled_time") // HH:MM format
+  notes       String?
+  isCompleted Boolean  @default(false) @map("is_completed")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  
+  // Relations
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("scheduled_meals")
+}
+
+model ScheduledActivity {
+  id          String   @id @default(cuid())
+  userId      String   @map("user_id")
+  exerciseId  String   @map("exercise_id")
+  title       String
+  duration    Int      // in minutes
+  intensity   String   @default("MODERATE")
+  scheduledDate DateTime @map("scheduled_date")
+  scheduledTime String? @map("scheduled_time") // HH:MM format
+  notes       String?
+  isCompleted Boolean  @default(false) @map("is_completed")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  
+  // Relations
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  exercise    Exercise @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+  
+  @@map("scheduled_activities")
 }

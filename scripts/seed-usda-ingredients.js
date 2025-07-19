@@ -1,391 +1,305 @@
+const { PrismaClient } = require('@prisma/client');
 const fs = require('fs');
 const path = require('path');
-const { PrismaClient } = require('@prisma/client');
 
 const prisma = new PrismaClient();
 
-// USDA nutrient ID mappings to our fields
-const NUTRIENT_MAPPINGS = {
-  1003: 'protein',           // Protein
-  1004: 'fat',               // Total lipid (fat)
-  1005: 'carbs',             // Carbohydrate, by difference
-  1008: 'calories',          // Energy (kcal)
-  1051: 'water',             // Water
-  1087: 'calcium',           // Calcium, Ca
-  1092: 'potassium',         // Potassium, K
-  1093: 'sodium',            // Sodium, Na
-  1253: 'cholesterol',       // Cholesterol
-  1258: 'saturatedFat',      // Fatty acids, total saturated
-  1292: 'monounsaturatedFat', // Fatty acids, total monounsaturated
-  1293: 'polyunsaturatedFat', // Fatty acids, total polyunsaturated
-  1257: 'transFat',          // Fatty acids, total trans
-  1079: 'fiber',             // Fiber, total dietary
-  2000: 'sugar',             // Sugars, total including NLEA
-  1009: 'ash',               // Ash
-  1062: 'energyKj',          // Energy (kJ)
-};
-
-// Category mappings from USDA to our comprehensive categories
-const CATEGORY_MAPPINGS = {
-  'Beef Products': 'Proteins - Meats (beef, pork, lamb, game)',
-  'Pork Products': 'Proteins - Meats (beef, pork, lamb, game)',
-  'Lamb, Veal, and Game Products': 'Proteins - Meats (beef, pork, lamb, game)',
-  'Poultry Products': 'Proteins - Poultry (chicken, turkey, duck)',
-  'Finfish and Shellfish Products': 'Proteins - Seafood (fish, shellfish)',
-  'Dairy and Egg Products': 'Dairy & Alternatives - Milk, Yogurt, Cheese, Butter',
-  'Legumes and Legume Products': 'Legumes & Pulses - Beans (black, kidney, navy)',
-  'Vegetables and Vegetable Products': 'Vegetables - Leafy Greens (spinach, kale)',
-  'Fruits and Fruit Juices': 'Fruits - Berries',
-  'Cereal Grains and Pasta': 'Grains & Starches - Whole Grains (brown rice, quinoa)',
-  'Fats and Oils': 'Fats & Oils - Cooking Oils (olive, avocado)',
-  'Nut and Seed Products': 'Nuts & Seeds - Tree Nuts, Peanuts',
-  'Baked Products': 'Bakery - Breads, Tortillas, Pastries',
-  'Beverages': 'Beverages - Water, Tea, Coffee',
-  'Sweets': 'Sweets & Snacks - Chocolate, Candy',
-  'Spices and Herbs': 'Herbs & Spices - Fresh Herbs (basil, cilantro)',
-  'Soups, Sauces, and Gravies': 'Condiments & Sauces - Mustards, Ketchups, Hot Sauces',
-  'Sausages and Luncheon Meats': 'Proteins - Meats (beef, pork, lamb, game)',
-  'Restaurant Foods': 'Pantry & Canned Goods - Canned Vegetables, Beans',
-};
-
-// Aisle mappings based on categories
-const AISLE_MAPPINGS = {
-  'Beef Products': 'meat',
-  'Pork Products': 'meat',
-  'Lamb, Veal, and Game Products': 'meat',
-  'Poultry Products': 'meat',
-  'Finfish and Shellfish Products': 'seafood',
-  'Dairy and Egg Products': 'dairy',
-  'Legumes and Legume Products': 'pantry',
-  'Vegetables and Vegetable Products': 'produce',
-  'Fruits and Fruit Juices': 'produce',
-  'Cereal Grains and Pasta': 'pantry',
-  'Fats and Oils': 'pantry',
-  'Nut and Seed Products': 'pantry',
-  'Baked Products': 'bakery',
-  'Beverages': 'beverages',
-  'Sweets': 'sweets',
-  'Spices and Herbs': 'pantry',
-  'Soups, Sauces, and Gravies': 'pantry',
-  'Sausages and Luncheon Meats': 'meat',
-  'Restaurant Foods': 'pantry',
-};
-
-function extractNutrientValue(foodNutrients, nutrientId) {
-  const nutrient = foodNutrients.find(n => n.nutrient.id === nutrientId);
-  return nutrient ? nutrient.amount : null;
-}
-
-function extractCalories(foodNutrients) {
-  // Try multiple energy nutrient IDs
-  const energyNutrientIds = [
-    1008, // Energy (kcal) - primary
-    1062, // Energy (kJ) - convert to kcal
-    208   // Energy (kcal) - alternative
-  ];
+// Nutrient mapping from USDA to our database fields
+const NUTRIENT_MAPPING = {
+  // Energy
+  1008: 'calories', // Energy (kcal)
   
-  for (const id of energyNutrientIds) {
-    const nutrient = foodNutrients.find(n => n.nutrient.id === id);
-    if (nutrient) {
-      // If it's kJ, convert to kcal (1 kcal = 4.184 kJ)
-      if (id === 1062) {
-        return nutrient.amount / 4.184;
-      }
-      return nutrient.amount;
+  // Macronutrients
+  1003: 'protein', // Protein (g)
+  1005: 'carbohydrate', // Carbohydrate (g)
+  1004: 'fat', // Total lipid (fat) (g)
+  1079: 'fiber', // Fiber, total dietary (g)
+  2000: 'sugar', // Sugars, total including NLEA (g)
+  
+  // Minerals
+  1093: 'sodium', // Sodium, Na (mg)
+  1253: 'cholesterol', // Cholesterol (mg)
+  
+  // Fatty acids
+  1258: 'saturatedFat', // Fatty acids, total saturated (g)
+  1292: 'monounsaturatedFat', // Fatty acids, total monounsaturated (g)
+  1293: 'polyunsaturatedFat', // Fatty acids, total polyunsaturated (g)
+  1257: 'transFat', // Fatty acids, total trans (g)
+  
+  // Vitamins
+  1106: 'vitaminA', // Vitamin A, IU (IU)
+  1109: 'vitaminC', // Vitamin C, total ascorbic acid (mg)
+  1114: 'vitaminD', // Vitamin D (D2 + D3), International Units (IU)
+  1162: 'vitaminB12', // Vitamin B-12 (µg)
+  1165: 'vitaminB6', // Vitamin B-6 (mg)
+  1167: 'folate', // Folate, total (µg)
+  
+  // Minerals
+  1098: 'calcium', // Calcium, Ca (mg)
+  1099: 'iron', // Iron, Fe (mg)
+  1100: 'magnesium', // Magnesium, Mg (mg)
+  1101: 'phosphorus', // Phosphorus, P (mg)
+  1102: 'potassium', // Potassium, K (mg)
+  1103: 'zinc', // Zinc, Zn (mg)
+};
+
+async function processNutrients(foodNutrients) {
+  const nutrients = {};
+  
+  if (!foodNutrients || !Array.isArray(foodNutrients)) {
+    return nutrients;
+  }
+  
+  foodNutrients.forEach(nutrient => {
+    const nutrientId = nutrient.nutrientId;
+    const value = nutrient.value;
+    
+    if (NUTRIENT_MAPPING[nutrientId] && value !== null && value !== undefined) {
+      nutrients[NUTRIENT_MAPPING[nutrientId]] = value;
     }
-  }
+  });
   
-  // If no energy data found, calculate from macronutrients
-  const protein = extractNutrientValue(foodNutrients, 1003) || 0;
-  const carbs = extractNutrientValue(foodNutrients, 1005) || 0;
-  const fat = extractNutrientValue(foodNutrients, 1004) || 0;
-  
-  // Calculate calories: 4 cal/g protein, 4 cal/g carbs, 9 cal/g fat
-  const calculatedCalories = (protein * 4) + (carbs * 4) + (fat * 9);
-  
-  return calculatedCalories > 0 ? calculatedCalories : null;
+  return nutrients;
 }
 
-function mapUsdaCategoryToOurCategory(usdaCategory) {
-  return CATEGORY_MAPPINGS[usdaCategory] || 'Other';
-}
+async function seedUsdaFile(filePath, fileType) {
+  console.log(`\n📁 Processing ${fileType}: ${path.basename(filePath)}`);
+  
+  if (!fs.existsSync(filePath)) {
+    console.log(`❌ File not found: ${filePath}`);
+    return { processed: 0, skipped: 0, errors: 0 };
+  }
 
-function mapUsdaCategoryToAisle(usdaCategory) {
-  return AISLE_MAPPINGS[usdaCategory] || 'pantry';
-}
-
-function generateDietaryFlags(foodNutrients, description) {
-  const flags = [];
-  
-  // Check for common dietary restrictions
-  const hasGluten = description.toLowerCase().includes('wheat') || 
-                   description.toLowerCase().includes('gluten') ||
-                   description.toLowerCase().includes('bread') ||
-                   description.toLowerCase().includes('pasta');
-  
-  const hasDairy = description.toLowerCase().includes('milk') || 
-                  description.toLowerCase().includes('cheese') ||
-                  description.toLowerCase().includes('yogurt') ||
-                  description.toLowerCase().includes('cream');
-  
-  const hasNuts = description.toLowerCase().includes('nut') || 
-                 description.toLowerCase().includes('almond') ||
-                 description.toLowerCase().includes('peanut');
-  
-  const hasSeafood = description.toLowerCase().includes('fish') || 
-                    description.toLowerCase().includes('shrimp') ||
-                    description.toLowerCase().includes('salmon');
-  
-  const hasEggs = description.toLowerCase().includes('egg');
-  
-  const hasSoy = description.toLowerCase().includes('soy') || 
-                description.toLowerCase().includes('tofu');
-  
-  if (!hasGluten) flags.push('Gluten-Free');
-  if (!hasDairy) flags.push('Dairy-Free');
-  if (!hasNuts) flags.push('Nut-Free');
-  if (!hasSeafood) flags.push('Seafood-Free');
-  if (!hasEggs) flags.push('Egg-Free');
-  if (!hasSoy) flags.push('Soy-Free');
-  
-  // Check if it's vegan (no animal products)
-  if (!hasDairy && !hasEggs && !hasSeafood && 
-      !description.toLowerCase().includes('beef') &&
-      !description.toLowerCase().includes('pork') &&
-      !description.toLowerCase().includes('chicken') &&
-      !description.toLowerCase().includes('turkey')) {
-    flags.push('Vegan');
-  }
-  
-  return flags.join(', ');
-}
-
-function generateAllergens(description) {
-  const allergens = [];
-  
-  if (description.toLowerCase().includes('wheat') || 
-      description.toLowerCase().includes('gluten')) {
-    allergens.push('Wheat');
-  }
-  
-  if (description.toLowerCase().includes('milk') || 
-      description.toLowerCase().includes('cheese') ||
-      description.toLowerCase().includes('yogurt')) {
-    allergens.push('Dairy');
-  }
-  
-  if (description.toLowerCase().includes('nut') || 
-      description.toLowerCase().includes('almond') ||
-      description.toLowerCase().includes('peanut')) {
-    allergens.push('Tree Nuts');
-  }
-  
-  if (description.toLowerCase().includes('fish') || 
-      description.toLowerCase().includes('shrimp') ||
-      description.toLowerCase().includes('salmon')) {
-    allergens.push('Fish');
-  }
-  
-  if (description.toLowerCase().includes('egg')) {
-    allergens.push('Eggs');
-  }
-  
-  if (description.toLowerCase().includes('soy') || 
-      description.toLowerCase().includes('tofu')) {
-    allergens.push('Soy');
-  }
-  
-  return allergens.join(', ');
-}
-
-function convertUsdaToIngredient(usdaFood) {
-  const foodNutrients = usdaFood.foodNutrients || [];
-  
-  // Extract basic nutrient values
-  const protein = extractNutrientValue(foodNutrients, 1003);
-  const fat = extractNutrientValue(foodNutrients, 1004);
-  const carbs = extractNutrientValue(foodNutrients, 1005);
-  const calories = extractCalories(foodNutrients);
-  const fiber = extractNutrientValue(foodNutrients, 1079);
-  const sugar = extractNutrientValue(foodNutrients, 2000);
-  const sodium = extractNutrientValue(foodNutrients, 1093);
-  const cholesterol = extractNutrientValue(foodNutrients, 1253);
-  const saturatedFat = extractNutrientValue(foodNutrients, 1258);
-  const monounsaturatedFat = extractNutrientValue(foodNutrients, 1292);
-  const polyunsaturatedFat = extractNutrientValue(foodNutrients, 1293);
-  const transFat = extractNutrientValue(foodNutrients, 1257);
-  
-  // Calculate net carbs
-  const netCarbs = carbs && fiber ? carbs - fiber : null;
-  
-  // Get serving size from food portions
-  let servingSize = '100g'; // Default
-  if (usdaFood.foodPortions && usdaFood.foodPortions.length > 0) {
-    const portion = usdaFood.foodPortions[0];
-    servingSize = `${portion.value} ${portion.measureUnit.name} (${portion.gramWeight}g)`;
-  }
-  
-  // Map category and aisle
-  const usdaCategory = usdaFood.foodCategory?.description || 'Other';
-  const category = mapUsdaCategoryToOurCategory(usdaCategory);
-  const aisle = mapUsdaCategoryToAisle(usdaCategory);
-  
-  // Generate dietary flags and allergens
-  const dietaryFlags = generateDietaryFlags(foodNutrients, usdaFood.description);
-  const allergens = generateAllergens(usdaFood.description);
-  
-  return {
-    name: usdaFood.description,
-    description: `USDA Foundation Food - ${usdaFood.foodClass}`,
-    servingSize,
-    calories: calories || 0,
-    protein: protein || 0,
-    carbs: carbs || 0,
-    fat: fat || 0,
-    fiber: fiber || null,
-    sugar: sugar || null,
-    sodium: sodium || null,
-    cholesterol: cholesterol || null,
-    saturatedFat: saturatedFat || null,
-    monounsaturatedFat: monounsaturatedFat || null,
-    polyunsaturatedFat: polyunsaturatedFat || null,
-    transFat: transFat || null,
-    netCarbs: netCarbs || null,
-    glycemicIndex: null, // Not available in USDA data
-    glycemicLoad: null,  // Not available in USDA data
-    dietaryFlags,
-    allergens,
-    category,
-    aisle,
-    isActive: true
-  };
-}
-
-async function seedUsdaIngredients() {
   try {
-    console.log('Starting USDA ingredient seeding...');
+    const fileContent = fs.readFileSync(filePath, 'utf8');
+    let foods;
     
-    // Read USDA data
-    const usdaDataPath = path.join(__dirname, '../Data/FoodData_Central_foundation_food_json_2025-04-24.json');
-    const usdaData = JSON.parse(fs.readFileSync(usdaDataPath, 'utf8'));
-    const foundationFoods = usdaData.FoundationFoods;
+    // Handle different file formats
+    if (fileType === 'surveyDownload') {
+      // surveyDownload.json has a different structure
+      const data = JSON.parse(fileContent);
+      foods = data.foods || [];
+    } else {
+      // Standard USDA files
+      foods = JSON.parse(fileContent);
+    }
     
-    console.log(`Found ${foundationFoods.length} USDA foundation foods`);
+    if (!Array.isArray(foods)) {
+      console.log(`❌ Invalid data format in ${fileType}`);
+      return { processed: 0, skipped: 0, errors: 0 };
+    }
     
-    // Convert and filter foods
-    const ingredients = [];
+    console.log(`📊 Found ${foods.length} foods to process`);
+    
     let processed = 0;
     let skipped = 0;
+    let errors = 0;
+    let duplicates = 0;
     
-    for (const usdaFood of foundationFoods) {
+    for (let i = 0; i < foods.length; i++) {
       try {
-        const ingredient = convertUsdaToIngredient(usdaFood);
+        const food = foods[i];
         
-        // Skip if missing essential data
-        if (!ingredient.name) {
+        // Extract basic food information
+        const name = food.description || food.foodDescription || food.longDescription || 'Unknown Food';
+        const fdcId = food.fdcId || food.ndbNumber || `unknown_${i}`;
+        
+        // Skip if no name or invalid data
+        if (!name || name === 'Unknown Food' || name.trim() === '') {
           skipped++;
           continue;
         }
         
-        // Accept ingredients even with 0 calories if they have other nutritional data
-        // Many spices, dried beans, and certain ingredients have 0 calories but are still valid
-        const hasNutritionalData = ingredient.protein > 0 || ingredient.carbs > 0 || ingredient.fat > 0 || 
-                                  ingredient.fiber > 0 || ingredient.sodium > 0 || ingredient.cholesterol > 0;
+        // Process nutrients
+        const nutrients = await processNutrients(food.foodNutrients);
         
-        if (ingredient.calories === 0 && !hasNutritionalData) {
+        // Skip if no calories or very low calories (likely invalid data)
+        if (!nutrients.calories || nutrients.calories <= 0) {
           skipped++;
           continue;
         }
         
-        ingredients.push(ingredient);
-        processed++;
+        // Calculate net carbs
+        const netCarbs = (nutrients.carbohydrate || 0) - (nutrients.fiber || 0);
         
-        if (processed % 50 === 0) {
-          console.log(`Processed ${processed} ingredients...`);
+        // Determine category based on food type and nutrients
+        let category = 'Other';
+        if (fileType === 'foundation') {
+          category = food.foodCategory?.description || 'Foundation Foods';
+        } else if (fileType === 'branded') {
+          category = food.brandOwner ? 'Branded Foods' : 'Other';
+        } else if (fileType === 'legacy') {
+          category = food.foodCategory?.description || 'Legacy Foods';
+        } else if (fileType === 'surveyDownload') {
+          category = 'Survey Foods';
         }
-      } catch (error) {
-        console.error(`Error processing food ${usdaFood.description}:`, error.message);
-        skipped++;
-      }
-    }
-    
-    console.log(`\nConversion complete:`);
-    console.log(`- Processed: ${processed}`);
-    console.log(`- Skipped: ${skipped}`);
-    console.log(`- Total ingredients to seed: ${ingredients.length}`);
-    
-    // Clear existing ingredients
-    console.log('\nClearing existing ingredients...');
-    await prisma.ingredient.deleteMany({});
-    
-    // Seed ingredients in batches
-    const batchSize = 100;
-    let seeded = 0;
-    
-    for (let i = 0; i < ingredients.length; i += batchSize) {
-      const batch = ingredients.slice(i, i + batchSize);
-      
-      try {
-        // Use individual inserts for SQLite compatibility
-        for (const ingredient of batch) {
-          try {
-            await prisma.ingredient.create({
-              data: ingredient
-            });
-            seeded++;
-          } catch (error) {
-            // Skip duplicates silently
-            if (error.code === 'P2002') {
-              // Duplicate key error, skip this ingredient
-              continue;
-            }
-            console.error(`Error creating ingredient ${ingredient.name}:`, error.message);
+        
+        // Determine aisle based on category
+        let aisle = 'Pantry';
+        if (category.toLowerCase().includes('vegetable') || category.toLowerCase().includes('fruit')) {
+          aisle = 'Produce';
+        } else if (category.toLowerCase().includes('dairy') || category.toLowerCase().includes('milk')) {
+          aisle = 'Dairy & Eggs';
+        } else if (category.toLowerCase().includes('meat') || category.toLowerCase().includes('poultry')) {
+          aisle = 'Meat & Poultry';
+        } else if (category.toLowerCase().includes('seafood') || category.toLowerCase().includes('fish')) {
+          aisle = 'Seafood';
+        } else if (category.toLowerCase().includes('grain') || category.toLowerCase().includes('bread')) {
+          aisle = 'Bakery';
+        }
+        
+        // Create ingredient object
+        const ingredient = {
+          name: name.trim(),
+          description: name.trim(),
+          servingSize: food.servingSize || '100g',
+          calories: nutrients.calories || 0,
+          protein: nutrients.protein || 0,
+          carbs: nutrients.carbohydrate || 0,
+          fat: nutrients.fat || 0,
+          fiber: nutrients.fiber || 0,
+          sugar: nutrients.sugar || 0,
+          sodium: nutrients.sodium || 0,
+          cholesterol: nutrients.cholesterol || 0,
+          saturatedFat: nutrients.saturatedFat || 0,
+          monounsaturatedFat: nutrients.monounsaturatedFat || 0,
+          polyunsaturatedFat: nutrients.polyunsaturatedFat || 0,
+          transFat: nutrients.transFat || 0,
+          netCarbs: netCarbs,
+          category: category,
+          aisle: aisle,
+          isActive: true,
+          usdaFdcId: fdcId.toString(),
+          dataSource: fileType
+        };
+        
+        // Fix serving size if it contains "undetermined"
+        if (ingredient.servingSize && ingredient.servingSize.includes('undetermined')) {
+          if (ingredient.name.toLowerCase().includes('wine')) {
+            ingredient.servingSize = '5 fl oz (148ml)';
+          } else if (ingredient.name.toLowerCase().includes('beer')) {
+            ingredient.servingSize = '12 fl oz (355ml)';
+          } else {
+            ingredient.servingSize = '100g';
           }
         }
         
-        console.log(`Seeded batch ${Math.floor(i / batchSize) + 1}: ${seeded}/${ingredients.length} ingredients`);
+        // Try to create the ingredient
+        try {
+          await prisma.ingredient.create({
+            data: ingredient
+          });
+          processed++;
+        } catch (error) {
+          if (error.code === 'P2002') {
+            // Duplicate name, skip
+            duplicates++;
+          } else {
+            throw error;
+          }
+        }
+        
+        // Progress update every 1000 items
+        if ((i + 1) % 1000 === 0) {
+          console.log(`   Processed ${i + 1}/${foods.length} foods (${Math.round((i + 1)/foods.length*100)}%)`);
+        }
+        
       } catch (error) {
-        console.error(`Error seeding batch ${Math.floor(i / batchSize) + 1}:`, error.message);
+        console.error(`   Error processing food ${i}:`, error.message);
+        errors++;
       }
     }
     
-    console.log(`\nSeeding complete! Total ingredients seeded: ${seeded}`);
+    console.log(`✅ ${fileType} processing complete!`);
+    console.log(`   - Processed: ${processed} foods`);
+    console.log(`   - Skipped: ${skipped} foods`);
+    console.log(`   - Duplicates: ${duplicates} foods`);
+    console.log(`   - Errors: ${errors} foods`);
     
-    // Show some statistics
-    const totalIngredients = await prisma.ingredient.count();
-    console.log(`\nDatabase now contains ${totalIngredients} ingredients`);
-    
-    const categories = await prisma.ingredient.groupBy({
-      by: ['category'],
-      _count: {
-        category: true
-      }
-    });
-    
-    console.log('\nIngredients by category:');
-    categories.forEach(cat => {
-      console.log(`  ${cat.category}: ${cat._count.category}`);
-    });
+    return { processed, skipped, errors, duplicates };
     
   } catch (error) {
-    console.error('Error seeding USDA ingredients:', error);
-    throw error;
+    console.error(`❌ Error processing ${fileType}:`, error.message);
+    return { processed: 0, skipped: 0, errors: 0, duplicates: 0 };
+  }
+}
+
+async function seedAllUsdaIngredients() {
+  console.log('🥗 Starting USDA ingredients seeding...');
+  
+  const ingredientDataPath = path.join(process.cwd(), 'ingredientData');
+  
+  if (!fs.existsSync(ingredientDataPath)) {
+    console.log('❌ ingredientData folder not found');
+    return;
+  }
+  
+  // Clear existing ingredients first
+  console.log('🗑️  Clearing existing ingredients...');
+  await prisma.ingredient.deleteMany({});
+  console.log('✅ Existing ingredients cleared');
+  
+  const files = [
+    {
+      path: path.join(ingredientDataPath, 'FoodData_Central_foundation_food_json_2025-04-24.json'),
+      type: 'foundation'
+    },
+    {
+      path: path.join(ingredientDataPath, 'FoodData_Central_sr_legacy_food_json_2018-04.json'),
+      type: 'legacy'
+    },
+    {
+      path: path.join(ingredientDataPath, 'surveyDownload.json'),
+      type: 'surveyDownload'
+    },
+    {
+      path: path.join(ingredientDataPath, 'FoodData_Central_branded_food_json_2025-04-24.json'),
+      type: 'branded'
+    }
+  ];
+  
+  let totalProcessed = 0;
+  let totalSkipped = 0;
+  let totalErrors = 0;
+  let totalDuplicates = 0;
+  
+  for (const file of files) {
+    if (fs.existsSync(file.path)) {
+      const result = await seedUsdaFile(file.path, file.type);
+      totalProcessed += result.processed;
+      totalSkipped += result.skipped;
+      totalErrors += result.errors;
+      totalDuplicates += result.duplicates;
+    } else {
+      console.log(`⚠️  File not found: ${file.path}`);
+    }
+  }
+  
+  const totalCount = await prisma.ingredient.count();
+  
+  console.log('\n🎉 USDA ingredients seeding completed!');
+  console.log(`📊 Summary:`);
+  console.log(`   - Total processed: ${totalProcessed} foods`);
+  console.log(`   - Total skipped: ${totalSkipped} foods`);
+  console.log(`   - Total duplicates: ${totalDuplicates} foods`);
+  console.log(`   - Total errors: ${totalErrors} foods`);
+  console.log(`   - Final ingredient count: ${totalCount}`);
+}
+
+async function main() {
+  try {
+    await seedAllUsdaIngredients();
+  } catch (error) {
+    console.error('❌ Error during USDA seeding:', error);
+    process.exit(1);
   } finally {
     await prisma.$disconnect();
   }
 }
 
-// Run the seeder
+// Run if called directly
 if (require.main === module) {
-  seedUsdaIngredients()
-    .then(() => {
-      console.log('USDA ingredient seeding completed successfully!');
-      process.exit(0);
-    })
-    .catch((error) => {
-      console.error('USDA ingredient seeding failed:', error);
-      process.exit(1);
-    });
+  main();
 }
 
-module.exports = { seedUsdaIngredients, convertUsdaToIngredient }; 
+module.exports = { seedAllUsdaIngredients }; 

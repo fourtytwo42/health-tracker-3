@@ -90,11 +90,17 @@ cp env.example .env.local
 # Edit .env.local with your configuration
 ```
 
-4. Set up the database:
+4. Set up the database and seed data:
 ```bash
-npx prisma migrate dev
-npx prisma db seed
-npm run db:seed:providers
+# Quick setup (recommended)
+node scripts/setup-db.js
+
+# OR manual setup
+npx prisma generate
+npx prisma db push
+npx ts-node scripts/seed.ts
+node scripts/seed-ingredients-simple.js
+node scripts/seed-all.js
 ```
 
 5. Start the development server:
@@ -102,11 +108,25 @@ npm run db:seed:providers
 npm run dev
 ```
 
-6. Open [http://localhost:3000](http://localhost:3000) in your browser
+6. Open [http://localhost:3001](http://localhost:3001) in your browser
 
 ### Default Users
-- **Admin**: `admin` / `demo123`
-- **User**: `user` / `demo123`
+- **Admin**: `admin` / `demo`
+- **Demo**: `demo` / `demo`
+- **Test**: `test` / `test`
+
+### Database Seeding
+
+The application comes with comprehensive seeding scripts that populate the database with:
+
+- **3 Demo Users** with complete profiles and health data
+- **19 Basic Ingredients** with full nutrition information
+- **1,110 Exercises** from the MET database
+- **Sample Data** including meals, activities, biomarkers, and goals
+- **System Messages** for AI interactions
+- **LLM Provider Configurations** for AI features
+
+For detailed seeding information, see [SEEDING.md](./SEEDING.md).
 
 ## Usage
 

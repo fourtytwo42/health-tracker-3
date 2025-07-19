@@ -1,8 +1,10 @@
 import { PrismaClient } from '@prisma/client';
 import { parse } from 'csv-parse/sync';
 import { stringify } from 'csv-stringify/sync';
+import { portablePrisma } from '../prisma';
 
-const prisma = new PrismaClient();
+// Use portable database for ingredients
+const prisma = portablePrisma;
 
 export interface IngredientData {
   name: string;
@@ -111,6 +113,130 @@ export class IngredientService {
     }
   }
 
+  async getIngredientsPaginated(
+    page = 1,
+    pageSize = 50,
+    includeInactive = false,
+    search?: string,
+    category?: string,
+    aisle?: string,
+    nutritionFilters?: {
+      calories?: { min?: number; max?: number };
+      protein?: { min?: number; max?: number };
+      carbs?: { min?: number; max?: number };
+      fat?: { min?: number; max?: number };
+      fiber?: { min?: number; max?: number };
+      sodium?: { min?: number; max?: number };
+    }
+  ) {
+    try {
+      const where: any = includeInactive ? {} : { isActive: true };
+      
+      // Add search filter
+      if (search) {
+        where.OR = [
+          { name: { contains: search } },
+          { description: { contains: search } },
+          { category: { contains: search } },
+        ];
+      }
+      
+      // Add category filter
+      if (category) {
+        where.category = category;
+      }
+      
+      // Add aisle filter
+      if (aisle) {
+        where.aisle = aisle;
+      }
+
+      // Add nutrition range filters
+      if (nutritionFilters) {
+        if (nutritionFilters.calories) {
+          if (nutritionFilters.calories.min !== undefined) {
+            where.calories = { ...where.calories, gte: nutritionFilters.calories.min };
+          }
+          if (nutritionFilters.calories.max !== undefined) {
+            where.calories = { ...where.calories, lte: nutritionFilters.calories.max };
+          }
+        }
+
+        if (nutritionFilters.protein) {
+          if (nutritionFilters.protein.min !== undefined) {
+            where.protein = { ...where.protein, gte: nutritionFilters.protein.min };
+          }
+          if (nutritionFilters.protein.max !== undefined) {
+            where.protein = { ...where.protein, lte: nutritionFilters.protein.max };
+          }
+        }
+
+        if (nutritionFilters.carbs) {
+          if (nutritionFilters.carbs.min !== undefined) {
+            where.carbs = { ...where.carbs, gte: nutritionFilters.carbs.min };
+          }
+          if (nutritionFilters.carbs.max !== undefined) {
+            where.carbs = { ...where.carbs, lte: nutritionFilters.carbs.max };
+          }
+        }
+
+        if (nutritionFilters.fat) {
+          if (nutritionFilters.fat.min !== undefined) {
+            where.fat = { ...where.fat, gte: nutritionFilters.fat.min };
+          }
+          if (nutritionFilters.fat.max !== undefined) {
+            where.fat = { ...where.fat, lte: nutritionFilters.fat.max };
+          }
+        }
+
+        if (nutritionFilters.fiber) {
+          if (nutritionFilters.fiber.min !== undefined) {
+            where.fiber = { ...where.fiber, gte: nutritionFilters.fiber.min };
+          }
+          if (nutritionFilters.fiber.max !== undefined) {
+            where.fiber = { ...where.fiber, lte: nutritionFilters.fiber.max };
+          }
+        }
+
+        if (nutritionFilters.sodium) {
+          if (nutritionFilters.sodium.min !== undefined) {
+            where.sodium = { ...where.sodium, gte: nutritionFilters.sodium.min };
+          }
+          if (nutritionFilters.sodium.max !== undefined) {
+            where.sodium = { ...where.sodium, lte: nutritionFilters.sodium.max };
+          }
+        }
+      }
+
+      const skip = (page - 1) * pageSize;
+      
+      const [ingredients, totalCount] = await Promise.all([
+        prisma.ingredient.findMany({
+          where,
+          orderBy: { name: 'asc' },
+          skip,
+          take: pageSize,
+        }),
+        prisma.ingredient.count({ where })
+      ]);
+
+      return {
+        ingredients,
+        pagination: {
+          page,
+          pageSize,
+          totalCount,
+          totalPages: Math.ceil(totalCount / pageSize),
+          hasNextPage: page < Math.ceil(totalCount / pageSize),
+          hasPreviousPage: page > 1,
+        }
+      };
+    } catch (error) {
+      console.error('Error fetching paginated ingredients:', error);
+      throw new Error('Failed to fetch ingredients');
+    }
+  }
+
   async updateIngredient(id: string, data: IngredientUpdateInput) {
     try {
       const ingredient = await prisma.ingredient.update({
@@ -151,9 +277,9 @@ export class IngredientService {
       const ingredients = await prisma.ingredient.findMany({
         where: {
           OR: [
-            { name: { contains: query, mode: 'insensitive' } },
-            { description: { contains: query, mode: 'insensitive' } },
-            { category: { contains: query, mode: 'insensitive' } },
+            { name: { contains: query } },
+            { description: { contains: query } },
+            { category: { contains: query } },
           ],
           isActive: true,
         },
@@ -181,7 +307,7 @@ export class IngredientService {
         errors: [] as string[],
       };
 
-      for (const record of records) {
+      for (const record of records as any[]) {
         try {
           // Validate required fields
           if (!record.name || !record.servingSize || !record.calories || !record.protein || !record.carbs || !record.fat) {

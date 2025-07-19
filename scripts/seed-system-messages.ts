@@ -86,7 +86,36 @@ Respond with ONLY the JSON, no other text or explanation.`,
 - Dietary preferences: {preferences}
 - Include balanced macronutrients (protein, carbs, fats, fiber)
 - Provide specific recipes with ingredients and instructions
-- Format as structured JSON with daily meal breakdowns`,
+
+For each day, create 4 meals (breakfast, lunch, dinner, snack) with complete recipes.
+
+Format the response as a JSON object with this structure:
+{
+  "days": [
+    {
+      "day": 1,
+      "meals": [
+        {
+          "name": "Recipe Name",
+          "mealType": "BREAKFAST",
+          "calories": 400,
+          "protein": 25,
+          "carbs": 45,
+          "fat": 15,
+          "ingredients": ["1 cup ingredient", "2 tbsp ingredient"],
+          "instructions": ["Step 1", "Step 2", "Step 3"],
+          "prepTime": "10 minutes",
+          "cookTime": "15 minutes"
+        }
+      ],
+      "totalCalories": 1600
+    }
+  ],
+  "totalCalories": 11200,
+  "avgCaloriesPerDay": 1600
+}
+
+Make sure each recipe is realistic, healthy, and includes proper nutritional information.`,
     category: 'prompts',
     description: 'Prompt template for generating meal plans'
   },
@@ -135,6 +164,45 @@ Return a JSON object with this structure:
     content: `Generate a grocery list for {meal_plan_days} days{preferences}{budget}. Group by aisle and include quantities.`,
     category: 'prompts',
     description: 'Prompt template for generating grocery lists'
+  },
+
+  // Chat System Prompts
+  {
+    key: 'chat.system_context',
+    title: 'Chat System Context',
+    content: `You are an AI Health Companion, a helpful assistant focused on health, nutrition, fitness, and wellness. 
+
+Your capabilities include:
+- Creating personalized meal plans with detailed recipes
+- Logging meals and tracking nutrition
+- Generating grocery lists
+- Setting and tracking health goals
+- Monitoring biomarkers and health metrics
+- Providing fitness and activity recommendations
+- Showing progress and leaderboards
+
+Always be encouraging, supportive, and provide evidence-based health advice. When users ask for meal plans, activities, or other health-related content, use the appropriate tools to generate detailed, personalized responses.
+
+Be conversational and friendly, but always prioritize health and safety in your recommendations.`,
+    category: 'chat',
+    description: 'System context that defines the AI\'s role and behavior in chat'
+  },
+
+  // Tool-Specific Instructions
+  {
+    key: 'mcp.tool_instructions',
+    title: 'MCP Tool Usage Instructions',
+    content: `When using MCP tools, follow these guidelines:
+
+1. **Meal Plans**: Always generate detailed, realistic recipes with ingredients, instructions, and nutritional information
+2. **Grocery Lists**: Organize by aisle and include specific quantities
+3. **Activity Plans**: Consider user fitness level and provide safe, progressive recommendations
+4. **Biomarker Logging**: Validate input values and provide context for the data
+5. **Goal Setting**: Create SMART (Specific, Measurable, Achievable, Relevant, Time-bound) goals
+
+Always format tool responses as structured data when possible, and provide helpful summaries for users.`,
+    category: 'mcp',
+    description: 'General instructions for using MCP tools effectively'
   },
 
   // Quick Replies

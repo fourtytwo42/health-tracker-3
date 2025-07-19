@@ -8,42 +8,36 @@ export async function GET(request: NextRequest) {
   try {
     // Check authentication
     const authHeader = request.headers.get('authorization');
+    
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return NextResponse.json(
-        { error: 'Missing or invalid authorization header' },
+        { success: false, error: 'Missing or invalid authorization header' },
         { status: 401 }
       );
     }
 
     const token = authHeader.substring(7);
-    const authInfo = AuthService.verifyAccessToken(token);
-
-    // Check if user is admin
-    if (authInfo.role !== 'ADMIN') {
+    
+    try {
+      const authInfo = AuthService.verifyAccessToken(token);
+    } catch (error) {
       return NextResponse.json(
-        { error: 'Admin access required' },
-        { status: 403 }
+        { success: false, error: 'Token expired or invalid' },
+        { status: 401 }
       );
     }
 
-    const { searchParams } = new URL(request.url);
-    const category = searchParams.get('category');
-
-    let messages;
-    if (category) {
-      messages = await systemMessageService.getMessagesByCategory(category);
-    } else {
-      messages = await systemMessageService.getAllMessages();
-    }
-
-    return NextResponse.json({ success: true, data: messages });
+    // Get all system messages
+    const messages = await systemMessageService.getAllMessages();
+    
+    return NextResponse.json({
+      success: true,
+      data: messages,
+    });
   } catch (error) {
-    console.error('Error fetching system messages:', error);
+    console.error('Failed to get system messages:', error);
     return NextResponse.json(
-      { 
-        success: false,
-        error: error instanceof Error ? error.message : 'Failed to fetch system messages' 
-      },
+      { success: false, error: 'Failed to get system messages' },
       { status: 500 }
     );
   }
@@ -53,50 +47,52 @@ export async function POST(request: NextRequest) {
   try {
     // Check authentication
     const authHeader = request.headers.get('authorization');
+    
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return NextResponse.json(
-        { error: 'Missing or invalid authorization header' },
+        { success: false, error: 'Missing or invalid authorization header' },
         { status: 401 }
       );
     }
 
     const token = authHeader.substring(7);
-    const authInfo = AuthService.verifyAccessToken(token);
-
-    // Check if user is admin
-    if (authInfo.role !== 'ADMIN') {
+    
+    try {
+      const authInfo = AuthService.verifyAccessToken(token);
+    } catch (error) {
       return NextResponse.json(
-        { error: 'Admin access required' },
-        { status: 403 }
+        { success: false, error: 'Token expired or invalid' },
+        { status: 401 }
       );
     }
 
     const body = await request.json();
-    const { key, title, content, category, description } = body;
-
-    if (!key || !title || !content || !category) {
+    
+    // Validate required fields
+    if (!body.key || !body.title || !body.content || !body.category) {
       return NextResponse.json(
-        { error: 'Missing required fields: key, title, content, category' },
+        { success: false, error: 'Missing required fields: key, title, content, category' },
         { status: 400 }
       );
     }
 
-    const message = await systemMessageService.createMessage({
-      key,
-      title,
-      content,
-      category,
-      description
+    // Create new system message
+    const newMessage = await systemMessageService.createMessage({
+      key: body.key,
+      title: body.title,
+      content: body.content,
+      category: body.category,
+      description: body.description || '',
     });
-
-    return NextResponse.json({ success: true, data: message });
+    
+    return NextResponse.json({
+      success: true,
+      data: newMessage,
+    });
   } catch (error) {
-    console.error('Error creating system message:', error);
+    console.error('Failed to create system message:', error);
     return NextResponse.json(
-      { 
-        success: false,
-        error: error instanceof Error ? error.message : 'Failed to create system message' 
-      },
+      { success: false, error: 'Failed to create system message' },
       { status: 500 }
     );
   }

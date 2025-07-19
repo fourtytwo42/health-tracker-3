@@ -27,6 +27,7 @@ import {
   Settings as SettingsIcon,
   Logout as LogoutIcon,
   Person as PersonIcon,
+  HealthAndSafety as HealthIcon,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -209,6 +210,17 @@ export default function Navigation() {
                     <PersonIcon fontSize="small" />
                   </ListItemIcon>
                   Profile
+                </MenuItem>
+                <MenuItem 
+                  onClick={() => {
+                    handleProfileMenuClose();
+                    router.push('/user-details');
+                  }}
+                >
+                  <ListItemIcon>
+                    <HealthIcon fontSize="small" />
+                  </ListItemIcon>
+                  Health Profile
                 </MenuItem>
                 <MenuItem 
                   onClick={() => {
