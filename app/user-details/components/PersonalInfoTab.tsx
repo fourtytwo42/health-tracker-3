@@ -21,14 +21,22 @@ import {
   Stack
 } from '@mui/material';
 import { useAuth } from '@/context/AuthContext';
+import { 
+  convertHeightToAmerican, 
+  convertHeightToMetric, 
+  convertWeightToAmerican, 
+  convertWeightToMetric,
+  calculateBMI,
+  getBMICategory
+} from '@/lib/utils/unitConversion';
 
 interface UserDetails {
   id?: string;
-  height?: number;
-  weight?: number;
-  targetWeight?: number;
+  height?: number; // stored in cm
+  weight?: number; // stored in kg
+  targetWeight?: number; // stored in kg
   bodyFatPercentage?: number;
-  muscleMass?: number;
+  muscleMass?: number; // stored in kg
   bmi?: number;
   bloodType?: string;
   allergies?: string;
@@ -46,6 +54,15 @@ interface UserDetails {
   fitnessGoals?: string;
   dietaryGoals?: string;
   weightGoals?: string;
+}
+
+// American unit display state
+interface AmericanDisplay {
+  heightFeet: number;
+  heightInches: number;
+  weightLbs: number;
+  targetWeightLbs: number;
+  muscleMassLbs: number;
 }
 
 const ACTIVITY_LEVELS = [
@@ -75,6 +92,15 @@ export default function PersonalInfoTab() {
   const [userDetails, setUserDetails] = useState<UserDetails>({
     activityLevel: 'SEDENTARY'
   });
+  
+  // American units for display
+  const [americanDisplay, setAmericanDisplay] = useState<AmericanDisplay>({
+    heightFeet: 5,
+    heightInches: 8,
+    weightLbs: 150,
+    targetWeightLbs: 150,
+    muscleMassLbs: 50
+  });
 
   useEffect(() => {
     if (user) {
@@ -89,6 +115,43 @@ export default function PersonalInfoTab() {
         const data = await response.json();
         if (data.userDetails) {
           setUserDetails(data.userDetails);
+          
+          // Convert metric to American for display
+          if (data.userDetails.height) {
+            const heightConversion = convertHeightToAmerican(data.userDetails.height);
+            const totalInches = data.userDetails.height / 2.54;
+            const feet = Math.floor(totalInches / 12);
+            const inches = Math.round(totalInches % 12);
+            setAmericanDisplay(prev => ({
+              ...prev,
+              heightFeet: feet,
+              heightInches: inches
+            }));
+          }
+          
+          if (data.userDetails.weight) {
+            const weightConversion = convertWeightToAmerican(data.userDetails.weight);
+            setAmericanDisplay(prev => ({
+              ...prev,
+              weightLbs: weightConversion.value * 2.20462
+            }));
+          }
+          
+          if (data.userDetails.targetWeight) {
+            const targetWeightConversion = convertWeightToAmerican(data.userDetails.targetWeight);
+            setAmericanDisplay(prev => ({
+              ...prev,
+              targetWeightLbs: targetWeightConversion.value * 2.20462
+            }));
+          }
+          
+          if (data.userDetails.muscleMass) {
+            const muscleMassConversion = convertWeightToAmerican(data.userDetails.muscleMass);
+            setAmericanDisplay(prev => ({
+              ...prev,
+              muscleMassLbs: muscleMassConversion.value * 2.20462
+            }));
+          }
         }
       }
     } catch (error) {
@@ -105,11 +168,17 @@ export default function PersonalInfoTab() {
     }));
   };
 
-  const calculateBMI = () => {
-    if (userDetails.height && userDetails.weight) {
-      const heightInMeters = userDetails.height / 100;
-      const bmi = userDetails.weight / (heightInMeters * heightInMeters);
-      setUserDetails(prev => ({ ...prev, bmi: Math.round(bmi * 10) / 10 }));
+  const handleAmericanInputChange = (field: keyof AmericanDisplay, value: number) => {
+    setAmericanDisplay(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
+  const calculateBMIFromAmerican = () => {
+    if (americanDisplay.weightLbs && americanDisplay.heightFeet && americanDisplay.heightInches) {
+      const bmi = calculateBMI(americanDisplay.weightLbs, americanDisplay.heightFeet, americanDisplay.heightInches);
+      setUserDetails(prev => ({ ...prev, bmi }));
     }
   };
 
@@ -119,14 +188,29 @@ export default function PersonalInfoTab() {
     setSuccess(null);
 
     try {
-      calculateBMI();
+      // Convert American units back to metric for database
+      const heightCm = convertHeightToMetric(americanDisplay.heightFeet, americanDisplay.heightInches).value;
+      const weightKg = convertWeightToMetric(americanDisplay.weightLbs).value;
+      const targetWeightKg = convertWeightToMetric(americanDisplay.targetWeightLbs).value;
+      const muscleMassKg = convertWeightToMetric(americanDisplay.muscleMassLbs).value;
+      
+      // Calculate BMI
+      calculateBMIFromAmerican();
+      
+      const updatedUserDetails = {
+        ...userDetails,
+        height: heightCm,
+        weight: weightKg,
+        targetWeight: targetWeightKg,
+        muscleMass: muscleMassKg
+      };
       
       const response = await fetch('/api/user-details', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(userDetails),
+        body: JSON.stringify(updatedUserDetails),
       });
 
       if (response.ok) {
@@ -179,48 +263,73 @@ export default function PersonalInfoTab() {
             <CardHeader title="Physical Measurements" />
             <CardContent>
               <Stack spacing={2}>
+                <Box>
+                  <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                    Height (feet & inches)
+                  </Typography>
+                  <Stack direction="row" spacing={1}>
+                    <TextField
+                      label="Feet"
+                      type="number"
+                      value={americanDisplay.heightFeet || ''}
+                      onChange={(e) => handleAmericanInputChange('heightFeet', parseInt(e.target.value) || 0)}
+                      sx={{ flex: 1 }}
+                      inputProps={{ min: 3, max: 8 }}
+                    />
+                    <TextField
+                      label="Inches"
+                      type="number"
+                      value={americanDisplay.heightInches || ''}
+                      onChange={(e) => handleAmericanInputChange('heightInches', parseInt(e.target.value) || 0)}
+                      sx={{ flex: 1 }}
+                      inputProps={{ min: 0, max: 11 }}
+                    />
+                  </Stack>
+                </Box>
+                
                 <TextField
-                  label="Height (cm)"
+                  label="Weight (lbs)"
                   type="number"
-                  value={userDetails.height || ''}
-                  onChange={(e) => handleInputChange('height', parseFloat(e.target.value) || undefined)}
+                  value={americanDisplay.weightLbs || ''}
+                  onChange={(e) => handleAmericanInputChange('weightLbs', parseFloat(e.target.value) || 0)}
                   fullWidth
+                  inputProps={{ min: 50, max: 500 }}
                 />
+                
                 <TextField
-                  label="Weight (kg)"
+                  label="Target Weight (lbs)"
                   type="number"
-                  value={userDetails.weight || ''}
-                  onChange={(e) => handleInputChange('weight', parseFloat(e.target.value) || undefined)}
+                  value={americanDisplay.targetWeightLbs || ''}
+                  onChange={(e) => handleAmericanInputChange('targetWeightLbs', parseFloat(e.target.value) || 0)}
                   fullWidth
+                  inputProps={{ min: 50, max: 500 }}
                 />
-                <TextField
-                  label="Target Weight (kg)"
-                  type="number"
-                  value={userDetails.targetWeight || ''}
-                  onChange={(e) => handleInputChange('targetWeight', parseFloat(e.target.value) || undefined)}
-                  fullWidth
-                />
+                
                 <TextField
                   label="Body Fat Percentage"
                   type="number"
                   value={userDetails.bodyFatPercentage || ''}
                   onChange={(e) => handleInputChange('bodyFatPercentage', parseFloat(e.target.value) || undefined)}
                   fullWidth
+                  inputProps={{ min: 0, max: 50 }}
                 />
+                
                 <TextField
-                  label="Muscle Mass (kg)"
+                  label="Muscle Mass (lbs)"
                   type="number"
-                  value={userDetails.muscleMass || ''}
-                  onChange={(e) => handleInputChange('muscleMass', parseFloat(e.target.value) || undefined)}
+                  value={americanDisplay.muscleMassLbs || ''}
+                  onChange={(e) => handleAmericanInputChange('muscleMassLbs', parseFloat(e.target.value) || 0)}
                   fullWidth
+                  inputProps={{ min: 20, max: 200 }}
                 />
+                
                 {userDetails.bmi && (
                   <TextField
                     label="BMI"
-                    value={userDetails.bmi}
+                    value={`${userDetails.bmi} (${getBMICategory(userDetails.bmi)})`}
                     fullWidth
                     disabled
-                    helperText={`${userDetails.bmi < 18.5 ? 'Underweight' : userDetails.bmi < 25 ? 'Normal' : userDetails.bmi < 30 ? 'Overweight' : 'Obese'}`}
+                    helperText="Calculated automatically from height and weight"
                   />
                 )}
               </Stack>

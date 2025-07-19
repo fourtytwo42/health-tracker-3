@@ -84,9 +84,16 @@
     "grams": "g",
     "kilograms": "kg",
     "pounds": "lbs",
+    "ounces": "oz",
     "milligrams": "mg",
     "milliliters": "ml",
     "liters": "L",
+    "cups": "cups",
+    "tablespoons": "tbsp",
+    "teaspoons": "tsp",
+    "inches": "in",
+    "feet": "ft",
+    "centimeters": "cm",
     "minutes": "min",
     "hours": "hr",
     "days": "days",
@@ -96,6 +103,25 @@
     "percent": "%",
     "points": "points",
     "rank": "rank"
+  },
+  "healthProfile": {
+    "height": "Height",
+    "weight": "Weight",
+    "targetWeight": "Target Weight",
+    "bodyFat": "Body Fat",
+    "muscleMass": "Muscle Mass",
+    "bmi": "BMI",
+    "feet": "Feet",
+    "inches": "Inches",
+    "pounds": "Pounds",
+    "calculateBMI": "Calculate BMI"
+  },
+  "ingredients": {
+    "servingSize": "Serving Size",
+    "grams": "grams",
+    "kilograms": "kilograms",
+    "milliliters": "milliliters",
+    "liters": "liters"
   },
   "errors": {
     "networkError": "Network error. Please check your connection.",
