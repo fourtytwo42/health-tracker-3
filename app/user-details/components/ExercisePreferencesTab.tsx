@@ -28,7 +28,10 @@ import {
   CircularProgress,
   Pagination,
   Stack,
-  InputAdornment
+  InputAdornment,
+  Paper,
+  Slider,
+  Collapse
 } from '@mui/material';
 import {
   Search as SearchIcon,
@@ -38,7 +41,9 @@ import {
   Favorite as LikeIcon,
   FavoriteBorder as DislikeIcon,
   Block as CannotDoIcon,
-  Build as ModifiedIcon
+  Build as ModifiedIcon,
+  FilterList as FilterIcon,
+  Clear as ClearIcon
 } from '@mui/icons-material';
 import { useAuth } from '@/context/AuthContext';
 
@@ -89,13 +94,45 @@ export default function ExercisePreferencesTab() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
+  // Filter states
+  const [showFilters, setShowFilters] = useState(false);
+  const [categoryFilter, setCategoryFilter] = useState('');
+  const [intensityFilter, setIntensityFilter] = useState('');
+  const [metRange, setMetRange] = useState([0, 20]);
+  const [preferenceTypeFilter, setPreferenceTypeFilter] = useState('');
+
+  // Available categories and intensities
+  const [categories, setCategories] = useState<string[]>([]);
+  const [intensities, setIntensities] = useState<string[]>([]);
+
   const itemsPerPage = 10;
 
   useEffect(() => {
     if (user) {
       loadPreferences();
+      loadCategoriesAndIntensities();
     }
   }, [user]);
+
+  const loadCategoriesAndIntensities = async () => {
+    try {
+      // Load categories and intensities from the exercises database
+      const response = await fetch('/api/exercises/search?q=&limit=1000');
+      if (response.ok) {
+        const data = await response.json();
+        const exercises = data.exercises || [];
+        
+        // Extract unique categories and intensities
+        const uniqueCategories = [...new Set(exercises.map((e: Exercise) => e.category).filter(Boolean))];
+        const uniqueIntensities = [...new Set(exercises.map((e: Exercise) => e.intensity).filter(Boolean))];
+        
+        setCategories(uniqueCategories.sort());
+        setIntensities(uniqueIntensities.sort());
+      }
+    } catch (error) {
+      console.error('Error loading categories and intensities:', error);
+    }
+  };
 
   const loadPreferences = async () => {
     try {
@@ -121,10 +158,26 @@ export default function ExercisePreferencesTab() {
     }
 
     try {
-      const response = await fetch(`/api/exercises/search?q=${encodeURIComponent(term)}&limit=10`);
+      // Build query parameters for filtering
+      const params = new URLSearchParams({
+        q: term,
+        limit: '20'
+      });
+
+      if (categoryFilter) params.append('category', categoryFilter);
+      if (intensityFilter) params.append('intensity', intensityFilter);
+
+      const response = await fetch(`/api/exercises/search?${params.toString()}`);
       if (response.ok) {
         const data = await response.json();
-        setSearchResults(data.exercises || []);
+        let exercises = data.exercises || [];
+
+        // Apply MET range filter on the client side
+        exercises = exercises.filter((exercise: Exercise) => {
+          return exercise.met >= metRange[0] && exercise.met <= metRange[1];
+        });
+
+        setSearchResults(exercises);
       }
     } catch (error) {
       console.error('Error searching exercises:', error);
@@ -135,6 +188,20 @@ export default function ExercisePreferencesTab() {
     const value = event.target.value;
     setSearchTerm(value);
     searchExercises(value);
+  };
+
+  // Apply filters when they change
+  useEffect(() => {
+    if (searchTerm.length >= 2) {
+      searchExercises(searchTerm);
+    }
+  }, [categoryFilter, intensityFilter, metRange]);
+
+  const clearFilters = () => {
+    setCategoryFilter('');
+    setIntensityFilter('');
+    setMetRange([0, 20]);
+    setPreferenceTypeFilter('');
   };
 
   const handleAddPreference = (exercise: Exercise) => {
@@ -214,7 +281,15 @@ export default function ExercisePreferencesTab() {
     return preference?.color || 'default';
   };
 
-  const paginatedPreferences = preferences.slice(
+  // Filter preferences based on preference type filter
+  const filteredPreferences = preferences.filter(preference => {
+    if (preferenceTypeFilter && preference.preference !== preferenceTypeFilter) {
+      return false;
+    }
+    return true;
+  });
+
+  const paginatedPreferences = filteredPreferences.slice(
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
   );
@@ -258,10 +333,106 @@ export default function ExercisePreferencesTab() {
                 }}
               />
               
+              {/* Filter Toggle */}
+              <Box sx={{ mt: 2, mb: 2 }}>
+                <Button
+                  variant="outlined"
+                  onClick={() => setShowFilters(!showFilters)}
+                  startIcon={<FilterIcon />}
+                  size="small"
+                >
+                  {showFilters ? 'Hide Filters' : 'Show Filters'}
+                </Button>
+                {showFilters && (
+                  <Button
+                    variant="outlined"
+                    onClick={clearFilters}
+                    startIcon={<ClearIcon />}
+                    size="small"
+                    sx={{ ml: 1 }}
+                  >
+                    Clear Filters
+                  </Button>
+                )}
+              </Box>
+
+              {/* Filter Panel */}
+              <Collapse in={showFilters}>
+                <Paper sx={{ p: 2, mb: 2 }}>
+                  <Typography variant="h6" gutterBottom>
+                    Search Filters
+                  </Typography>
+                  
+                  <Grid container spacing={2}>
+                    {/* Category Filter */}
+                    <Grid item xs={12} md={6}>
+                      <TextField
+                        select
+                        fullWidth
+                        label="Category"
+                        value={categoryFilter}
+                        onChange={(e) => setCategoryFilter(e.target.value)}
+                        size="small"
+                      >
+                        <MenuItem value="">All Categories</MenuItem>
+                        {categories.map((category) => (
+                          <MenuItem key={category} value={category}>
+                            {category}
+                          </MenuItem>
+                        ))}
+                      </TextField>
+                    </Grid>
+
+                    {/* Intensity Filter */}
+                    <Grid item xs={12} md={6}>
+                      <TextField
+                        select
+                        fullWidth
+                        label="Intensity"
+                        value={intensityFilter}
+                        onChange={(e) => setIntensityFilter(e.target.value)}
+                        size="small"
+                      >
+                        <MenuItem value="">All Intensities</MenuItem>
+                        {intensities.map((intensity) => (
+                          <MenuItem key={intensity} value={intensity}>
+                            <Box display="flex" alignItems="center" gap={1}>
+                              <Chip
+                                label={intensity}
+                                color={INTENSITY_COLORS[intensity as keyof typeof INTENSITY_COLORS] as any}
+                                size="small"
+                              />
+                            </Box>
+                          </MenuItem>
+                        ))}
+                      </TextField>
+                    </Grid>
+
+                    {/* MET Range */}
+                    <Grid item xs={12}>
+                      <Typography gutterBottom>
+                        MET Value Range: {metRange[0]} - {metRange[1]}
+                      </Typography>
+                      <Slider
+                        value={metRange}
+                        onChange={(_, newValue) => setMetRange(newValue as number[])}
+                        valueLabelDisplay="auto"
+                        min={0}
+                        max={20}
+                        step={0.1}
+                      />
+                      <Typography variant="caption" color="text.secondary">
+                        MET (Metabolic Equivalent of Task) measures exercise intensity. Higher values = more intense.
+                      </Typography>
+                    </Grid>
+                  </Grid>
+                </Paper>
+              </Collapse>
+              
               {searchResults.length > 0 && (
                 <Box sx={{ mt: 2 }}>
                   <Typography variant="subtitle2" gutterBottom>
-                    Search Results:
+                    Search Results ({searchResults.length}):
                   </Typography>
                   <List dense>
                     {searchResults.map((exercise) => (
@@ -280,9 +451,9 @@ export default function ExercisePreferencesTab() {
                           secondary={
                             <Box>
                               <Typography variant="body2" color="text.secondary">
-                                {exercise.category} • MET: {exercise.met} • {exercise.intensity}
+                                {exercise.category} • MET: {exercise.met} • {exercise.intensity} intensity
                               </Typography>
-                              <Typography variant="body2" color="text.secondary">
+                              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
                                 {exercise.description}
                               </Typography>
                             </Box>
@@ -311,16 +482,41 @@ export default function ExercisePreferencesTab() {
           <Card>
             <CardHeader 
               title="Your Exercise Preferences" 
-              subheader={`${preferences.length} preferences saved`}
+              subheader={`${filteredPreferences.length} preferences saved`}
             />
             <CardContent>
+              {/* Preference Type Filter */}
+              <Box sx={{ mb: 2 }}>
+                <FormControl size="small" sx={{ minWidth: 200 }}>
+                  <InputLabel>Filter by Preference Type</InputLabel>
+                  <Select
+                    value={preferenceTypeFilter}
+                    onChange={(e) => setPreferenceTypeFilter(e.target.value)}
+                    label="Filter by Preference Type"
+                  >
+                    <MenuItem value="">All Preferences</MenuItem>
+                    {PREFERENCE_TYPES.map((type) => (
+                      <MenuItem key={type.value} value={type.value}>
+                        <Box display="flex" alignItems="center" gap={1}>
+                          {type.icon}
+                          {type.label}
+                        </Box>
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Box>
+
               {loading ? (
                 <Box display="flex" justifyContent="center" p={3}>
                   <CircularProgress />
                 </Box>
-              ) : preferences.length === 0 ? (
+              ) : filteredPreferences.length === 0 ? (
                 <Typography variant="body2" color="text.secondary" align="center" py={3}>
-                  No exercise preferences saved yet. Search for exercises above to add your preferences.
+                  {preferences.length === 0 
+                    ? 'No exercise preferences saved yet. Search for exercises above to add your preferences.'
+                    : 'No preferences match the current filter. Try adjusting your filter settings.'
+                  }
                 </Typography>
               ) : (
                 <>
@@ -349,7 +545,7 @@ export default function ExercisePreferencesTab() {
                                 size="small"
                               />
                               <Chip
-                                label={preference.exercise.intensity}
+                                label={`MET: ${preference.exercise.met}`}
                                 color={INTENSITY_COLORS[preference.exercise.intensity as keyof typeof INTENSITY_COLORS] as any}
                                 size="small"
                                 variant="outlined"
@@ -359,9 +555,9 @@ export default function ExercisePreferencesTab() {
                           secondary={
                             <Box>
                               <Typography variant="body2" color="text.secondary">
-                                {preference.exercise.category} • MET: {preference.exercise.met}
+                                {preference.exercise.category} • {preference.exercise.intensity} intensity
                               </Typography>
-                              <Typography variant="body2" color="text.secondary">
+                              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
                                 {preference.exercise.description}
                               </Typography>
                               {preference.notes && (
@@ -392,10 +588,10 @@ export default function ExercisePreferencesTab() {
                     ))}
                   </List>
                   
-                  {totalPages > 1 && (
+                  {Math.ceil(filteredPreferences.length / itemsPerPage) > 1 && (
                     <Box display="flex" justifyContent="center" mt={2}>
                       <Pagination
-                        count={totalPages}
+                        count={Math.ceil(filteredPreferences.length / itemsPerPage)}
                         page={currentPage}
                         onChange={(_, page) => setCurrentPage(page)}
                         color="primary"
@@ -422,9 +618,9 @@ export default function ExercisePreferencesTab() {
                   {selectedExercise.activity}
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                  {selectedExercise.category} • MET: {selectedExercise.met} • {selectedExercise.intensity}
+                  {selectedExercise.category} • MET: {selectedExercise.met} • {selectedExercise.intensity} intensity
                 </Typography>
-                <Typography variant="body2" color="text.secondary">
+                <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
                   {selectedExercise.description}
                 </Typography>
               </Box>
@@ -455,7 +651,7 @@ export default function ExercisePreferencesTab() {
               value={preferenceNotes}
               onChange={(e) => setPreferenceNotes(e.target.value)}
               fullWidth
-              placeholder="Add any additional notes about this preference, modifications needed, or reasons..."
+              placeholder="Add any additional notes about this preference..."
             />
           </Stack>
         </DialogContent>
