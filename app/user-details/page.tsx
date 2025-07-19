@@ -22,6 +22,7 @@ import FoodPreferencesTab from './components/FoodPreferencesTab';
 import ExercisePreferencesTab from './components/ExercisePreferencesTab';
 import CalendarTab from './components/CalendarTab';
 import HealthMetricsTab from './components/HealthMetricsTab';
+import MenuBuilderTab from './components/MenuBuilderTab';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -56,10 +57,40 @@ export default function UserDetailsPage() {
   const { user, loading } = useAuth();
   const [tabValue, setTabValue] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [userProfile, setUserProfile] = useState<any>(null);
+  const [foodPreferences, setFoodPreferences] = useState<any[]>([]);
 
   const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
   };
+
+  useEffect(() => {
+    if (user) {
+      // Load user profile and food preferences for Menu Builder
+      const loadUserData = async () => {
+        try {
+          const [profileResponse, preferencesResponse] = await Promise.all([
+            fetch('/api/profile'),
+            fetch('/api/food-preferences')
+          ]);
+
+          if (profileResponse.ok) {
+            const profileData = await profileResponse.json();
+            setUserProfile(profileData.profile);
+          }
+
+          if (preferencesResponse.ok) {
+            const preferencesData = await preferencesResponse.json();
+            setFoodPreferences(preferencesData.preferences || []);
+          }
+        } catch (error) {
+          console.error('Error loading user data:', error);
+        }
+      };
+
+      loadUserData();
+    }
+  }, [user]);
 
   if (loading) {
     return (
@@ -105,7 +136,8 @@ export default function UserDetailsPage() {
             <Tab label="Health Metrics" {...a11yProps(1)} />
             <Tab label="Food Preferences" {...a11yProps(2)} />
             <Tab label="Exercise Preferences" {...a11yProps(3)} />
-            <Tab label="Calendar & Schedule" {...a11yProps(4)} />
+            <Tab label="Menu Builder" {...a11yProps(4)} />
+            <Tab label="Calendar & Schedule" {...a11yProps(5)} />
           </Tabs>
         </Box>
 
@@ -126,6 +158,10 @@ export default function UserDetailsPage() {
         </TabPanel>
 
         <TabPanel value={tabValue} index={4}>
+          <MenuBuilderTab userProfile={userProfile} foodPreferences={foodPreferences} />
+        </TabPanel>
+
+        <TabPanel value={tabValue} index={5}>
           <CalendarTab />
         </TabPanel>
       </Paper>

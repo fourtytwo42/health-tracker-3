@@ -83,6 +83,7 @@ export default function ExercisePreferencesTab() {
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [searchResults, setSearchResults] = useState<Exercise[]>([]);
+  const [allExercises, setAllExercises] = useState<Exercise[]>([]);
   const [preferences, setPreferences] = useState<ExercisePreference[]>([]);
   const [selectedExercise, setSelectedExercise] = useState<Exercise | null>(null);
   const [preferenceDialog, setPreferenceDialog] = useState(false);
@@ -91,6 +92,7 @@ export default function ExercisePreferencesTab() {
   const [preferenceNotes, setPreferenceNotes] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
@@ -145,26 +147,32 @@ export default function ExercisePreferencesTab() {
     { value: 'advanced', label: 'Advanced' }
   ];
 
-  const itemsPerPage = 10;
+  const itemsPerPage = 20;
 
   useEffect(() => {
     if (user) {
-      loadPreferences();
       loadCategoriesAndIntensities();
+      loadPreferences();
+      loadAllExercises();
     }
   }, [user]);
 
+  useEffect(() => {
+    // Reset to page 1 when filters change
+    setCurrentPage(1);
+    loadExercises();
+  }, [searchTerm, categoryFilter, intensityFilter, metRange, equipmentFilter, bodyPartsFilter, exerciseTypeFilter, difficultyFilter]);
+
   const loadCategoriesAndIntensities = async () => {
     try {
-      // Load categories and intensities from the exercises database
-      const response = await fetch('/api/exercises/search?loadCategories=true&limit=1000');
+      const response = await fetch('/api/exercises/search?loadCategories=true&loadIntensities=true');
       if (response.ok) {
         const data = await response.json();
         const exercises = data.exercises || [];
         
         // Extract unique categories and intensities
-        const uniqueCategories = Array.from(new Set(exercises.map((e: Exercise) => e.category).filter(Boolean))) as string[];
-        const uniqueIntensities = Array.from(new Set(exercises.map((e: Exercise) => e.intensity).filter(Boolean))) as string[];
+        const uniqueCategories = Array.from(new Set(exercises.map((e: any) => e.category).filter(Boolean)));
+        const uniqueIntensities = Array.from(new Set(exercises.map((e: any) => e.intensity).filter(Boolean)));
         
         setCategories(uniqueCategories.sort());
         setIntensities(uniqueIntensities.sort());
@@ -174,74 +182,214 @@ export default function ExercisePreferencesTab() {
     }
   };
 
-  const loadPreferences = async () => {
+  const loadAllExercises = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/exercise-preferences');
+      const response = await fetch('/api/exercises/search?limit=1000');
       if (response.ok) {
         const data = await response.json();
-        setPreferences(data.preferences || []);
-        setTotalPages(Math.ceil((data.preferences || []).length / itemsPerPage));
+        setAllExercises(data.exercises || []);
       }
     } catch (error) {
-      console.error('Error loading preferences:', error);
-      setError('Failed to load exercise preferences');
+      console.error('Error loading all exercises:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const searchExercises = async (term: string) => {
-    if (term.length < 2) {
-      setSearchResults([]);
-      return;
-    }
-
+  const loadExercises = async () => {
     try {
-      // Build query parameters for filtering
+      setLoading(true);
+      
+      // Build query parameters
       const params = new URLSearchParams({
-        q: term,
-        limit: '20'
+        page: currentPage.toString(),
+        limit: itemsPerPage.toString()
       });
 
-      if (categoryFilter) params.append('category', categoryFilter);
-      if (intensityFilter) params.append('intensity', intensityFilter);
+      if (searchTerm) {
+        params.append('q', searchTerm);
+      }
 
-      const response = await fetch(`/api/exercises/search?${params.toString()}`);
+      if (categoryFilter) {
+        params.append('category', categoryFilter);
+      }
+
+      if (intensityFilter) {
+        params.append('intensity', intensityFilter);
+      }
+
+      // Add MET filters
+      if (metRange[0] > 0 || metRange[1] < 20) {
+        params.append('met', `${metRange[0]}-${metRange[1]}`);
+      }
+
+      const response = await fetch(`/api/exercises/search?${params}`);
       if (response.ok) {
         const data = await response.json();
-        let exercises = data.exercises || [];
+        const exercises = data.exercises || [];
+        
+        // Apply enhanced filters client-side
+        let filteredExercises = exercises;
+        
+        if (equipmentFilter.length > 0) {
+          filteredExercises = filteredExercises.filter((exercise: Exercise) => {
+            return equipmentFilter.some(equipment => {
+              const activity = exercise.activity.toLowerCase();
+              const description = exercise.description.toLowerCase();
+              
+              switch (equipment) {
+                case 'none':
+                  return !activity.includes('dumbbell') && !activity.includes('barbell') && 
+                         !activity.includes('machine') && !activity.includes('equipment');
+                case 'dumbbells':
+                  return activity.includes('dumbbell') || description.includes('dumbbell');
+                case 'barbell':
+                  return activity.includes('barbell') || description.includes('barbell');
+                case 'resistance-bands':
+                  return activity.includes('band') || activity.includes('resistance') || 
+                         description.includes('band') || description.includes('resistance');
+                case 'cardio-machine':
+                  return activity.includes('treadmill') || activity.includes('bike') || 
+                         activity.includes('elliptical') || activity.includes('rower');
+                case 'bodyweight':
+                  return activity.includes('push-up') || activity.includes('pull-up') || 
+                         activity.includes('squat') || activity.includes('plank');
+                default:
+                  return true;
+              }
+            });
+          });
+        }
 
-        // Apply MET range filter on the client side
-        exercises = exercises.filter((exercise: Exercise) => {
-          return exercise.met >= metRange[0] && exercise.met <= metRange[1];
-        });
+        if (bodyPartsFilter.length > 0) {
+          filteredExercises = filteredExercises.filter((exercise: Exercise) => {
+            return bodyPartsFilter.some(part => {
+              const activity = exercise.activity.toLowerCase();
+              const description = exercise.description.toLowerCase();
+              
+              switch (part) {
+                case 'legs':
+                  return activity.includes('squat') || activity.includes('lunge') || 
+                         activity.includes('leg') || activity.includes('calf') ||
+                         activity.includes('running') || activity.includes('walking');
+                case 'arms':
+                  return activity.includes('curl') || activity.includes('press') || 
+                         activity.includes('arm') || activity.includes('bicep') ||
+                         activity.includes('tricep');
+                case 'chest':
+                  return activity.includes('push-up') || activity.includes('bench') || 
+                         activity.includes('chest') || activity.includes('pec');
+                case 'back':
+                  return activity.includes('pull-up') || activity.includes('row') || 
+                         activity.includes('back') || activity.includes('lat');
+                case 'shoulders':
+                  return activity.includes('shoulder') || activity.includes('deltoid') || 
+                         activity.includes('press') || activity.includes('raise');
+                case 'core':
+                  return activity.includes('plank') || activity.includes('crunch') || 
+                         activity.includes('sit-up') || activity.includes('core') ||
+                         activity.includes('abdominal');
+                case 'full-body':
+                  return activity.includes('burpee') || activity.includes('mountain climber') || 
+                         activity.includes('jumping jack') || activity.includes('full body');
+                default:
+                  return true;
+              }
+            });
+          });
+        }
 
-        setSearchResults(exercises);
+        if (exerciseTypeFilter.length > 0) {
+          filteredExercises = filteredExercises.filter((exercise: Exercise) => {
+            return exerciseTypeFilter.some(type => {
+              const category = exercise.category.toLowerCase();
+              const activity = exercise.activity.toLowerCase();
+              
+              switch (type) {
+                case 'strength':
+                  return category.includes('strength') || category.includes('weight') || 
+                         activity.includes('lift') || activity.includes('press');
+                case 'cardio':
+                  return category.includes('cardio') || activity.includes('running') || 
+                         activity.includes('walking') || activity.includes('cycling') ||
+                         activity.includes('swimming');
+                case 'flexibility':
+                  return category.includes('flexibility') || activity.includes('stretch') || 
+                         activity.includes('yoga') || activity.includes('pilates');
+                case 'balance':
+                  return category.includes('balance') || activity.includes('balance') || 
+                         activity.includes('stability');
+                case 'sports':
+                  return category.includes('sport') || activity.includes('tennis') || 
+                         activity.includes('basketball') || activity.includes('soccer');
+                default:
+                  return true;
+              }
+            });
+          });
+        }
+
+        if (difficultyFilter.length > 0) {
+          filteredExercises = filteredExercises.filter((exercise: Exercise) => {
+            return difficultyFilter.some(difficulty => {
+              const met = exercise.met;
+              
+              switch (difficulty) {
+                case 'beginner':
+                  return met <= 3;
+                case 'intermediate':
+                  return met > 3 && met <= 8;
+                case 'advanced':
+                  return met > 8;
+                default:
+                  return true;
+              }
+            });
+          });
+        }
+
+        setSearchResults(filteredExercises);
+        
+        // Calculate pagination
+        const total = filteredExercises.length;
+        setTotalItems(total);
+        setTotalPages(Math.ceil(total / itemsPerPage));
       }
     } catch (error) {
-      console.error('Error searching exercises:', error);
+      console.error('Error loading exercises:', error);
+      setError('Failed to load exercises');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadPreferences = async () => {
+    try {
+      const response = await fetch('/api/exercise-preferences');
+      if (response.ok) {
+        const data = await response.json();
+        setPreferences(data.preferences || []);
+      }
+    } catch (error) {
+      console.error('Error loading preferences:', error);
     }
   };
 
   const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const value = event.target.value;
     setSearchTerm(value);
-    searchExercises(value);
   };
 
-  // Apply filters when they change
-  useEffect(() => {
-    if (searchTerm.length >= 2) {
-      searchExercises(searchTerm);
-    }
-  }, [categoryFilter, intensityFilter, metRange]);
-
   const clearFilters = () => {
+    setSearchTerm('');
     setCategoryFilter('');
     setIntensityFilter('');
     setMetRange([0, 20]);
-    setPreferenceTypeFilter('');
+    setEquipmentFilter([]);
+    setBodyPartsFilter([]);
+    setExerciseTypeFilter([]);
+    setDifficultyFilter([]);
   };
 
   const handleAddPreference = (exercise: Exercise) => {
@@ -323,12 +471,11 @@ export default function ExercisePreferencesTab() {
 
   // Filter preferences based on preference type filter
   const filteredPreferences = preferences.filter(preference => {
-    if (preferenceTypeFilter && preference.preference !== preferenceTypeFilter) {
-      return false;
-    }
-    return true;
+    if (!preferenceTypeFilter) return true;
+    return preference.preference === preferenceTypeFilter;
   });
 
+  // Paginate preferences
   const paginatedPreferences = filteredPreferences.slice(
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
@@ -469,10 +616,26 @@ export default function ExercisePreferencesTab() {
                 </Paper>
               </Collapse>
               
-              {searchResults.length > 0 && (
+              {loading ? (
+                <Box display="flex" justifyContent="center" p={3}>
+                  <CircularProgress />
+                </Box>
+              ) : searchResults.length === 0 ? (
+                <Typography variant="body2" color="text.secondary" align="center" py={3}>
+                  {searchTerm.length === 0 && !categoryFilter && !intensityFilter
+                    ? 'Loading exercises...'
+                    : searchTerm.length > 0 && searchTerm.length < 2 
+                    ? 'Enter at least 2 characters to search for exercises.'
+                    : 'No exercises found matching your search criteria.'
+                  }
+                </Typography>
+              ) : (
                 <Box sx={{ mt: 2 }}>
                   <Typography variant="subtitle2" gutterBottom>
-                    Search Results ({searchResults.length}):
+                    {searchTerm || categoryFilter || intensityFilter 
+                      ? `Search Results (${searchResults.length} of ${totalItems}):`
+                      : `All Exercises (${searchResults.length} of ${totalItems}):`
+                    }
                   </Typography>
                   <List dense>
                     {searchResults.map((exercise) => (
@@ -511,6 +674,17 @@ export default function ExercisePreferencesTab() {
                       </ListItem>
                     ))}
                   </List>
+                  
+                  {totalPages > 1 && (
+                    <Box display="flex" justifyContent="center" mt={2}>
+                      <Pagination
+                        count={totalPages}
+                        page={currentPage}
+                        onChange={(_, page) => setCurrentPage(page)}
+                        color="primary"
+                      />
+                    </Box>
+                  )}
                 </Box>
               )}
             </CardContent>

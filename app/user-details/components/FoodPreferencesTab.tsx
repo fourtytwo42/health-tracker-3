@@ -127,6 +127,7 @@ export default function FoodPreferencesTab() {
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [searchResults, setSearchResults] = useState<Ingredient[]>([]);
+  const [allIngredients, setAllIngredients] = useState<Ingredient[]>([]);
   const [preferences, setPreferences] = useState<FoodPreference[]>([]);
   const [selectedIngredient, setSelectedIngredient] = useState<Ingredient | null>(null);
   const [preferenceDialog, setPreferenceDialog] = useState(false);
@@ -135,6 +136,7 @@ export default function FoodPreferencesTab() {
   const [preferenceNotes, setPreferenceNotes] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
@@ -195,26 +197,44 @@ export default function FoodPreferencesTab() {
     { value: 'year-round', label: 'Year-Round' }
   ];
 
-  const itemsPerPage = 10;
+  const itemsPerPage = 20;
+
+  // Filter preferences based on preference type filter
+  const filteredPreferences = preferences.filter(preference => {
+    if (!preferenceTypeFilter) return true;
+    return preference.preference === preferenceTypeFilter;
+  });
+
+  // Paginate preferences
+  const paginatedPreferences = filteredPreferences.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
 
   useEffect(() => {
     if (user) {
-      loadPreferences();
       loadCategoriesAndAisles();
+      loadPreferences();
+      loadAllIngredients();
     }
   }, [user]);
 
+  useEffect(() => {
+    // Reset to page 1 when filters change
+    setCurrentPage(1);
+    loadIngredients();
+  }, [searchTerm, categoryFilter, aisleFilter, calorieRange, proteinRange, carbRange, fatRange, fiberRange, sodiumRange, preferenceTypeFilter, dietaryFilter, preparationFilter, mealTypeFilter, seasonalFilter]);
+
   const loadCategoriesAndAisles = async () => {
     try {
-      // Load categories and aisles from the ingredients database
-      const response = await fetch('/api/ingredients/search?loadCategories=true&limit=1000');
+      const response = await fetch('/api/ingredients/search?loadCategories=true&loadAisles=true');
       if (response.ok) {
         const data = await response.json();
         const ingredients = data.ingredients || [];
         
         // Extract unique categories and aisles
-        const uniqueCategories = Array.from(new Set(ingredients.map((i: Ingredient) => i.category).filter(Boolean))) as string[];
-        const uniqueAisles = Array.from(new Set(ingredients.map((i: Ingredient) => i.aisle).filter(Boolean))) as string[];
+        const uniqueCategories = [...new Set(ingredients.map((ing: any) => ing.category).filter(Boolean))];
+        const uniqueAisles = [...new Set(ingredients.map((ing: any) => ing.aisle).filter(Boolean))];
         
         setCategories(uniqueCategories.sort());
         setAisles(uniqueAisles.sort());
@@ -224,80 +244,101 @@ export default function FoodPreferencesTab() {
     }
   };
 
-  const loadPreferences = async () => {
+  const loadAllIngredients = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/food-preferences');
+      const response = await fetch('/api/ingredients/search?limit=1000');
       if (response.ok) {
         const data = await response.json();
-        setPreferences(data.preferences || []);
-        setTotalPages(Math.ceil((data.preferences || []).length / itemsPerPage));
+        setAllIngredients(data.ingredients || []);
       }
     } catch (error) {
-      console.error('Error loading preferences:', error);
-      setError('Failed to load food preferences');
+      console.error('Error loading all ingredients:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const searchIngredients = async (term: string) => {
-    if (term.length < 2) {
-      setSearchResults([]);
-      return;
-    }
-
+  const loadIngredients = async () => {
     try {
-      // Build query parameters for filtering
+      setLoading(true);
+      
+      // Build query parameters
       const params = new URLSearchParams({
-        q: term,
-        limit: '50' // Get more results to filter from
+        page: currentPage.toString(),
+        limit: itemsPerPage.toString()
       });
 
-      if (categoryFilter) params.append('category', categoryFilter);
-      if (aisleFilter) params.append('aisle', aisleFilter);
+      if (searchTerm) {
+        params.append('q', searchTerm);
+      }
 
-      const response = await fetch(`/api/ingredients/search?${params.toString()}`);
+      if (categoryFilter) {
+        params.append('category', categoryFilter);
+      }
+
+      if (aisleFilter) {
+        params.append('aisle', aisleFilter);
+      }
+
+      // Add nutrition filters
+      if (calorieRange[0] > 0 || calorieRange[1] < 1000) {
+        params.append('calories', `${calorieRange[0]}-${calorieRange[1]}`);
+      }
+
+      if (proteinRange[0] > 0 || proteinRange[1] < 100) {
+        params.append('protein', `${proteinRange[0]}-${proteinRange[1]}`);
+      }
+
+      if (carbRange[0] > 0 || carbRange[1] < 100) {
+        params.append('carbs', `${carbRange[0]}-${carbRange[1]}`);
+      }
+
+      if (fatRange[0] > 0 || fatRange[1] < 100) {
+        params.append('fat', `${fatRange[0]}-${fatRange[1]}`);
+      }
+
+      if (fiberRange[0] > 0 || fiberRange[1] < 50) {
+        params.append('fiber', `${fiberRange[0]}-${fiberRange[1]}`);
+      }
+
+      if (sodiumRange[0] > 0 || sodiumRange[1] < 2000) {
+        params.append('sodium', `${sodiumRange[0]}-${sodiumRange[1]}`);
+      }
+
+      const response = await fetch(`/api/ingredients/search?${params}`);
       if (response.ok) {
         const data = await response.json();
-        let ingredients = data.ingredients || [];
-
-        // Apply nutrition filters on the client side
-        ingredients = ingredients.filter((ingredient: Ingredient) => {
-          return (
-            ingredient.calories >= calorieRange[0] && ingredient.calories <= calorieRange[1] &&
-            ingredient.protein >= proteinRange[0] && ingredient.protein <= proteinRange[1] &&
-            ingredient.carbs >= carbRange[0] && ingredient.carbs <= carbRange[1] &&
-            ingredient.fat >= fatRange[0] && ingredient.fat <= fatRange[1] &&
-            (!ingredient.fiber || (ingredient.fiber >= fiberRange[0] && ingredient.fiber <= fiberRange[1])) &&
-            (!ingredient.sodium || (ingredient.sodium >= sodiumRange[0] && ingredient.sodium <= sodiumRange[1]))
-          );
-        });
-
-        // Apply enhanced filters on the client side
+        const ingredients = data.ingredients || [];
+        
+        // Apply enhanced filters client-side
+        let filteredIngredients = ingredients;
+        
         if (dietaryFilter.length > 0) {
-          ingredients = ingredients.filter((ingredient: Ingredient) => {
-            const nameLower = ingredient.name.toLowerCase();
+          filteredIngredients = filteredIngredients.filter((ing: Ingredient) => {
             return dietaryFilter.some(diet => {
+              const name = ing.name.toLowerCase();
+              const category = ing.category.toLowerCase();
+              
               switch (diet) {
                 case 'vegan':
-                  return !nameLower.includes('meat') && !nameLower.includes('chicken') && !nameLower.includes('beef') && 
-                         !nameLower.includes('pork') && !nameLower.includes('fish') && !nameLower.includes('dairy') &&
-                         !nameLower.includes('milk') && !nameLower.includes('cheese') && !nameLower.includes('egg');
+                  return !name.includes('meat') && !name.includes('chicken') && !name.includes('beef') && 
+                         !name.includes('pork') && !name.includes('fish') && !name.includes('dairy') &&
+                         !name.includes('milk') && !name.includes('cheese') && !name.includes('egg');
                 case 'vegetarian':
-                  return !nameLower.includes('meat') && !nameLower.includes('chicken') && !nameLower.includes('beef') && 
-                         !nameLower.includes('pork') && !nameLower.includes('fish');
+                  return !name.includes('meat') && !name.includes('chicken') && !name.includes('beef') && 
+                         !name.includes('pork') && !name.includes('fish');
                 case 'gluten-free':
-                  return !nameLower.includes('wheat') && !nameLower.includes('bread') && !nameLower.includes('pasta') &&
-                         !nameLower.includes('flour') && !nameLower.includes('cereal');
+                  return !name.includes('wheat') && !name.includes('gluten') && !name.includes('bread') &&
+                         !name.includes('pasta') && !name.includes('flour');
                 case 'dairy-free':
-                  return !nameLower.includes('milk') && !nameLower.includes('cheese') && !nameLower.includes('yogurt') &&
-                         !nameLower.includes('cream') && !nameLower.includes('butter');
+                  return !name.includes('milk') && !name.includes('cheese') && !name.includes('yogurt') &&
+                         !name.includes('butter') && !name.includes('cream');
                 case 'keto':
-                  return ingredient.carbs < 10; // Low carb for keto
+                  return ing.carbs < 10; // Low carb for keto
                 case 'paleo':
-                  return !nameLower.includes('grain') && !nameLower.includes('wheat') && !nameLower.includes('rice') &&
-                         !nameLower.includes('corn') && !nameLower.includes('bean');
+                  return !name.includes('grain') && !name.includes('wheat') && !name.includes('rice') &&
+                         !name.includes('corn') && !name.includes('bean');
                 default:
                   return true;
               }
@@ -306,23 +347,23 @@ export default function FoodPreferencesTab() {
         }
 
         if (preparationFilter.length > 0) {
-          ingredients = ingredients.filter((ingredient: Ingredient) => {
-            const nameLower = ingredient.name.toLowerCase();
+          filteredIngredients = filteredIngredients.filter((ing: Ingredient) => {
             return preparationFilter.some(prep => {
+              const name = ing.name.toLowerCase();
+              
               switch (prep) {
                 case 'raw':
-                  return nameLower.includes('raw');
+                  return name.includes('raw') || name.includes('fresh');
                 case 'cooked':
-                  return nameLower.includes('cooked') || nameLower.includes('baked') || nameLower.includes('grilled') ||
-                         nameLower.includes('fried') || nameLower.includes('roasted');
+                  return name.includes('cooked') || name.includes('roasted') || name.includes('grilled');
                 case 'frozen':
-                  return nameLower.includes('frozen');
+                  return name.includes('frozen');
                 case 'canned':
-                  return nameLower.includes('canned');
+                  return name.includes('canned') || name.includes('preserved');
                 case 'fresh':
-                  return nameLower.includes('fresh');
+                  return name.includes('fresh') || !name.includes('frozen') && !name.includes('canned');
                 case 'dried':
-                  return nameLower.includes('dried') || nameLower.includes('dehydrated');
+                  return name.includes('dried') || name.includes('dehydrated');
                 default:
                   return true;
               }
@@ -331,24 +372,28 @@ export default function FoodPreferencesTab() {
         }
 
         if (mealTypeFilter.length > 0) {
-          ingredients = ingredients.filter((ingredient: Ingredient) => {
-            const nameLower = ingredient.name.toLowerCase();
+          filteredIngredients = filteredIngredients.filter((ing: Ingredient) => {
             return mealTypeFilter.some(meal => {
+              const name = ing.name.toLowerCase();
+              const category = ing.category.toLowerCase();
+              
               switch (meal) {
                 case 'breakfast':
-                  return nameLower.includes('cereal') || nameLower.includes('oatmeal') || nameLower.includes('pancake') ||
-                         nameLower.includes('waffle') || nameLower.includes('egg') || nameLower.includes('bacon');
+                  return name.includes('egg') || name.includes('cereal') || name.includes('oatmeal') ||
+                         name.includes('pancake') || name.includes('waffle') || name.includes('toast') ||
+                         category.includes('dairy') || category.includes('fruit');
                 case 'lunch':
-                  return nameLower.includes('sandwich') || nameLower.includes('salad') || nameLower.includes('soup');
+                  return name.includes('sandwich') || name.includes('salad') || name.includes('soup') ||
+                         category.includes('vegetable') || category.includes('protein');
                 case 'dinner':
-                  return nameLower.includes('steak') || nameLower.includes('chicken') || nameLower.includes('fish') ||
-                         nameLower.includes('pasta') || nameLower.includes('rice');
+                  return category.includes('protein') || category.includes('vegetable') ||
+                         name.includes('pasta') || name.includes('rice') || name.includes('potato');
                 case 'snack':
-                  return nameLower.includes('chip') || nameLower.includes('cracker') || nameLower.includes('nut') ||
-                         nameLower.includes('popcorn');
+                  return name.includes('chip') || name.includes('cracker') || name.includes('nut') ||
+                         name.includes('fruit') || name.includes('yogurt');
                 case 'dessert':
-                  return nameLower.includes('cake') || nameLower.includes('cookie') || nameLower.includes('ice cream') ||
-                         nameLower.includes('pie') || nameLower.includes('chocolate');
+                  return name.includes('chocolate') || name.includes('cake') || name.includes('cookie') ||
+                         name.includes('ice cream') || name.includes('candy') || name.includes('sweet');
                 default:
                   return true;
               }
@@ -356,38 +401,37 @@ export default function FoodPreferencesTab() {
           });
         }
 
-        setSearchResults(ingredients.slice(0, 20)); // Limit to 20 for display
+        setSearchResults(filteredIngredients);
+        
+        // Calculate pagination
+        const total = filteredIngredients.length;
+        setTotalItems(total);
+        setTotalPages(Math.ceil(total / itemsPerPage));
       }
     } catch (error) {
-      console.error('Error searching ingredients:', error);
+      console.error('Error loading ingredients:', error);
+      setError('Failed to load ingredients');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadPreferences = async () => {
+    try {
+      const response = await fetch('/api/food-preferences');
+      if (response.ok) {
+        const data = await response.json();
+        setPreferences(data.preferences || []);
+      }
+    } catch (error) {
+      console.error('Error loading preferences:', error);
     }
   };
 
   const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const value = event.target.value;
     setSearchTerm(value);
-    searchIngredients(value);
   };
-
-  // Apply filters when they change
-  useEffect(() => {
-    if (searchTerm.length >= 2) {
-      searchIngredients(searchTerm);
-    }
-  }, [
-    categoryFilter, 
-    aisleFilter, 
-    calorieRange, 
-    proteinRange, 
-    carbRange, 
-    fatRange, 
-    fiberRange, 
-    sodiumRange,
-    dietaryFilter,
-    preparationFilter,
-    mealTypeFilter,
-    seasonalFilter
-  ]);
 
   const clearFilters = () => {
     setCategoryFilter('');
@@ -482,18 +526,7 @@ export default function FoodPreferencesTab() {
     return preference?.color || 'default';
   };
 
-  // Filter preferences based on preference type filter
-  const filteredPreferences = preferences.filter(preference => {
-    if (preferenceTypeFilter && preference.preference !== preferenceTypeFilter) {
-      return false;
-    }
-    return true;
-  });
 
-  const paginatedPreferences = filteredPreferences.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
-  );
 
   return (
     <Box>
@@ -804,10 +837,26 @@ export default function FoodPreferencesTab() {
                 </Paper>
               </Collapse>
               
-              {searchResults.length > 0 && (
+              {loading ? (
+                <Box display="flex" justifyContent="center" p={3}>
+                  <CircularProgress />
+                </Box>
+              ) : searchResults.length === 0 ? (
+                <Typography variant="body2" color="text.secondary" align="center" py={3}>
+                  {searchTerm.length === 0 && !categoryFilter && !aisleFilter
+                    ? 'Loading ingredients...'
+                    : searchTerm.length > 0 && searchTerm.length < 2 
+                    ? 'Enter at least 2 characters to search for ingredients.'
+                    : 'No ingredients found matching your search criteria.'
+                  }
+                </Typography>
+              ) : (
                 <Box sx={{ mt: 2 }}>
                   <Typography variant="subtitle2" gutterBottom>
-                    Search Results ({searchResults.length}):
+                    {searchTerm || categoryFilter || aisleFilter 
+                      ? `Search Results (${searchResults.length} of ${totalItems}):`
+                      : `All Ingredients (${searchResults.length} of ${totalItems}):`
+                    }
                   </Typography>
                   <List dense>
                     {searchResults.map((ingredient) => (
@@ -837,6 +886,17 @@ export default function FoodPreferencesTab() {
                       </ListItem>
                     ))}
                   </List>
+                  
+                  {totalPages > 1 && (
+                    <Box display="flex" justifyContent="center" mt={2}>
+                      <Pagination
+                        count={totalPages}
+                        page={currentPage}
+                        onChange={(_, page) => setCurrentPage(page)}
+                        color="primary"
+                      />
+                    </Box>
+                  )}
                 </Box>
               )}
             </CardContent>

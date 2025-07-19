@@ -37,6 +37,7 @@ model User {
   exercisePreferences ExercisePreference[]
   scheduledMeals ScheduledMeal[]
   scheduledActivities ScheduledActivity[]
+  recipes      Recipe[]
   
   @@map("users")
 }
@@ -273,6 +274,7 @@ model Ingredient {
   
   // Relations
   foodPreferences       FoodPreference[]
+  recipeIngredients     RecipeIngredient[]
   
   @@map("ingredients")
 }
@@ -461,13 +463,12 @@ model ScheduledActivity {
   id          String   @id @default(cuid())
   userId      String   @map("user_id")
   exerciseId  String   @map("exercise_id")
-  title       String
+  scheduledAt DateTime @map("scheduled_at")
   duration    Int      // in minutes
   intensity   String   @default("MODERATE")
-  scheduledDate DateTime @map("scheduled_date")
-  scheduledTime String? @map("scheduled_time") // HH:MM format
   notes       String?
   isCompleted Boolean  @default(false) @map("is_completed")
+  completedAt DateTime? @map("completed_at")
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
   
@@ -476,4 +477,52 @@ model ScheduledActivity {
   exercise    Exercise @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
   
   @@map("scheduled_activities")
+}
+
+model Recipe {
+  id              String   @id @default(cuid())
+  userId          String   @map("user_id")
+  name            String
+  description     String?
+  mealType        String   @map("meal_type") // breakfast, lunch, dinner, snack, dessert
+  servings        Int      @default(1)
+  instructions    String   // Cooking instructions
+  prepTime        Int?     @map("prep_time") // in minutes
+  cookTime        Int?     @map("cook_time") // in minutes
+  totalTime       Int?     @map("total_time") // in minutes
+  difficulty      String?  // easy, medium, hard
+  cuisine         String?
+  tags            String?  // JSON array of tags
+  photoUrl        String?  @map("photo_url")
+  isFavorite      Boolean  @default(false) @map("is_favorite")
+  isPublic        Boolean  @default(false) @map("is_public")
+  aiGenerated     Boolean  @default(false) @map("ai_generated")
+  originalQuery   String?  @map("original_query") // The original user query that generated this recipe
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+  
+  // Relations
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ingredients     RecipeIngredient[]
+  
+  @@map("recipes")
+}
+
+model RecipeIngredient {
+  id          String   @id @default(cuid())
+  recipeId    String   @map("recipe_id")
+  ingredientId String  @map("ingredient_id")
+  amount      Float
+  unit        String
+  notes       String?  // Additional notes for this ingredient
+  isOptional  Boolean  @default(false) @map("is_optional")
+  order       Int      @default(0) // Order in the ingredient list
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  
+  // Relations
+  recipe      Recipe     @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  ingredient  Ingredient @relation(fields: [ingredientId], references: [id], onDelete: Cascade)
+  
+  @@map("recipe_ingredients")
 }
