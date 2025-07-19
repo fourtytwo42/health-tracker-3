@@ -5,12 +5,13 @@ import { portablePrisma } from '@/lib/prisma';
 function getWordVariations(word: string): string[] {
   const variations = [word.toLowerCase()];
   
-  // Handle plurals
+  // Handle plurals - remove 's' to get singular
   if (word.endsWith('s')) {
-    // Remove 's' to get singular
     variations.push(word.slice(0, -1).toLowerCase());
-  } else {
-    // Add 's' to get plural
+  }
+  
+  // Handle singular - add 's' to get plural
+  if (!word.endsWith('s')) {
     variations.push(word.toLowerCase() + 's');
   }
   
@@ -30,9 +31,9 @@ function getWordVariations(word: string): string[] {
 function matchesSearchTerms(exerciseName: string, searchTerms: string[]): boolean {
   const nameLower = exerciseName.toLowerCase();
   
-  // For multiple words, check if ANY of the search terms are found
-  // This makes the search more flexible and user-friendly
-  return searchTerms.some(term => {
+  // For multiple words, ALL search terms must be found (AND logic)
+  // This makes the search more precise when using multiple words
+  return searchTerms.every(term => {
     const termVariations = getWordVariations(term);
     return termVariations.some(variation => nameLower.includes(variation));
   });
@@ -85,12 +86,14 @@ export async function GET(request: NextRequest) {
       isActive: true
     };
 
-    // Use the first search term for the database query to get initial results
-    // We'll do more sophisticated filtering in JavaScript
+    // Use OR logic for database query to get initial results
+    // We'll do more precise AND filtering in JavaScript
     if (searchTerms.length > 0) {
-      whereClause.activity = {
-        contains: searchTerms[0]
-      };
+      whereClause.OR = searchTerms.map(term => ({
+        activity: {
+          contains: term
+        }
+      }));
     }
 
     if (category) {

@@ -5,12 +5,13 @@ import { portablePrisma } from '@/lib/prisma';
 function getWordVariations(word: string): string[] {
   const variations = [word.toLowerCase()];
   
-  // Handle plurals
+  // Handle plurals - remove 's' to get singular
   if (word.endsWith('s')) {
-    // Remove 's' to get singular
     variations.push(word.slice(0, -1).toLowerCase());
-  } else {
-    // Add 's' to get plural
+  }
+  
+  // Handle singular - add 's' to get plural
+  if (!word.endsWith('s')) {
     variations.push(word.toLowerCase() + 's');
   }
   
@@ -30,9 +31,9 @@ function getWordVariations(word: string): string[] {
 function matchesSearchTerms(ingredientName: string, searchTerms: string[]): boolean {
   const nameLower = ingredientName.toLowerCase();
   
-  // For multiple words, check if ANY of the search terms are found
-  // This makes the search more flexible and user-friendly
-  return searchTerms.some(term => {
+  // For multiple words, ALL search terms must be found (AND logic)
+  // But they don't need to be consecutive - just all present somewhere in the name
+  return searchTerms.every(term => {
     const termVariations = getWordVariations(term);
     return termVariations.some(variation => nameLower.includes(variation));
   });
@@ -88,9 +89,10 @@ export async function GET(request: NextRequest) {
       isActive: true
     };
 
-    // Use the first search term for the database query to get initial results
-    // We'll do more sophisticated filtering in JavaScript
+    // For multiple words, get all ingredients and filter in JavaScript
+    // This ensures case-insensitive matching and proper word variation handling
     if (searchTerms.length > 0) {
+      // Use the first search term for initial database filtering to reduce results
       whereClause.name = {
         contains: searchTerms[0]
       };
@@ -118,7 +120,7 @@ export async function GET(request: NextRequest) {
         fiber: true,
         sugar: true
       },
-      take: limit * 3, // Get more results to filter from since we're doing more sophisticated filtering
+      take: limit * 10, // Get more results to filter from since we're doing more sophisticated filtering
       orderBy: {
         name: 'asc'
       }
