@@ -392,15 +392,17 @@ export default function RecipeCard({
                     <ListItemText 
                       primary={
                         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                          <Box>
+                          <Box sx={{ flexGrow: 1 }}>
+                            {/* AI Recipe Name */}
                             <Typography 
                               variant="body2" 
                               sx={{ 
                                 color: ingredient.unavailable ? 'text.disabled' : 'text.primary',
-                                fontStyle: ingredient.unavailable ? 'italic' : 'normal'
+                                fontStyle: ingredient.unavailable ? 'italic' : 'normal',
+                                fontWeight: 'medium'
                               }}
                             >
-                              {ingredient.amount} {ingredient.unit} {ingredient.name}
+                              {ingredient.name}
                               {ingredient.unavailable && (
                                 <Chip 
                                   label="No nutrition data" 
@@ -420,12 +422,28 @@ export default function RecipeCard({
                                 />
                               )}
                             </Typography>
+                            
+                            {/* Cups and Grams/ML */}
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
                               {convertToCups(ingredient.amount, ingredient.unit) && (
-                                <Typography variant="body2" color="text.secondary">
-                                  ({convertToCups(ingredient.amount, ingredient.unit)})
+                                <Typography variant="body2" color="text.secondary" fontWeight="medium">
+                                  {convertToCups(ingredient.amount, ingredient.unit)}
                                 </Typography>
                               )}
+                              <Typography variant="body2" color="text.secondary">
+                                ({ingredient.amount} {ingredient.unit})
+                              </Typography>
+                            </Box>
+                            
+                            {/* Database Ingredient Name */}
+                            {ingredient.servingSize && (
+                              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, fontStyle: 'italic' }}>
+                                {ingredient.servingSize}
+                              </Typography>
+                            )}
+                            
+                            {/* Category and Aisle */}
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
                               {ingredient.category && (
                                 <Chip 
                                   label={ingredient.category} 
@@ -443,6 +461,7 @@ export default function RecipeCard({
                                 />
                               )}
                             </Box>
+                            
                             {ingredient.originalAmount && ingredient.originalAmount !== ingredient.amount && (
                               <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, fontStyle: 'italic' }}>
                                 Originally: {ingredient.originalAmount} {ingredient.unit}

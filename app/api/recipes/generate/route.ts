@@ -261,7 +261,7 @@ export async function POST(request: NextRequest) {
               const name = ingredient.name.toLowerCase();
               const searchTerm = ingredientName.toLowerCase();
 
-              // Avoid processed foods
+              // Avoid processed foods and complex recipes
               if (name.includes('with salt added') ||
                   name.includes('with added') ||
                   name.includes('dry roasted') ||
@@ -276,7 +276,20 @@ export async function POST(request: NextRequest) {
                   name.includes('bologna') ||
                   name.includes('cake') ||
                   name.includes('cupcake') ||
-                  name.includes('gingerbread')) {
+                  name.includes('gingerbread') ||
+                  name.includes('with eggs') ||
+                  name.includes('with onion') ||
+                  name.includes('chopped, with') ||
+                  name.includes('cured') ||
+                  name.includes('smoked') ||
+                  name.includes('dehydrated') ||
+                  name.includes('flakes') ||
+                  name.includes('extra light') ||
+                  name.includes('arrowroot') ||
+                  name.includes('shiitake') ||
+                  name.includes('jujube') ||
+                  name.includes('chinese') ||
+                  name.includes('pasteurized')) {
                 return false;
               }
 
@@ -285,7 +298,7 @@ export async function POST(request: NextRequest) {
               if (name.startsWith(searchTerm + ' ')) return true;
               if (name.includes(searchTerm + ',')) return true;
               
-              // For specific ingredients, be more strict
+              // For specific ingredients, be very strict
               if (searchTerm === 'salt' && !name.includes('salt')) return false;
               if (searchTerm === 'pepper' && !name.includes('pepper')) return false;
               if (searchTerm === 'beef' && !name.includes('beef')) return false;
@@ -295,6 +308,15 @@ export async function POST(request: NextRequest) {
               if (searchTerm === 'soy sauce' && !name.includes('soy')) return false;
               if (searchTerm === 'bell peppers' && !name.includes('pepper')) return false;
               if (searchTerm === 'broccoli' && !name.includes('broccoli')) return false;
+              if (searchTerm === 'parsley' && !name.includes('parsley')) return false;
+              if (searchTerm === 'chopped fresh parsley' && !name.includes('parsley')) return false;
+              if (searchTerm === 'egg noodles' && !name.includes('noodle')) return false;
+              if (searchTerm === 'mushrooms' && !name.includes('mushroom')) return false;
+              if (searchTerm === 'onions' && !name.includes('onion')) return false;
+              if (searchTerm === 'sour cream' && !name.includes('cream')) return false;
+              if (searchTerm === 'flour' && !name.includes('flour')) return false;
+              if (searchTerm === 'all-purpose flour' && !name.includes('flour')) return false;
+              if (searchTerm === 'beef broth' && !name.includes('broth')) return false;
 
               return true;
             });
@@ -362,12 +384,20 @@ export async function POST(request: NextRequest) {
                 'walnuts': ['nuts, walnuts, english'],
                 'oats': ['oats, whole grain, rolled, old fashioned'],
                 'flour': ['flour, wheat, all-purpose, enriched, bleached'],
+                'all-purpose flour': ['flour, wheat, all-purpose, enriched, bleached'],
                 'brown sugar': ['sugars, brown'],
                 'cinnamon': ['spices, cinnamon, ground'],
                 'olive oil': ['oil, olive, salad or cooking'],
                 'soy sauce': ['soy sauce made from soy and wheat (shoyu)'],
                 'bell peppers': ['peppers, sweet, green, raw', 'peppers, sweet, red, raw'],
-                'beef': ['beef, ground, 85% lean meat / 15% fat, raw', 'beef, chuck, blade roast, separable lean and fat, trimmed to 0" fat, all grades, raw']
+                'beef': ['beef, ground, 85% lean meat / 15% fat, raw', 'beef, chuck, blade roast, separable lean and fat, trimmed to 0" fat, all grades, raw'],
+                'parsley': ['parsley, fresh'],
+                'chopped fresh parsley': ['parsley, fresh'],
+                'egg noodles': ['noodles, egg, dry, enriched'],
+                'mushrooms': ['mushrooms, white, raw'],
+                'onions': ['onions, raw'],
+                'sour cream': ['cream, sour, cultured'],
+                'beef broth': ['soup, beef broth, bouillon and consomme, canned, condensed']
               };
 
               let foundWithSubstitution = false;
