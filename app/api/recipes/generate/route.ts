@@ -3,6 +3,7 @@ import { verifyAuth } from '@/lib/middleware/auth';
 import { prisma } from '@/lib/prisma';
 import { RecipeService } from '@/lib/services/RecipeService';
 import { MCPHandler } from '@/lib/mcp';
+import { IngredientService } from '@/lib/services/IngredientService';
 
 export async function POST(request: NextRequest) {
   try {
@@ -184,106 +185,69 @@ export async function POST(request: NextRequest) {
           console.error(`AI search failed for "${ingredientName}":`, error);
         }
 
-        // Fallback to basic search if AI search fails
-        console.log(`⚠️  AI search failed for "${ingredientName}", using fallback search...`);
-        
-        // Basic search fallback
-        let searchResults = [];
-        
-        // Strategy 1: Exact name match
-        let foundIngredient = await prisma.ingredient.findFirst({
-          where: {
-            name: {
-              equals: ingredientName.toLowerCase()
-            },
-            isActive: true
-          }
-        });
-        if (foundIngredient) searchResults.push(foundIngredient);
+        // Fallback search with better filtering
+        const ingredientService = new IngredientService();
+        const fallbackResults = await ingredientService.getIngredientsPaginated(
+          1, 100, false, ingredientName, ing.category, undefined
+        );
 
-        // Strategy 2: Contains name match
-        if (searchResults.length === 0) {
-          foundIngredient = await prisma.ingredient.findFirst({
-            where: {
-              name: {
-                contains: ingredientName.toLowerCase()
-              },
-              isActive: true
-            }
-          });
-          if (foundIngredient) searchResults.push(foundIngredient);
-        }
-
-        // Strategy 3: Search by key words
-        if (searchResults.length === 0) {
-          const keyWords = ingredientName
-            .toLowerCase()
-            .split(' ')
-            .filter((word: string) => 
-              word.length > 2 && 
-              !['the', 'and', 'or', 'with', 'without', 'fresh', 'raw', 'cooked', 'canned', 'frozen'].includes(word)
-            );
+        // Filter out processed foods and prefer basic ingredients
+        const filteredResults = fallbackResults.ingredients.filter(ingredient => {
+          const name = ingredient.name.toLowerCase();
           
-          if (keyWords.length > 0) {
-            const keywordResults = await prisma.ingredient.findMany({
-              where: {
-                OR: keyWords.map((word: string) => ({
-                  name: {
-                    contains: word
-                  }
-                })),
-                isActive: true
-              },
-              take: 10 // Get more results to filter
-            });
-            
-            // Filter and prioritize basic ingredients
-            const filteredResults = keywordResults
-              .filter(result => {
-                const name = result.name.toLowerCase();
-                // Avoid processed foods when basic ingredients are available
-                const isProcessed = name.includes('rings') || 
-                                  name.includes('breaded') || 
-                                  name.includes('fried') || 
-                                  name.includes('prepared') ||
-                                  name.includes('sandwich') ||
-                                  name.includes('bread') ||
-                                  name.includes('with salt') ||
-                                  name.includes('dry roasted');
-                return !isProcessed;
-              })
-              .slice(0, 3); // Take top 3 after filtering
-            
-            searchResults.push(...filteredResults);
+          // Avoid processed foods
+          if (name.includes('with salt added') || 
+              name.includes('with added') ||
+              name.includes('dry roasted') ||
+              name.includes('bottled') ||
+              name.includes('frozen') ||
+              name.includes('cooked') ||
+              name.includes('processed')) {
+            return false;
           }
+          
+          // Prefer basic ingredients
+          return true;
+        });
+
+        // Sort by relevance (exact matches first, then simple names)
+        const sortedResults = filteredResults.sort((a, b) => {
+          const aName = a.name.toLowerCase();
+          const bName = b.name.toLowerCase();
+          const searchTerm = ingredientName.toLowerCase();
+          
+          // Exact match gets highest priority
+          if (aName === searchTerm && bName !== searchTerm) return -1;
+          if (bName === searchTerm && aName !== searchTerm) return 1;
+          
+          // Simple names get priority over complex ones
+          const aComplexity = aName.split(',').length + aName.split(' ').length;
+          const bComplexity = bName.split(',').length + bName.split(' ').length;
+          
+          if (aComplexity !== bComplexity) return aComplexity - bComplexity;
+          
+          // Alphabetical as tiebreaker
+          return aName.localeCompare(bName);
+        });
+
+        console.log(`Fallback search results for "${ingredientName}": ${sortedResults.length} matches`);
+        
+        if (sortedResults.length > 0) {
+          const bestMatch = sortedResults[0];
+          console.log(`✅ Found ingredient with fallback search: ${bestMatch.name}`);
+          
+          // Calculate nutrition based on serving size
+          const nutrition = calculateIngredientNutrition(bestMatch, ing.amount || 0, ing.unit || 'g');
+          
+          resolvedIngredients.push({
+            ...ing,
+            resolvedIngredient: bestMatch,
+            nutrition
+          });
+        } else {
+          console.log(`❌ No ingredient found for "${ingredientName}" even with fallback search`);
+          unresolvedIngredients.push(ing);
         }
-
-        // Remove duplicates and format results
-        const uniqueResults = searchResults
-          .filter((result, index, self) => 
-            index === self.findIndex(r => r.id === result.id)
-          )
-          .map(result => ({
-            name: result.name,
-            calories: result.calories,
-            protein: result.protein,
-            carbs: result.carbs,
-            fat: result.fat,
-            fiber: result.fiber,
-            sugar: result.sugar,
-            sodium: result.sodium,
-            servingSize: result.servingSize || '100g',
-            category: result.category,
-            aisle: result.aisle,
-            ai_selected: false,
-            reasoning: 'Fallback search result'
-          }));
-
-        console.log(`Fallback search results for "${ingredientName}": ${uniqueResults.length} matches`);
-        return {
-          original_name: ingredientName,
-          search_results: uniqueResults
-        };
       })
     );
 
@@ -409,86 +373,50 @@ export async function POST(request: NextRequest) {
           }
         }
 
-        // If ingredient not found, skip it and log warning
-        if (!foundIngredient) {
-          console.log(`⚠️  Ingredient not found in database: ${ingredientName}`);
-          return {
-            ingredientId: null,
-            amount: ing.amount,
-            unit: ing.unit,
-            notes: `${ingredientName} (nutrition data not available)`,
-            isOptional: false,
-            nutrition: {
-              calories: 0,
-              protein: 0,
-              carbs: 0,
-              fat: 0,
-              fiber: 0,
-              sugar: 0,
-              sodium: 0
-            },
-            unavailable: true
-          };
-        }
-
-        // Calculate nutrition based on actual ingredient amount and serving size
-        let servingRatio = 1;
-        
-        // Parse serving size to get base amount
-        const servingSizeStr = foundIngredient.servingSize || '100g';
-        const servingSizeMatch = servingSizeStr.match(/(\d+(?:\.\d+)?)\s*(g|ml|oz|lb|kg|l|cup|cups|tbsp|tsp)/i);
-        
-        if (servingSizeMatch) {
-          const baseAmount = parseFloat(servingSizeMatch[1]);
-          const baseUnit = servingSizeMatch[2].toLowerCase();
-          
-          // Convert units to grams for comparison if possible
-          const unitConversions: { [key: string]: number } = {
-            'g': 1,
-            'kg': 1000,
-            'oz': 28.35,
-            'lb': 453.59,
-            'ml': 1, // Assuming 1ml ≈ 1g for most ingredients
-            'l': 1000,
-            'cup': 236.59, // 1 cup ≈ 236.59ml
-            'cups': 236.59,
-            'tbsp': 14.79, // 1 tbsp ≈ 14.79ml
-            'tsp': 4.93 // 1 tsp ≈ 4.93ml
-          };
-          
-          const baseAmountInGrams = baseAmount * (unitConversions[baseUnit] || 1);
-          const ingredientAmountInGrams = ing.amount * (unitConversions[ing.unit.toLowerCase()] || 1);
-          
-          servingRatio = ingredientAmountInGrams / baseAmountInGrams;
-        } else {
-          // Fallback to simple ratio if serving size parsing fails
-          servingRatio = ing.amount / 100;
-        }
-
-        const ingredientNutrition = {
-          calories: Math.round(foundIngredient.calories * servingRatio),
-          protein: Math.round(foundIngredient.protein * servingRatio * 10) / 10,
-          carbs: Math.round(foundIngredient.carbs * servingRatio * 10) / 10,
-          fat: Math.round(foundIngredient.fat * servingRatio * 10) / 10,
-          fiber: Math.round((foundIngredient.fiber || 0) * servingRatio * 10) / 10,
-          sugar: Math.round((foundIngredient.sugar || 0) * servingRatio * 10) / 10,
-          sodium: Math.round((foundIngredient.sodium || 0) * servingRatio)
+        // If ingredient not found, try common substitutions if ingredient not found
+        const substitutions: Record<string, string[]> = {
+          'pork chops': ['pork', 'pork loin', 'pork tenderloin'],
+          'salt': ['salt, table, iodized'],
+          'pepper': ['pepper, black', 'peppercorns'],
+          'milk': ['milk, lowfat, fluid, 1% milkfat', 'milk, reduced fat, fluid, 2% milkfat'],
+          'butter': ['butter, stick, unsalted', 'butter, stick, salted'],
+          'garlic': ['garlic, raw'],
+          'potatoes': ['potato, russet, without skin, raw'],
+          'broccoli': ['broccoli, raw', 'broccoli, cooked, boiled, drained, with salt']
         };
 
-        console.log(`✅ Resolved ingredient: ${ingredientName} -> ${foundIngredient.name} (${ing.amount}${ing.unit} = ${ingredientNutrition.calories} cal)`);
+        let foundWithSubstitution = false;
+        for (const [original, substitutes] of Object.entries(substitutions)) {
+          if (ingredientName.toLowerCase().includes(original.toLowerCase())) {
+            for (const substitute of substitutes) {
+              const subResults = await ingredientService.getIngredientsPaginated(
+                1, 10, false, substitute, undefined, undefined
+              );
+              
+              if (subResults.ingredients.length > 0) {
+                const bestMatch = subResults.ingredients[0];
+                console.log(`✅ Found ingredient with substitution: ${ingredientName} → ${bestMatch.name}`);
+                
+                const nutrition = calculateIngredientNutrition(bestMatch, ing.amount || 0, ing.unit || 'g');
+                
+                resolvedIngredients.push({
+                  ...ing,
+                  resolvedIngredient: bestMatch,
+                  nutrition
+                });
+                
+                foundWithSubstitution = true;
+                break;
+              }
+            }
+            if (foundWithSubstitution) break;
+          }
+        }
 
-        return {
-          ingredientId: foundIngredient.id,
-          amount: ing.amount,
-          unit: ing.unit,
-          notes: ing.name,
-          isOptional: false,
-          nutrition: ingredientNutrition,
-          unavailable: false,
-          category: foundIngredient.category,
-          aisle: foundIngredient.aisle,
-          servingSize: foundIngredient.servingSize
-        };
+        if (!foundWithSubstitution) {
+          console.log(`❌ No ingredient found for "${ingredientName}" even with substitutions`);
+          unresolvedIngredients.push(ing);
+        }
       })
     );
 

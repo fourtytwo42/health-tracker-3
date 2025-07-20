@@ -1034,30 +1034,33 @@ Format the response as a JSON object with alternatives array.`;
 ${args.description ? `INGREDIENT DESCRIPTION: "${args.description}"` : ''}
 
 Available ingredients (top 20 results):
-${topResults.map((ing, i) => `${i + 1}. ${ing.name} (${ing.description || 'No description'})`).join('\n')}
+${topResults.map((ing, i) => `${i + 1}. ${ing.name} (${ing.category}) - ${ing.calories} cal`).join('\n')}
 
-Please analyze the search term and return the best matching ingredient. Consider:
-- Exact matches
-- Common variations and synonyms
-- Category relevance
-- Description relevance
-- PREFER basic, unprocessed ingredients over processed/specific varieties
-- AVOID selecting processed foods when basic ingredients are available
-- If a description is provided, use it to understand the culinary purpose and find the best substitute
+CRITICAL SELECTION RULES:
+1. **EXACT MATCHES FIRST**: If you see an exact match for the search term, choose it
+2. **BASIC INGREDIENTS OVER PROCESSED**: Always prefer basic, unprocessed ingredients
+3. **AVOID COMPLEX NAMES**: Don't choose ingredients with long, specific descriptions
+4. **CATEGORY RELEVANCE**: Consider the ingredient's category and description
+5. **SIMPLE NAMES**: Prefer ingredients with short, simple names
+
+EXAMPLES OF GOOD CHOICES:
+- Search "salt" → Choose "salt, table, iodized" (NOT "nuts, almonds, dry roasted, with salt added")
+- Search "milk" → Choose "milk, lowfat, fluid, 1% milkfat" (NOT "cheese, cottage, lowfat, 2% milkfat")
+- Search "butter" → Choose "butter, stick, unsalted" (NOT "peanut butter, creamy")
+- Search "pepper" → Choose "pepper, black" (NOT "peppers, bell, green, raw")
+- Search "garlic" → Choose "garlic, raw" (NOT "garlic powder" or "garlic bread")
+
+EXAMPLES OF BAD CHOICES:
+- ❌ "salt" → "nuts, almonds, dry roasted, with salt added" (contains salt but is not salt)
+- ❌ "milk" → "cheese, cottage, lowfat, 2% milkfat" (is cheese, not milk)
+- ❌ "butter" → "peanut butter, creamy" (is peanut butter, not butter)
+- ❌ "pepper" → "peppers, bell, green, raw" (is bell pepper, not black pepper)
 
 SELECTION PRIORITY:
-1. Basic, unprocessed ingredients (e.g., "onion" over "onion rings")
-2. Generic names over specific varieties (e.g., "salt" over "sea salt")
-3. Raw/fresh over processed (e.g., "garlic" over "garlic bread")
-4. Simple names over complex descriptions
-5. If exact match not found, choose the closest substitute based on culinary use
-
-EXAMPLES:
-- Search "onion" → Choose "onion" not "onion rings"
-- Search "salt" → Choose "salt" not "nuts with salt"
-- Search "garlic" → Choose "garlic" not "garlic bread"
-- Search "beef" → Choose "beef" not "beef sandwich"
-- Search "beef striploin" with description "cut of steak" → Choose "beef" or "beef steak"
+1. Exact name match
+2. Basic ingredient in correct category
+3. Simple, unprocessed ingredient
+4. Avoid ingredients that "contain" the search term but are not the ingredient itself
 
 Return your response as JSON with this exact format:
 {
