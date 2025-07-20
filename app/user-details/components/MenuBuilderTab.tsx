@@ -742,23 +742,31 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                           <ListItemText
                             primary={
                               <Box>
-                                <Typography variant="body1">
-                                  {ri.amount} {ri.unit} {ri.ingredient.name}
+                                {/* AI Recipe Name - Main Label */}
+                                <Typography variant="body1" fontWeight="medium">
+                                  {ri.notes || ri.ingredient.name}
                                 </Typography>
-                                {convertToCups(ri.amount, ri.unit) && (
-                                  <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                                    ({convertToCups(ri.amount, ri.unit)})
+                                
+                                {/* Weight/Volume */}
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
+                                  {convertToCups(ri.amount, ri.unit) && (
+                                    <Typography variant="body2" color="text.secondary" fontWeight="medium">
+                                      {convertToCups(ri.amount, ri.unit)}
+                                    </Typography>
+                                  )}
+                                  <Typography variant="body2" color="text.secondary">
+                                    ({ri.amount} {ri.unit})
                                   </Typography>
-                                )}
+                                </Box>
+                                
+                                {/* Database Ingredient Name - Italicized */}
+                                <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, fontStyle: 'italic' }}>
+                                  {ri.ingredient.name}
+                                </Typography>
                               </Box>
                             }
                             secondary={
                               <Box>
-                                {ri.notes && (
-                                  <Typography variant="body2" color="text.secondary">
-                                    {ri.notes}
-                                  </Typography>
-                                )}
                                 <Box sx={{ mt: 0.5 }}>
                                   <Grid container spacing={1}>
                                     {ri.ingredient.calories > 0 && (
