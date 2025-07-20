@@ -7,7 +7,7 @@ const ingredientFuseOptions = {
     { name: 'category', weight: 0.7 },
     { name: 'aisle', weight: 0.5 }
   ],
-  threshold: 0.3, // Lower threshold = more strict matching
+  threshold: 0.4, // Slightly more lenient threshold
   distance: 100, // Maximum distance for fuzzy matching
   includeScore: true,
   includeMatches: true,
@@ -41,6 +41,35 @@ function normalizeText(text: string): string {
     .replace(/[^\w\s]/g, ' ') // Replace other special chars with spaces
     .replace(/\s+/g, ' ') // Normalize whitespace
     .trim();
+}
+
+// Generate search variations for better matching
+function generateSearchVariations(query: string): string[] {
+  const normalized = normalizeText(query);
+  const words = normalized.split(/\s+/).filter(word => word.length > 0);
+  
+  if (words.length <= 1) {
+    return [normalized];
+  }
+  
+  const variations: string[] = [normalized];
+  
+  // Add reversed word order
+  const reversed = words.reverse().join(' ');
+  if (reversed !== normalized) {
+    variations.push(reversed);
+  }
+  
+  // Add variations with common separators
+  variations.push(words.join(', '));
+  variations.push(words.join(' and '));
+  
+  // Add partial matches (first word only)
+  if (words.length > 1) {
+    variations.push(words[0]);
+  }
+  
+  return variations;
 }
 
 // Parse search query for advanced operators
@@ -132,7 +161,7 @@ export function parseSearchQuery(query: string): {
   };
 }
 
-// Search ingredients using Fuse.js
+// Search ingredients using Fuse.js with improved matching
 export function searchIngredients(
   ingredients: any[], 
   query: string, 
@@ -144,12 +173,14 @@ export function searchIngredients(
 
   const { searchTerms, exactPhrases, exclusions, categoryFilters, nutritionFilters } = parseSearchQuery(query);
   
-  // Create Fuse instance with normalized text
+  // Create Fuse instance with normalized text and search variations
   const normalizedIngredients = ingredients.map(ingredient => ({
     ...ingredient,
     normalizedName: normalizeText(ingredient.name),
     normalizedCategory: normalizeText(ingredient.category || ''),
-    normalizedAisle: normalizeText(ingredient.aisle || '')
+    normalizedAisle: normalizeText(ingredient.aisle || ''),
+    // Add search variations for better matching
+    searchVariations: generateSearchVariations(ingredient.name)
   }));
 
   const fuseOptions = {
@@ -157,6 +188,7 @@ export function searchIngredients(
     keys: [
       { name: 'name', weight: 1.0 },
       { name: 'normalizedName', weight: 0.9 },
+      { name: 'searchVariations', weight: 0.8 }, // Add weight to search variations
       { name: 'category', weight: 0.7 },
       { name: 'normalizedCategory', weight: 0.6 },
       { name: 'aisle', weight: 0.5 },
@@ -174,18 +206,23 @@ export function searchIngredients(
     results.push(...phraseResults.map(r => r.item));
   }
   
-  // Handle search terms
+  // Handle search terms with variations
   if (searchTerms.length > 0) {
     const searchQuery = searchTerms.join(' ');
-    const termResults = fuse.search(searchQuery);
-    results.push(...termResults.map(r => r.item));
+    const searchVariations = generateSearchVariations(searchQuery);
+    
+    // Search with each variation
+    for (const variation of searchVariations) {
+      const termResults = fuse.search(variation);
+      results.push(...termResults.map(r => r.item));
+    }
   }
   
-  // Remove duplicates
-  results = Array.from(new Map(results.map(item => [item.id, item])).values());
+  // Remove duplicates and sort by relevance
+  const uniqueResults = Array.from(new Map(results.map(item => [item.id, item])).values());
   
   // Apply filters
-  results = results.filter(ingredient => {
+  const filteredResults = uniqueResults.filter(ingredient => {
     // Check exclusions
     for (const exclusion of exclusions) {
       const nameLower = ingredient.name.toLowerCase();
@@ -221,7 +258,106 @@ export function searchIngredients(
     return true;
   });
   
-  return results.slice(0, limit);
+  // Sort by relevance (exact matches first, then partial matches)
+  const sortedResults = filteredResults.sort((a, b) => {
+    const queryLower = query.toLowerCase();
+    const aNameLower = a.name.toLowerCase();
+    const bNameLower = b.name.toLowerCase();
+    
+    // Exact matches get highest priority
+    const aExact = aNameLower === queryLower;
+    const bExact = bNameLower === queryLower;
+    
+    if (aExact && !bExact) return -1;
+    if (!aExact && bExact) return 1;
+    
+    // Starts with matches get second priority
+    const aStartsWith = aNameLower.startsWith(queryLower);
+    const bStartsWith = bNameLower.startsWith(queryLower);
+    
+    if (aStartsWith && !bStartsWith) return -1;
+    if (!aStartsWith && bStartsWith) return 1;
+    
+    // Contains matches get third priority
+    const aContains = aNameLower.includes(queryLower);
+    const bContains = bNameLower.includes(queryLower);
+    
+    if (aContains && !bContains) return -1;
+    if (!aContains && bContains) return 1;
+    
+    // Finally, sort alphabetically
+    return aNameLower.localeCompare(bNameLower);
+  });
+  
+  return sortedResults.slice(0, limit);
+}
+
+// Flexible search function that handles word order variations
+export function searchIngredientsFlexible(
+  ingredients: any[], 
+  query: string, 
+  limit: number = 20
+): any[] {
+  if (!query || query.trim().length < 2) {
+    return [];
+  }
+
+  const queryLower = query.toLowerCase().trim();
+  const queryWords = queryLower.split(/\s+/).filter(word => word.length > 0);
+  
+  const results = ingredients.filter(ingredient => {
+    const nameLower = ingredient.name.toLowerCase();
+    
+    // Exact match
+    if (nameLower === queryLower) return true;
+    
+    // Contains match
+    if (nameLower.includes(queryLower)) return true;
+    
+    // Word order variations (for multi-word queries)
+    if (queryWords.length > 1) {
+      // Check if all query words are present in the ingredient name
+      const nameWords = nameLower.split(/\s+/);
+      return queryWords.every(queryWord => 
+        nameWords.some(nameWord => nameWord.includes(queryWord))
+      );
+    }
+    
+    // Single word - check if it's contained in the name
+    return nameLower.includes(queryWords[0]);
+  });
+
+  // Sort by relevance
+  const sortedResults = results.sort((a, b) => {
+    const aNameLower = a.name.toLowerCase();
+    const bNameLower = b.name.toLowerCase();
+    
+    // Exact matches get highest priority
+    const aExact = aNameLower === queryLower;
+    const bExact = bNameLower === queryLower;
+    
+    if (aExact && !bExact) return -1;
+    if (!aExact && bExact) return 1;
+    
+    // Starts with matches get second priority
+    const aStartsWith = aNameLower.startsWith(queryLower);
+    const bStartsWith = bNameLower.startsWith(queryLower);
+    
+    if (aStartsWith && !bStartsWith) return -1;
+    if (!aStartsWith && bStartsWith) return 1;
+    
+    // Contains matches get third priority
+    const aContains = aNameLower.includes(queryLower);
+    const bContains = bNameLower.includes(queryLower);
+    
+    if (aContains && !bContains) return -1;
+    if (!aContains && bContains) return 1;
+    
+    // Finally, sort alphabetically
+    return aNameLower.localeCompare(bNameLower);
+  });
+  
+  return sortedResults.slice(0, limit);
 }
 
 // Search exercises using Fuse.js

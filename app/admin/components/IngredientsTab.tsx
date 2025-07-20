@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Box,
   Typography,
@@ -16,9 +16,11 @@ import {
   CircularProgress,
   Pagination,
   Select,
-  MenuItem
+  MenuItem,
+  Alert,
+  Collapse
 } from '@mui/material';
-import { Edit as EditIcon, Delete as DeleteIcon } from '@mui/icons-material';
+import { Edit as EditIcon, Delete as DeleteIcon, SmartToy as AIIcon } from '@mui/icons-material';
 
 interface Ingredient {
   id: string;
@@ -123,6 +125,12 @@ export default function IngredientsTab({
   setCsvImportDialogOpen
 }: IngredientsTabProps) {
   
+  // AI Search state
+  const [aiSearchLoading, setAiSearchLoading] = useState(false);
+  const [aiSearchResult, setAiSearchResult] = useState<any>(null);
+  const [aiSearchError, setAiSearchError] = useState<string | null>(null);
+  const [showAiResult, setShowAiResult] = useState(false);
+
   // Helper function to check if a nutrition value should be displayed
   const shouldShowNutritionValue = (value: number | null | undefined): boolean => {
     return value !== null && value !== undefined && value > 0;
@@ -132,6 +140,78 @@ export default function IngredientsTab({
   const formatNutritionValue = (value: number | null | undefined, defaultValue: number = 0): number => {
     return value !== null && value !== undefined ? value : defaultValue;
   };
+
+  // AI Search function
+  const handleAiSearch = async () => {
+    if (!searchTerm.trim()) {
+      setAiSearchError('Please enter a search term to analyze');
+      return;
+    }
+
+    setAiSearchLoading(true);
+    setAiSearchError(null);
+    setAiSearchResult(null);
+    setShowAiResult(false);
+
+    try {
+      // Prepare nutrition filters
+      const nutritionFilters: any = {};
+      if (calorieRange[0] > 0 || calorieRange[1] < 1000) {
+        nutritionFilters.calories = { min: calorieRange[0], max: calorieRange[1] };
+      }
+      if (proteinRange[0] > 0 || proteinRange[1] < 100) {
+        nutritionFilters.protein = { min: proteinRange[0], max: proteinRange[1] };
+      }
+      if (carbRange[0] > 0 || carbRange[1] < 100) {
+        nutritionFilters.carbs = { min: carbRange[0], max: carbRange[1] };
+      }
+      if (fatRange[0] > 0 || fatRange[1] < 100) {
+        nutritionFilters.fat = { min: fatRange[0], max: fatRange[1] };
+      }
+      if (fiberRange[0] > 0 || fiberRange[1] < 100) {
+        nutritionFilters.fiber = { min: fiberRange[0], max: fiberRange[1] };
+      }
+      if (sodiumRange[0] > 0 || sodiumRange[1] < 5000) {
+        nutritionFilters.sodium = { min: sodiumRange[0], max: sodiumRange[1] };
+      }
+
+      const response = await fetch('/api/ingredients/ai-search', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
+        },
+        body: JSON.stringify({
+          searchTerm: searchTerm.trim(),
+          category: ingredientCategoryFilter || undefined,
+          aisle: ingredientAisleFilter || undefined,
+          nutritionFilters: Object.keys(nutritionFilters).length > 0 ? nutritionFilters : undefined
+        })
+      });
+
+      const result = await response.json();
+
+      if (response.ok && result.success) {
+        setAiSearchResult(result);
+        setShowAiResult(true);
+      } else {
+        setAiSearchError(result.error || 'Failed to get AI recommendation');
+      }
+    } catch (error) {
+      console.error('AI search error:', error);
+      setAiSearchError('Failed to connect to AI service');
+    } finally {
+      setAiSearchLoading(false);
+    }
+  };
+
+  // Clear AI search results
+  const clearAiSearch = () => {
+    setAiSearchResult(null);
+    setAiSearchError(null);
+    setShowAiResult(false);
+  };
+
   return (
     <Box sx={{ p: 3 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
@@ -241,8 +321,8 @@ export default function IngredientsTab({
           />
         </Box>
 
-        {/* Filter Toggle */}
-        <Box sx={{ mb: 2 }}>
+        {/* Filter and AI Search Toggle */}
+        <Box sx={{ mb: 2, display: 'flex', gap: 1, alignItems: 'center' }}>
           <Button
             variant="outlined"
             onClick={() => setShowFilters(!showFilters)}
@@ -250,7 +330,137 @@ export default function IngredientsTab({
           >
             {showFilters ? 'Hide Filters' : 'Show Filters'}
           </Button>
+          
+          {/* AI Search Button */}
+          <Button
+            variant="outlined"
+            color="primary"
+            startIcon={aiSearchLoading ? <CircularProgress size={16} /> : <AIIcon />}
+            onClick={handleAiSearch}
+            disabled={aiSearchLoading || !searchTerm.trim()}
+            size="small"
+          >
+            {aiSearchLoading ? 'AI Analyzing...' : 'AI Best Match'}
+          </Button>
+
+          {/* Clear AI Results Button */}
+          {showAiResult && (
+            <Button
+              variant="outlined"
+              color="secondary"
+              onClick={clearAiSearch}
+              size="small"
+            >
+              Clear AI Result
+            </Button>
+          )}
         </Box>
+
+        {/* AI Search Error */}
+        {aiSearchError && (
+          <Alert severity="error" sx={{ mb: 2 }} onClose={() => setAiSearchError(null)}>
+            {aiSearchError}
+          </Alert>
+        )}
+
+        {/* AI Search Result */}
+        <Collapse in={showAiResult}>
+          {aiSearchResult && (
+            <Paper sx={{ p: 2, mb: 2, backgroundColor: '#f8f9fa', border: '2px solid #1976d2' }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
+                <Typography variant="h6" color="primary">
+                  🤖 AI Best Match
+                </Typography>
+                <Chip 
+                  label={`Analyzed ${aiSearchResult.totalCandidates} ingredients`} 
+                  size="small" 
+                  color="info" 
+                />
+              </Box>
+              
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2, fontStyle: 'italic' }}>
+                "{aiSearchResult.reasoning}"
+              </Typography>
+
+              {/* AI Selected Ingredient Card */}
+              <Card sx={{ backgroundColor: 'white' }}>
+                <CardContent>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
+                    <Typography variant="h6" component="div">
+                      {aiSearchResult.bestMatch.name}
+                    </Typography>
+                    <Box sx={{ display: 'flex', gap: 1 }}>
+                      <Chip 
+                        label={aiSearchResult.bestMatch.category || 'Unknown'} 
+                        size="small" 
+                        color="primary" 
+                      />
+                      <Chip 
+                        label={aiSearchResult.bestMatch.aisle || 'Unknown'} 
+                        size="small" 
+                        color="secondary" 
+                      />
+                    </Box>
+                  </Box>
+                  
+                  {aiSearchResult.bestMatch.description && (
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                      {aiSearchResult.bestMatch.description}
+                    </Typography>
+                  )}
+
+                  <Typography variant="body2" sx={{ mb: 1 }}>
+                    <strong>Serving:</strong> {aiSearchResult.bestMatch.servingSize}
+                  </Typography>
+
+                  <Grid container spacing={2}>
+                    <Grid item xs={6} sm={3}>
+                      <Typography variant="body2">
+                        <strong>Calories:</strong> {formatNutritionValue(aiSearchResult.bestMatch.calories)}
+                      </Typography>
+                    </Grid>
+                    <Grid item xs={6} sm={3}>
+                      <Typography variant="body2">
+                        <strong>Protein:</strong> {formatNutritionValue(aiSearchResult.bestMatch.protein)}g
+                      </Typography>
+                    </Grid>
+                    <Grid item xs={6} sm={3}>
+                      <Typography variant="body2">
+                        <strong>Carbs:</strong> {formatNutritionValue(aiSearchResult.bestMatch.carbs)}g
+                      </Typography>
+                    </Grid>
+                    <Grid item xs={6} sm={3}>
+                      <Typography variant="body2">
+                        <strong>Fat:</strong> {formatNutritionValue(aiSearchResult.bestMatch.fat)}g
+                      </Typography>
+                    </Grid>
+                    {shouldShowNutritionValue(aiSearchResult.bestMatch.fiber) && (
+                      <Grid item xs={6} sm={3}>
+                        <Typography variant="body2">
+                          <strong>Fiber:</strong> {formatNutritionValue(aiSearchResult.bestMatch.fiber)}g
+                        </Typography>
+                      </Grid>
+                    )}
+                    {shouldShowNutritionValue(aiSearchResult.bestMatch.sugar) && (
+                      <Grid item xs={6} sm={3}>
+                        <Typography variant="body2">
+                          <strong>Sugar:</strong> {formatNutritionValue(aiSearchResult.bestMatch.sugar)}g
+                        </Typography>
+                      </Grid>
+                    )}
+                    {shouldShowNutritionValue(aiSearchResult.bestMatch.sodium) && (
+                      <Grid item xs={6} sm={3}>
+                        <Typography variant="body2">
+                          <strong>Sodium:</strong> {formatNutritionValue(aiSearchResult.bestMatch.sodium)}mg
+                        </Typography>
+                      </Grid>
+                    )}
+                  </Grid>
+                </CardContent>
+              </Card>
+            </Paper>
+          )}
+        </Collapse>
 
         {/* Filter Panel */}
         {showFilters && (
@@ -402,8 +612,8 @@ export default function IngredientsTab({
                     setFatRange([0, 100]);
                     setFiberRange([0, 50]);
                     setSodiumRange([0, 2000]);
+                    clearAiSearch();
                   }}
-                  size="small"
                 >
                   Clear All Filters
                 </Button>
@@ -411,230 +621,151 @@ export default function IngredientsTab({
             </Grid>
           </Paper>
         )}
-
-        {/* Results Count */}
-        <Box sx={{ mb: 2 }}>
-          <Typography variant="body2" color="text.secondary">
-            Showing {ingredients.length} of {totalIngredients} ingredients
-          </Typography>
-        </Box>
       </Box>
 
-      {ingredientsLoading ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
-          <CircularProgress />
+      {/* Results Section */}
+      <Box sx={{ mb: 3 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+          <Typography variant="h6">
+            {showAiResult ? 'AI Selected Result' : `Showing ${ingredients.length} of ${totalIngredients} ingredients`}
+          </Typography>
+          
+          {/* Page Size Selector */}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Typography variant="body2">Items per page:</Typography>
+            <Select
+              value={pageSize}
+              onChange={(e) => setPageSize(e.target.value as number)}
+              size="small"
+              sx={{ minWidth: 80 }}
+            >
+              <MenuItem value={25}>25</MenuItem>
+              <MenuItem value={50}>50</MenuItem>
+              <MenuItem value={100}>100</MenuItem>
+            </Select>
+          </Box>
         </Box>
-      ) : (
-        <Grid container spacing={2}>
-          {ingredients.map((ingredient) => (
-            <Grid item xs={12} md={6} lg={4} key={ingredient.id}>
-              <Card>
-                <CardContent>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
-                    <Typography variant="h6" component="div">
-                      {ingredient.name}
-                    </Typography>
-                    <Box sx={{ display: 'flex', gap: 0.5 }}>
-                      <IconButton
-                        size="small"
-                        onClick={() => openIngredientDialog(ingredient)}
-                        color="primary"
-                      >
-                        <EditIcon fontSize="small" />
-                      </IconButton>
-                      <IconButton
-                        size="small"
-                        onClick={() => deleteIngredient(ingredient.id)}
-                        color="error"
-                      >
-                        <DeleteIcon fontSize="small" />
-                      </IconButton>
+
+        {/* Loading State */}
+        {ingredientsLoading && (
+          <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+            <CircularProgress />
+          </Box>
+        )}
+
+        {/* Ingredients Grid */}
+        {!ingredientsLoading && !showAiResult && (
+          <Grid container spacing={2}>
+            {ingredients.map((ingredient) => (
+              <Grid item xs={12} sm={6} md={4} lg={3} key={ingredient.id}>
+                <Card>
+                  <CardContent>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
+                      <Typography variant="h6" component="div" sx={{ fontSize: '1rem', lineHeight: 1.2 }}>
+                        {ingredient.name}
+                      </Typography>
+                      <Box sx={{ display: 'flex', gap: 0.5 }}>
+                        <IconButton
+                          size="small"
+                          onClick={() => openIngredientDialog(ingredient)}
+                        >
+                          <EditIcon fontSize="small" />
+                        </IconButton>
+                        <IconButton
+                          size="small"
+                          color="error"
+                          onClick={() => deleteIngredient(ingredient.id)}
+                        >
+                          <DeleteIcon fontSize="small" />
+                        </IconButton>
+                      </Box>
                     </Box>
-                  </Box>
-                  
-                  {ingredient.description && (
-                    <Typography variant="body2" color="text.secondary" gutterBottom>
-                      {ingredient.description}
+                    
+                    {ingredient.description && (
+                      <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                        {ingredient.description}
+                      </Typography>
+                    )}
+
+                    <Box sx={{ display: 'flex', gap: 1, mb: 1, flexWrap: 'wrap' }}>
+                      {ingredient.category && (
+                        <Chip label={ingredient.category} size="small" color="primary" />
+                      )}
+                      {ingredient.aisle && (
+                        <Chip label={ingredient.aisle} size="small" color="secondary" />
+                      )}
+                      <Chip 
+                        label={ingredient.isActive ? 'Active' : 'Inactive'} 
+                        size="small" 
+                        color={ingredient.isActive ? 'success' : 'default'} 
+                      />
+                    </Box>
+
+                    <Typography variant="body2" sx={{ mb: 1 }}>
+                      <strong>Serving:</strong> {ingredient.servingSize}
                     </Typography>
-                  )}
-                  
-                  <Typography variant="body2" color="text.secondary" gutterBottom>
-                    <strong>Serving:</strong> {ingredient.servingSize}
-                  </Typography>
-                  
-                  <Box sx={{ display: 'flex', gap: 2, mb: 1 }}>
-                    <Typography variant="body2" color="text.secondary">
-                      <strong>Calories:</strong> {formatNutritionValue(ingredient.calories)}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      <strong>Protein:</strong> {formatNutritionValue(ingredient.protein)}g
-                    </Typography>
-                  </Box>
-                  
-                  <Box sx={{ display: 'flex', gap: 2, mb: 1 }}>
-                    <Typography variant="body2" color="text.secondary">
-                      <strong>Carbs:</strong> {formatNutritionValue(ingredient.carbs)}g
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      <strong>Fat:</strong> {formatNutritionValue(ingredient.fat)}g
-                    </Typography>
-                  </Box>
-                  
-                  {(shouldShowNutritionValue(ingredient.fiber) || 
-                    shouldShowNutritionValue(ingredient.sugar) || 
-                    shouldShowNutritionValue(ingredient.sodium)) && (
-                    <Box sx={{ display: 'flex', gap: 2, mb: 1 }}>
-                      {shouldShowNutritionValue(ingredient.fiber) && (
-                        <Typography variant="body2" color="text.secondary">
-                          <strong>Fiber:</strong> {ingredient.fiber}g
+
+                    <Grid container spacing={1}>
+                      <Grid item xs={6}>
+                        <Typography variant="body2">
+                          <strong>Calories:</strong> {formatNutritionValue(ingredient.calories)}
                         </Typography>
+                      </Grid>
+                      <Grid item xs={6}>
+                        <Typography variant="body2">
+                          <strong>Protein:</strong> {formatNutritionValue(ingredient.protein)}g
+                        </Typography>
+                      </Grid>
+                      <Grid item xs={6}>
+                        <Typography variant="body2">
+                          <strong>Carbs:</strong> {formatNutritionValue(ingredient.carbs)}g
+                        </Typography>
+                      </Grid>
+                      <Grid item xs={6}>
+                        <Typography variant="body2">
+                          <strong>Fat:</strong> {formatNutritionValue(ingredient.fat)}g
+                        </Typography>
+                      </Grid>
+                      {shouldShowNutritionValue(ingredient.fiber) && (
+                        <Grid item xs={6}>
+                          <Typography variant="body2">
+                            <strong>Fiber:</strong> {formatNutritionValue(ingredient.fiber)}g
+                          </Typography>
+                        </Grid>
                       )}
                       {shouldShowNutritionValue(ingredient.sugar) && (
-                        <Typography variant="body2" color="text.secondary">
-                          <strong>Sugar:</strong> {ingredient.sugar}g
-                        </Typography>
+                        <Grid item xs={6}>
+                          <Typography variant="body2">
+                            <strong>Sugar:</strong> {formatNutritionValue(ingredient.sugar)}g
+                          </Typography>
+                        </Grid>
                       )}
                       {shouldShowNutritionValue(ingredient.sodium) && (
-                        <Typography variant="body2" color="text.secondary">
-                          <strong>Sodium:</strong> {ingredient.sodium}mg
-                        </Typography>
+                        <Grid item xs={6}>
+                          <Typography variant="body2">
+                            <strong>Sodium:</strong> {formatNutritionValue(ingredient.sodium)}mg
+                          </Typography>
+                        </Grid>
                       )}
-                    </Box>
-                  )}
-                  
-                  {(shouldShowNutritionValue(ingredient.cholesterol) || 
-                    shouldShowNutritionValue(ingredient.saturatedFat) || 
-                    shouldShowNutritionValue(ingredient.monounsaturatedFat) || 
-                    shouldShowNutritionValue(ingredient.polyunsaturatedFat)) && (
-                    <Box sx={{ display: 'flex', gap: 2, mb: 1 }}>
-                      {shouldShowNutritionValue(ingredient.cholesterol) && (
-                        <Typography variant="body2" color="text.secondary">
-                          <strong>Cholesterol:</strong> {ingredient.cholesterol}mg
-                        </Typography>
-                      )}
-                      {shouldShowNutritionValue(ingredient.saturatedFat) && (
-                        <Typography variant="body2" color="text.secondary">
-                          <strong>Sat Fat:</strong> {ingredient.saturatedFat}g
-                        </Typography>
-                      )}
-                      {shouldShowNutritionValue(ingredient.monounsaturatedFat) && (
-                        <Typography variant="body2" color="text.secondary">
-                          <strong>Mono Fat:</strong> {ingredient.monounsaturatedFat}g
-                        </Typography>
-                      )}
-                      {shouldShowNutritionValue(ingredient.polyunsaturatedFat) && (
-                        <Typography variant="body2" color="text.secondary">
-                          <strong>Poly Fat:</strong> {ingredient.polyunsaturatedFat}g
-                        </Typography>
-                      )}
-                    </Box>
-                  )}
-                  
-                  {(shouldShowNutritionValue(ingredient.netCarbs) || 
-                    shouldShowNutritionValue(ingredient.glycemicIndex) || 
-                    shouldShowNutritionValue(ingredient.glycemicLoad)) && (
-                    <Box sx={{ display: 'flex', gap: 2, mb: 1 }}>
-                      {shouldShowNutritionValue(ingredient.netCarbs) && (
-                        <Typography variant="body2" color="text.secondary">
-                          <strong>Net Carbs:</strong> {ingredient.netCarbs}g
-                        </Typography>
-                      )}
-                      {shouldShowNutritionValue(ingredient.glycemicIndex) && (
-                        <Typography variant="body2" color="text.secondary">
-                          <strong>GI:</strong> {ingredient.glycemicIndex}
-                        </Typography>
-                      )}
-                      {shouldShowNutritionValue(ingredient.glycemicLoad) && (
-                        <Typography variant="body2" color="text.secondary">
-                          <strong>GL:</strong> {ingredient.glycemicLoad}
-                        </Typography>
-                      )}
-                    </Box>
-                  )}
-                  
-                  {(ingredient.dietaryFlags || ingredient.allergens) && (
-                    <Box sx={{ mb: 1 }}>
-                      {ingredient.dietaryFlags && (
-                        <Typography variant="body2" color="text.secondary" gutterBottom>
-                          <strong>Dietary:</strong> {ingredient.dietaryFlags}
-                        </Typography>
-                      )}
-                      {ingredient.allergens && (
-                        <Typography variant="body2" color="text.secondary" gutterBottom>
-                          <strong>Allergens:</strong> {ingredient.allergens}
-                        </Typography>
-                      )}
-                    </Box>
-                  )}
-                  
-                  <Box sx={{ display: 'flex', gap: 1, mt: 1 }}>
-                    {ingredient.category && (
-                      <Chip 
-                        label={ingredient.category} 
-                        size="small" 
-                        color="primary" 
-                        variant="outlined"
-                      />
-                    )}
-                    {ingredient.aisle && (
-                      <Chip 
-                        label={ingredient.aisle} 
-                        size="small" 
-                        color="secondary" 
-                        variant="outlined"
-                      />
-                    )}
-                    <Chip 
-                      label={ingredient.isActive ? 'Active' : 'Inactive'} 
-                      size="small" 
-                      color={ingredient.isActive ? 'success' : 'default'}
-                    />
-                  </Box>
-                </CardContent>
-              </Card>
-            </Grid>
-          ))}
-        </Grid>
-      )}
-      
-      {/* Pagination Controls */}
-      {totalPages > 1 && (
-        <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3, mb: 2 }}>
-          <Pagination
-            count={totalPages}
-            page={currentPage}
-            onChange={(event: any, page: number) => {
-              setCurrentPage(page);
-              loadIngredients(page, pageSize);
-            }}
-            color="primary"
-            showFirstButton
-            showLastButton
-          />
-        </Box>
-      )}
-      
-      {/* Page Size Selector */}
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 2, mb: 2 }}>
-        <Typography variant="body2">Items per page:</Typography>
-        <Select
-          value={pageSize}
-          onChange={(e: any) => {
-            const newSize = e.target.value as number;
-            setPageSize(newSize);
-            setCurrentPage(1);
-            loadIngredients(1, newSize);
-          }}
-          size="small"
-        >
-          <MenuItem value={25}>25</MenuItem>
-          <MenuItem value={50}>50</MenuItem>
-          <MenuItem value={100}>100</MenuItem>
-          <MenuItem value={200}>200</MenuItem>
-        </Select>
-        <Typography variant="body2" color="text.secondary">
-          Showing {((currentPage - 1) * pageSize) + 1} to {Math.min(currentPage * pageSize, totalIngredients)} of {totalIngredients} ingredients
-        </Typography>
+                    </Grid>
+                  </CardContent>
+                </Card>
+              </Grid>
+            ))}
+          </Grid>
+        )}
+
+        {/* Pagination */}
+        {!ingredientsLoading && !showAiResult && totalPages > 1 && (
+          <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3 }}>
+            <Pagination
+              count={totalPages}
+              page={currentPage}
+              onChange={(_, page) => setCurrentPage(page)}
+              color="primary"
+            />
+          </Box>
+        )}
       </Box>
     </Box>
   );

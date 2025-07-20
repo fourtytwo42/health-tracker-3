@@ -98,6 +98,11 @@ interface Ingredient {
   sugar?: number;
   sodium?: number;
   unavailable?: boolean;
+  originalAmount?: number;
+  scalingFactor?: number;
+  category?: string;
+  aisle?: string;
+  servingSize?: string;
 }
 
 interface RecipeCardProps {
@@ -110,6 +115,9 @@ interface RecipeCardProps {
   protein?: number;
   netCarbs?: number;
   fat?: number;
+  fiber?: number;
+  sugar?: number;
+  sodium?: number;
   ingredients?: Ingredient[];
   unavailableIngredients?: Array<{
     name: string;
@@ -127,6 +135,8 @@ interface RecipeCardProps {
   status?: string;
   aiGenerated?: boolean;
   originalQuery?: string;
+  scalingApplied?: boolean;
+  targetCalories?: number;
   onQuickReply?: (value: string) => void;
 }
 
@@ -140,6 +150,9 @@ export default function RecipeCard({
   protein,
   netCarbs,
   fat,
+  fiber,
+  sugar,
+  sodium,
   ingredients = [],
   unavailableIngredients = [],
   instructions = [],
@@ -152,6 +165,8 @@ export default function RecipeCard({
   status,
   aiGenerated,
   originalQuery,
+  scalingApplied,
+  targetCalories,
   onQuickReply,
 }: RecipeCardProps) {
   const [alternativeDialogOpen, setAlternativeDialogOpen] = useState(false);
@@ -282,7 +297,7 @@ export default function RecipeCard({
           </Box>
 
           {/* Nutrition Info */}
-          {(kcal || protein || netCarbs || fat) && (
+          {(kcal || protein || netCarbs || fat || fiber || sugar || sodium) && (
             <Box sx={{ mb: 2 }}>
               <Typography variant="subtitle2" color="text.secondary" gutterBottom>
                 Nutrition (per serving)
@@ -306,6 +321,21 @@ export default function RecipeCard({
                 {fat && (
                   <Grid item>
                     <Chip label={`${fat}g fat`} size="small" variant="outlined" />
+                  </Grid>
+                )}
+                {fiber && (
+                  <Grid item>
+                    <Chip label={`${fiber}g fiber`} size="small" variant="outlined" />
+                  </Grid>
+                )}
+                {sugar && (
+                  <Grid item>
+                    <Chip label={`${sugar}g sugar`} size="small" variant="outlined" />
+                  </Grid>
+                )}
+                {sodium && (
+                  <Grid item>
+                    <Chip label={`${sodium}mg sodium`} size="small" variant="outlined" />
                   </Grid>
                 )}
               </Grid>
@@ -346,6 +376,15 @@ export default function RecipeCard({
             <Box sx={{ mb: 2 }}>
               <Typography variant="subtitle2" gutterBottom>
                 Ingredients
+                {scalingApplied && (
+                  <Chip 
+                    label={`Scaled to ${targetCalories} cal`} 
+                    size="small" 
+                    color="info" 
+                    variant="outlined"
+                    sx={{ ml: 1 }}
+                  />
+                )}
               </Typography>
               <List dense>
                 {ingredients.map((ingredient, index) => (
@@ -371,10 +410,42 @@ export default function RecipeCard({
                                   sx={{ ml: 1 }}
                                 />
                               )}
+                              {ingredient.scalingFactor && ingredient.scalingFactor !== 1 && (
+                                <Chip 
+                                  label={`${ingredient.scalingFactor.toFixed(1)}x`} 
+                                  size="small" 
+                                  color="info" 
+                                  variant="outlined"
+                                  sx={{ ml: 1 }}
+                                />
+                              )}
                             </Typography>
-                            {convertToCups(ingredient.amount, ingredient.unit) && (
-                              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                                ({convertToCups(ingredient.amount, ingredient.unit)})
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
+                              {convertToCups(ingredient.amount, ingredient.unit) && (
+                                <Typography variant="body2" color="text.secondary">
+                                  ({convertToCups(ingredient.amount, ingredient.unit)})
+                                </Typography>
+                              )}
+                              {ingredient.category && (
+                                <Chip 
+                                  label={ingredient.category} 
+                                  size="small" 
+                                  color="primary" 
+                                  variant="outlined"
+                                />
+                              )}
+                              {ingredient.aisle && (
+                                <Chip 
+                                  label={ingredient.aisle} 
+                                  size="small" 
+                                  color="secondary" 
+                                  variant="outlined"
+                                />
+                              )}
+                            </Box>
+                            {ingredient.originalAmount && ingredient.originalAmount !== ingredient.amount && (
+                              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, fontStyle: 'italic' }}>
+                                Originally: {ingredient.originalAmount} {ingredient.unit}
                               </Typography>
                             )}
                           </Box>
@@ -391,7 +462,7 @@ export default function RecipeCard({
                         </Box>
                       }
                       secondary={
-                        !ingredient.unavailable && (ingredient.calories || ingredient.protein || ingredient.carbs || ingredient.fat) && (
+                        !ingredient.unavailable && (ingredient.calories || ingredient.protein || ingredient.carbs || ingredient.fat || ingredient.fiber || ingredient.sugar || ingredient.sodium) && (
                           <Box sx={{ mt: 0.5 }}>
                             <Grid container spacing={1}>
                               {ingredient.calories && (
@@ -412,6 +483,21 @@ export default function RecipeCard({
                               {ingredient.fat && (
                                 <Grid item>
                                   <Chip label={`${ingredient.fat}g fat`} size="small" variant="outlined" />
+                                </Grid>
+                              )}
+                              {ingredient.fiber && (
+                                <Grid item>
+                                  <Chip label={`${ingredient.fiber}g fiber`} size="small" variant="outlined" />
+                                </Grid>
+                              )}
+                              {ingredient.sugar && (
+                                <Grid item>
+                                  <Chip label={`${ingredient.sugar}g sugar`} size="small" variant="outlined" />
+                                </Grid>
+                              )}
+                              {ingredient.sodium && (
+                                <Grid item>
+                                  <Chip label={`${ingredient.sodium}mg sodium`} size="small" variant="outlined" />
                                 </Grid>
                               )}
                             </Grid>

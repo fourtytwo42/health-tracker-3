@@ -1063,12 +1063,11 @@ Timestamp: ${Date.now()}`;
       description: 'Find alternative ingredients based on dietary preferences or requirements',
       schema: z.object({
         ingredient_name: z.string().describe('Name of the ingredient to find alternatives for'),
-        requirements: z.string().describe('Requirements for the alternative (e.g., "lower calorie", "gluten-free", "vegan")'),
+        requirements: z.string().describe('Dietary requirements or preferences (e.g., vegan, gluten-free, low-sodium)'),
         recipe_context: z.string().optional().describe('Context of the recipe this ingredient is used in'),
       }),
       handler: async (args, authInfo) => {
         const alternativePrompt = `Find alternative ingredients for "${args.ingredient_name}" with the following requirements: ${args.requirements}
-
 ${args.recipe_context ? `Recipe context: ${args.recipe_context}` : ''}
 
 Provide 3-5 alternative ingredients with:
@@ -1125,6 +1124,230 @@ Format the response as a JSON object with alternatives array.`;
             { label: 'Search for different ingredient', value: 'I want to find alternatives for a different ingredient' },
           ],
         };
+      },
+    });
+
+    // Raw ingredient search tool
+    this.registerTool({
+      name: 'search_ingredients',
+      description: 'Search for ingredients in the database and return all matching results',
+      schema: z.object({
+        search_term: z.string().describe('Search term for ingredients'),
+        category: z.string().optional().describe('Filter by ingredient category'),
+        aisle: z.string().optional().describe('Filter by grocery aisle'),
+        limit: z.number().min(1).max(1000).optional().default(100).describe('Maximum number of results to return'),
+      }),
+      handler: async (args, authInfo) => {
+        try {
+          const { IngredientService } = await import('./services/IngredientService');
+          const ingredientService = IngredientService.getInstance();
+          
+          const results = await ingredientService.getIngredientsPaginated(
+            1, // Start from page 1
+            args.limit,
+            false, // includeInactive
+            args.search_term,
+            args.category,
+            args.aisle
+          );
+
+          return {
+            success: true,
+            data: {
+              searchTerm: args.search_term,
+              totalResults: results.pagination.totalCount,
+              ingredients: results.ingredients.map(ingredient => ({
+                id: ingredient.id,
+                name: ingredient.name,
+                description: ingredient.description,
+                category: ingredient.category,
+                aisle: ingredient.aisle,
+                calories: ingredient.calories,
+                protein: ingredient.protein,
+                carbs: ingredient.carbs,
+                fat: ingredient.fat,
+                fiber: ingredient.fiber,
+                sugar: ingredient.sugar,
+                sodium: ingredient.sodium,
+                servingSize: ingredient.servingSize,
+                isActive: ingredient.isActive
+              }))
+            }
+          };
+        } catch (error) {
+          console.error('Ingredient search error:', error);
+          return {
+            success: false,
+            error: error instanceof Error ? error.message : 'Failed to search ingredients'
+          };
+        }
+      },
+    });
+
+    // AI ingredient search tool
+    this.registerTool({
+      name: 'ai_search_ingredients',
+      description: 'Use AI to find the single best matching ingredient from search results',
+      schema: z.object({
+        search_term: z.string().describe('Search term for ingredients'),
+        category: z.string().optional().describe('Filter by ingredient category'),
+        aisle: z.string().optional().describe('Filter by grocery aisle'),
+      }),
+      handler: async (args, authInfo) => {
+        try {
+          const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'}/api/ingredients/ai-search`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${authInfo.token}`
+            },
+            body: JSON.stringify({
+              searchTerm: args.search_term,
+              category: args.category,
+              aisle: args.aisle
+            })
+          });
+
+          const result = await response.json();
+
+          if (response.ok && result.success) {
+            return {
+              success: true,
+              data: {
+                searchTerm: args.search_term,
+                bestMatch: result.bestMatch,
+                reasoning: result.reasoning,
+                totalCandidates: result.totalCandidates,
+                provider: result.provider
+              }
+            };
+          } else {
+            return {
+              success: false,
+              error: result.error || 'AI search failed'
+            };
+          }
+        } catch (error) {
+          console.error('AI ingredient search error:', error);
+          return {
+            success: false,
+            error: error instanceof Error ? error.message : 'Failed to perform AI ingredient search'
+          };
+        }
+      },
+    });
+
+    // Raw exercise search tool
+    this.registerTool({
+      name: 'search_exercises',
+      description: 'Search for exercises in the database and return all matching results',
+      schema: z.object({
+        search_term: z.string().describe('Search term for exercises'),
+        category: z.string().optional().describe('Filter by exercise category'),
+        intensity: z.string().optional().describe('Filter by exercise intensity'),
+        met_range: z.object({
+          min: z.number().optional(),
+          max: z.number().optional()
+        }).optional().describe('Filter by MET range'),
+        limit: z.number().min(1).max(1000).optional().default(100).describe('Maximum number of results to return'),
+      }),
+      handler: async (args, authInfo) => {
+        try {
+          const { ExerciseService } = await import('./services/ExerciseService');
+          const exerciseService = ExerciseService.getInstance();
+          
+          const results = await exerciseService.getExercisesPaginated(
+            1, // Start from page 1
+            args.limit,
+            false, // includeInactive
+            args.search_term,
+            args.category,
+            args.intensity,
+            args.met_range
+          );
+
+          return {
+            success: true,
+            data: {
+              searchTerm: args.search_term,
+              totalResults: results.pagination.totalCount,
+              exercises: results.exercises.map(exercise => ({
+                id: exercise.id,
+                activity: exercise.activity,
+                description: exercise.description,
+                category: exercise.category,
+                intensity: exercise.intensity,
+                met: exercise.met,
+                code: exercise.code,
+                isActive: exercise.isActive
+              }))
+            }
+          };
+        } catch (error) {
+          console.error('Exercise search error:', error);
+          return {
+            success: false,
+            error: error instanceof Error ? error.message : 'Failed to search exercises'
+          };
+        }
+      },
+    });
+
+    // AI exercise search tool
+    this.registerTool({
+      name: 'ai_search_exercises',
+      description: 'Use AI to find the single best matching exercise from search results',
+      schema: z.object({
+        search_term: z.string().describe('Search term for exercises'),
+        category: z.string().optional().describe('Filter by exercise category'),
+        intensity: z.string().optional().describe('Filter by exercise intensity'),
+        met_range: z.object({
+          min: z.number().optional(),
+          max: z.number().optional()
+        }).optional().describe('Filter by MET range'),
+      }),
+      handler: async (args, authInfo) => {
+        try {
+          const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'}/api/exercises/ai-search`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${authInfo.token}`
+            },
+            body: JSON.stringify({
+              searchTerm: args.search_term,
+              category: args.category,
+              intensity: args.intensity,
+              metRange: args.met_range
+            })
+          });
+
+          const result = await response.json();
+
+          if (response.ok && result.success) {
+            return {
+              success: true,
+              data: {
+                searchTerm: args.search_term,
+                bestMatch: result.bestMatch,
+                reasoning: result.reasoning,
+                totalCandidates: result.totalCandidates,
+                provider: result.provider
+              }
+            };
+          } else {
+            return {
+              success: false,
+              error: result.error || 'AI search failed'
+            };
+          }
+        } catch (error) {
+          console.error('AI exercise search error:', error);
+          return {
+            success: false,
+            error: error instanceof Error ? error.message : 'Failed to perform AI exercise search'
+          };
+        }
       },
     });
   }

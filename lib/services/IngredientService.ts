@@ -1,6 +1,7 @@
 import { parse } from 'csv-parse/sync';
 import { stringify } from 'csv-stringify/sync';
 import { prisma } from '../prisma';
+import { searchIngredientsFlexible } from '../searchService';
 
 // Use main database for ingredients
 
@@ -128,6 +129,19 @@ export class IngredientService {
     }
   ) {
     try {
+      // If search is provided, use smart search
+      if (search && search.trim().length >= 2) {
+        return this.getIngredientsWithSmartSearch(
+          page,
+          pageSize,
+          includeInactive,
+          search,
+          category,
+          aisle,
+          nutritionFilters
+        );
+      }
+
       const where: any = includeInactive ? {} : { isActive: true };
       
       // Add search filter
@@ -233,6 +247,313 @@ export class IngredientService {
       console.error('Error fetching paginated ingredients:', error);
       throw new Error('Failed to fetch ingredients');
     }
+  }
+
+  // Smart search with QoL improvements
+  private async getIngredientsWithSmartSearch(
+    page = 1,
+    pageSize = 50,
+    includeInactive = false,
+    search: string,
+    category?: string,
+    aisle?: string,
+    nutritionFilters?: {
+      calories?: { min?: number; max?: number };
+      protein?: { min?: number; max?: number };
+      carbs?: { min?: number; max?: number };
+      fat?: { min?: number; max?: number };
+      fiber?: { min?: number; max?: number };
+      sodium?: { min?: number; max?: number };
+    }
+  ) {
+    try {
+      // First, try to find ingredients that contain ALL search words
+      const queryWords = search.toLowerCase().trim().split(/[\s,]+/).filter(word => word.length > 0);
+      
+      const where: any = includeInactive ? {} : { isActive: true };
+      
+      // Add category filter
+      if (category) {
+        where.category = category;
+      }
+      
+      // Add aisle filter
+      if (aisle) {
+        where.aisle = aisle;
+      }
+
+      // Add nutrition range filters
+      if (nutritionFilters) {
+        if (nutritionFilters.calories) {
+          if (nutritionFilters.calories.min !== undefined) {
+            where.calories = { ...where.calories, gte: nutritionFilters.calories.min };
+          }
+          if (nutritionFilters.calories.max !== undefined) {
+            where.calories = { ...where.calories, lte: nutritionFilters.calories.max };
+          }
+        }
+
+        if (nutritionFilters.protein) {
+          if (nutritionFilters.protein.min !== undefined) {
+            where.protein = { ...where.protein, gte: nutritionFilters.protein.min };
+          }
+          if (nutritionFilters.protein.max !== undefined) {
+            where.protein = { ...where.protein, lte: nutritionFilters.protein.max };
+          }
+        }
+
+        if (nutritionFilters.carbs) {
+          if (nutritionFilters.carbs.min !== undefined) {
+            where.carbs = { ...where.carbs, gte: nutritionFilters.carbs.min };
+          }
+          if (nutritionFilters.carbs.max !== undefined) {
+            where.carbs = { ...where.carbs, lte: nutritionFilters.carbs.max };
+          }
+        }
+
+        if (nutritionFilters.fat) {
+          if (nutritionFilters.fat.min !== undefined) {
+            where.fat = { ...where.fat, gte: nutritionFilters.fat.min };
+          }
+          if (nutritionFilters.fat.max !== undefined) {
+            where.fat = { ...where.fat, lte: nutritionFilters.fat.max };
+          }
+        }
+
+        if (nutritionFilters.fiber) {
+          if (nutritionFilters.fiber.min !== undefined) {
+            where.fiber = { ...where.fiber, gte: nutritionFilters.fiber.min };
+          }
+          if (nutritionFilters.fiber.max !== undefined) {
+            where.fiber = { ...where.fiber, lte: nutritionFilters.fiber.max };
+          }
+        }
+
+        if (nutritionFilters.sodium) {
+          if (nutritionFilters.sodium.min !== undefined) {
+            where.sodium = { ...where.sodium, gte: nutritionFilters.sodium.min };
+          }
+          if (nutritionFilters.sodium.max !== undefined) {
+            where.sodium = { ...where.sodium, lte: nutritionFilters.sodium.max };
+          }
+        }
+      }
+
+      // Build search conditions for all words
+      const searchConditions = queryWords.map(word => ({
+        name: { contains: word }
+      }));
+
+      // First, try to find ingredients that contain ALL search words
+      let allIngredients = await prisma.ingredient.findMany({
+        where: {
+          ...where,
+          AND: searchConditions
+        },
+        orderBy: { name: 'asc' },
+        take: 1000,
+      });
+
+      // If we don't have enough results, also include ingredients that contain ANY of the search words
+      if (allIngredients.length < 50) {
+        const partialMatches = await prisma.ingredient.findMany({
+          where: {
+            ...where,
+            OR: searchConditions
+          },
+          orderBy: { name: 'asc' },
+          take: 2000,
+        });
+
+        // Combine and deduplicate
+        const combined = [...allIngredients];
+        const existingIds = new Set(allIngredients.map(i => i.id));
+        
+        for (const ingredient of partialMatches) {
+          if (!existingIds.has(ingredient.id)) {
+            combined.push(ingredient);
+          }
+        }
+        
+        allIngredients = combined;
+      }
+
+      // Use smart search on the found ingredients
+      const searchResults = this.smartSearch(allIngredients, search);
+      
+      // Apply pagination to search results
+      const startIndex = (page - 1) * pageSize;
+      const endIndex = startIndex + pageSize;
+      const paginatedResults = searchResults.slice(startIndex, endIndex);
+      
+      return {
+        ingredients: paginatedResults,
+        pagination: {
+          page,
+          pageSize,
+          totalCount: searchResults.length,
+          totalPages: Math.ceil(searchResults.length / pageSize),
+          hasNextPage: endIndex < searchResults.length,
+          hasPreviousPage: page > 1,
+        }
+      };
+    } catch (error) {
+      console.error('Error fetching ingredients with smart search:', error);
+      throw new Error('Failed to fetch ingredients');
+    }
+  }
+
+  // Smart search implementation with QoL improvements
+  private smartSearch(ingredients: any[], query: string): any[] {
+    const queryLower = query.toLowerCase().trim();
+    
+    // Normalize query: remove apostrophes and split into words
+    const normalizedQuery = queryLower.replace(/[''`´]/g, '');
+    const queryWords = normalizedQuery.split(/[\s,]+/).filter(word => word.length > 0);
+    
+    const results = ingredients.map(ingredient => {
+      const nameLower = ingredient.name.toLowerCase();
+      const normalizedName = nameLower.replace(/[''`´]/g, '');
+      
+      // Calculate relevance score
+      let score = 0;
+      let matchedWords = 0;
+      let allWordsPresent = true;
+      
+      // Check each query word against the ingredient name
+      for (const queryWord of queryWords) {
+        const wordScore = this.calculateWordScore(normalizedName, queryWord);
+        if (wordScore > 0) {
+          score += wordScore;
+          matchedWords++;
+        } else {
+          allWordsPresent = false;
+        }
+      }
+      
+      // Only include if at least one word matched
+      if (matchedWords === 0) {
+        return null;
+      }
+      
+      // Major bonus for matching all words (this should be the highest priority)
+      if (allWordsPresent) {
+        score += 10000;
+        
+        // Extra bonus if the words appear together in sequence
+        const wordsTogether = queryWords.every((word, index) => {
+          if (index === 0) return true;
+          const prevWord = queryWords[index - 1];
+          const combined = `${prevWord} ${word}`;
+          return normalizedName.includes(combined);
+        });
+        
+        if (wordsTogether) {
+          score += 5000;
+        }
+      }
+      
+      // Bonus for exact match
+      if (normalizedName === normalizedQuery) {
+        score += 20000;
+      }
+      
+      // Bonus for starts with
+      if (normalizedName.startsWith(normalizedQuery)) {
+        score += 15000;
+      }
+      
+      // Bonus for contains the full query
+      if (normalizedName.includes(normalizedQuery)) {
+        score += 12000;
+      }
+      
+      return {
+        ...ingredient,
+        _searchScore: score,
+        _matchedWords: matchedWords,
+        _allWordsPresent: allWordsPresent
+      };
+    }).filter(Boolean);
+    
+    // Sort by relevance score (highest first)
+    return results.sort((a, b) => {
+      if (a._searchScore !== b._searchScore) {
+        return b._searchScore - a._searchScore;
+      }
+      // If scores are equal, prioritize ingredients with all words present
+      if (a._allWordsPresent !== b._allWordsPresent) {
+        return b._allWordsPresent ? 1 : -1;
+      }
+      // If scores are equal, sort alphabetically
+      return a.name.localeCompare(b.name);
+    });
+  }
+  
+  // Calculate score for a single word match
+  private calculateWordScore(normalizedName: string, queryWord: string): number {
+    let score = 0;
+    
+    // Exact word match (highest score)
+    if (normalizedName.includes(queryWord)) {
+      score += 100;
+    }
+    
+    // Handle plural/singular variations
+    const singular = this.getSingular(queryWord);
+    const plural = this.getPlural(queryWord);
+    
+    if (singular && normalizedName.includes(singular)) {
+      score += 90;
+    }
+    
+    if (plural && normalizedName.includes(plural)) {
+      score += 90;
+    }
+    
+    // Handle comma-separated variations (e.g., "pepper, black" should match "black pepper")
+    const nameWords = normalizedName.split(/[\s,]+/);
+    const queryWordInNameWords = nameWords.some(nameWord => 
+      nameWord === queryWord || 
+      (singular && nameWord === singular) || 
+      (plural && nameWord === plural)
+    );
+    
+    if (queryWordInNameWords) {
+      score += 80;
+    }
+    
+    // Partial word match (lower score)
+    if (queryWord.length > 2) {
+      const partialMatches = normalizedName.split(/\s+/).filter(word => 
+        word.includes(queryWord) || queryWord.includes(word)
+      );
+      score += partialMatches.length * 10;
+    }
+    
+    return score;
+  }
+  
+  // Get singular form of a word
+  private getSingular(word: string): string | null {
+    if (word.endsWith('ies')) {
+      return word.slice(0, -3) + 'y';
+    }
+    if (word.endsWith('s') && word.length > 3) {
+      return word.slice(0, -1);
+    }
+    return null;
+  }
+  
+  // Get plural form of a word
+  private getPlural(word: string): string | null {
+    if (word.endsWith('y') && !word.endsWith('ay') && !word.endsWith('ey') && !word.endsWith('oy') && !word.endsWith('uy')) {
+      return word.slice(0, -1) + 'ies';
+    }
+    if (!word.endsWith('s')) {
+      return word + 's';
+    }
+    return null;
   }
 
   async updateIngredient(id: string, data: IngredientUpdateInput) {

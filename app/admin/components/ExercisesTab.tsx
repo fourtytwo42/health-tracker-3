@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Box,
   Typography,
@@ -16,9 +16,11 @@ import {
   CircularProgress,
   Pagination,
   Select,
-  MenuItem
+  MenuItem,
+  Alert,
+  Collapse
 } from '@mui/material';
-import { Edit as EditIcon, Delete as DeleteIcon } from '@mui/icons-material';
+import { Edit as EditIcon, Delete as DeleteIcon, SmartToy as AIIcon } from '@mui/icons-material';
 
 interface Exercise {
   id: string;
@@ -82,6 +84,65 @@ export default function ExercisesTab({
   setPageSize,
   setCurrentPage
 }: ExercisesTabProps) {
+  
+  // AI Search state
+  const [aiSearchLoading, setAiSearchLoading] = useState(false);
+  const [aiSearchError, setAiSearchError] = useState<string | null>(null);
+  const [aiSearchResult, setAiSearchResult] = useState<any>(null);
+  const [showAiResult, setShowAiResult] = useState(false);
+
+  // AI Search function
+  const handleAiSearch = async () => {
+    if (!searchTerm.trim()) {
+      setAiSearchError('Please enter a search term to analyze');
+      return;
+    }
+
+    setAiSearchLoading(true);
+    setAiSearchError(null);
+    setAiSearchResult(null);
+    setShowAiResult(false);
+
+    try {
+      // Prepare MET range filter
+      const metRangeFilter = metRange[0] > 0 || metRange[1] < 20 ? { min: metRange[0], max: metRange[1] } : undefined;
+
+      const response = await fetch('/api/exercises/ai-search', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
+        },
+        body: JSON.stringify({
+          searchTerm: searchTerm.trim(),
+          category: exerciseCategoryFilter || undefined,
+          intensity: exerciseIntensityFilter || undefined,
+          metRange: metRangeFilter
+        })
+      });
+
+      const result = await response.json();
+
+      if (response.ok && result.success) {
+        setAiSearchResult(result);
+        setShowAiResult(true);
+      } else {
+        setAiSearchError(result.error || 'Failed to get AI recommendation');
+      }
+    } catch (error) {
+      console.error('AI search error:', error);
+      setAiSearchError('Failed to connect to AI service');
+    } finally {
+      setAiSearchLoading(false);
+    }
+  };
+
+  // Clear AI search results
+  const clearAiSearch = () => {
+    setAiSearchResult(null);
+    setAiSearchError(null);
+    setShowAiResult(false);
+  };
   
   // Helper function to get intensity color
   const getIntensityColor = (intensity: string) => {
@@ -153,8 +214,8 @@ export default function ExercisesTab({
           />
         </Box>
 
-        {/* Filter Toggle */}
-        <Box sx={{ mb: 2 }}>
+        {/* Filter and AI Search Toggle */}
+        <Box sx={{ mb: 2, display: 'flex', gap: 1, alignItems: 'center' }}>
           <Button
             variant="outlined"
             onClick={() => setShowFilters(!showFilters)}
@@ -162,7 +223,110 @@ export default function ExercisesTab({
           >
             {showFilters ? 'Hide Filters' : 'Show Filters'}
           </Button>
+          
+          {/* AI Search Button */}
+          <Button
+            variant="outlined"
+            color="primary"
+            startIcon={aiSearchLoading ? <CircularProgress size={16} /> : <AIIcon />}
+            onClick={handleAiSearch}
+            disabled={aiSearchLoading || !searchTerm.trim()}
+            size="small"
+          >
+            {aiSearchLoading ? 'AI Analyzing...' : 'AI Best Match'}
+          </Button>
+
+          {/* Clear AI Results Button */}
+          {showAiResult && (
+            <Button
+              variant="outlined"
+              color="secondary"
+              onClick={clearAiSearch}
+              size="small"
+            >
+              Clear AI Result
+            </Button>
+          )}
         </Box>
+
+        {/* AI Search Error */}
+        {aiSearchError && (
+          <Alert severity="error" sx={{ mb: 2 }} onClose={() => setAiSearchError(null)}>
+            {aiSearchError}
+          </Alert>
+        )}
+
+        {/* AI Search Result */}
+        <Collapse in={showAiResult}>
+          {aiSearchResult && (
+            <Paper sx={{ p: 2, mb: 2, backgroundColor: '#f8f9fa', border: '2px solid #1976d2' }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
+                <Typography variant="h6" color="primary">
+                  🤖 AI Best Match
+                </Typography>
+                <Chip 
+                  label={`Analyzed ${aiSearchResult.totalCandidates} exercises`} 
+                  size="small" 
+                  color="info" 
+                />
+              </Box>
+              
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2, fontStyle: 'italic' }}>
+                "{aiSearchResult.reasoning}"
+              </Typography>
+
+              {/* AI Selected Exercise Card */}
+              <Card sx={{ backgroundColor: 'white' }}>
+                <CardContent>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
+                    <Typography variant="h6" component="div">
+                      {aiSearchResult.bestMatch.activity}
+                    </Typography>
+                    <Box sx={{ display: 'flex', gap: 1 }}>
+                      <Chip 
+                        label={aiSearchResult.bestMatch.category || 'Unknown'} 
+                        size="small" 
+                        color="primary" 
+                      />
+                      <Chip 
+                        label={aiSearchResult.bestMatch.intensity || 'Unknown'} 
+                        size="small" 
+                        color={getIntensityColor(aiSearchResult.bestMatch.intensity) as any}
+                      />
+                    </Box>
+                  </Box>
+                  
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                    {aiSearchResult.bestMatch.description}
+                  </Typography>
+
+                  <Box sx={{ display: 'flex', gap: 2, mb: 1 }}>
+                    <Typography variant="body2">
+                      <strong>Code:</strong> {aiSearchResult.bestMatch.code}
+                    </Typography>
+                    <Typography variant="body2">
+                      <strong>MET:</strong> {aiSearchResult.bestMatch.met}
+                    </Typography>
+                  </Box>
+
+                  <Box sx={{ display: 'flex', gap: 1, mt: 1 }}>
+                    <Chip 
+                      label={getMETIntensityDescription(aiSearchResult.bestMatch.met)} 
+                      size="small" 
+                      color={getIntensityColor(getMETIntensityDescription(aiSearchResult.bestMatch.met)) as any}
+                      variant="outlined"
+                    />
+                    <Chip 
+                      label={aiSearchResult.bestMatch.isActive ? 'Active' : 'Inactive'} 
+                      size="small" 
+                      color={aiSearchResult.bestMatch.isActive ? 'success' : 'default'}
+                    />
+                  </Box>
+                </CardContent>
+              </Card>
+            </Paper>
+          )}
+        </Collapse>
 
         {/* Filter Panel */}
         {showFilters && (

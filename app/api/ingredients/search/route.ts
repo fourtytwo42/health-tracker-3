@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { searchIngredients } from '@/lib/searchService';
+import { searchIngredientsFlexible } from '@/lib/searchService';
 
 export async function GET(request: NextRequest) {
   try {
@@ -75,8 +75,8 @@ export async function GET(request: NextRequest) {
       }
     });
 
-    // Use Fuse.js for advanced search
-    const searchResults = searchIngredients(ingredients, query, limit);
+    // Use improved search with word order flexibility
+    const searchResults = searchIngredientsFlexible(ingredients, query, limit);
 
     return NextResponse.json({ ingredients: searchResults });
   } catch (error) {
