@@ -229,7 +229,8 @@ export async function POST(request: NextRequest) {
               resolvedIngredients.push({
                 ...ing,
                 resolvedIngredient: foundIngredient,
-                nutrition
+                nutrition,
+                originalName: ingredientName // Preserve the original AI ingredient name
               });
 
               ingredientSearchResults.push({
@@ -353,7 +354,8 @@ export async function POST(request: NextRequest) {
               resolvedIngredients.push({
                 ...ing,
                 resolvedIngredient: bestMatch,
-                nutrition
+                nutrition,
+                originalName: ingredientName // Preserve the original AI ingredient name
               });
 
               ingredientSearchResults.push({
@@ -417,7 +419,8 @@ export async function POST(request: NextRequest) {
                       resolvedIngredients.push({
                         ...ing,
                         resolvedIngredient: bestMatch,
-                        nutrition
+                        nutrition,
+                        originalName: ingredientName // Preserve the original AI ingredient name
                       });
 
                       ingredientSearchResults.push({
@@ -585,7 +588,8 @@ export async function POST(request: NextRequest) {
             ...ing,
             ingredientId: foundIngredient.id, // Set the ingredient ID
             resolvedIngredient: foundIngredient,
-            nutrition
+            nutrition,
+            originalName: ing.originalName || ing.name // Preserve the original AI ingredient name
           };
         } else {
           console.log(`❌ Ingredient not found: ${ingredientName}`);
@@ -729,7 +733,7 @@ export async function POST(request: NextRequest) {
         ingredientId: ing.ingredientId,
         amount: ing.amount,
         unit: ing.unit,
-        notes: ing.notes,
+        notes: ing.originalName, // Use the original AI ingredient name as notes
         isOptional: ing.isOptional,
         unavailable: ing.unavailable
       })),
