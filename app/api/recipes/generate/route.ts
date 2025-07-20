@@ -5,6 +5,56 @@ import { RecipeService } from '@/lib/services/RecipeService';
 import { MCPHandler } from '@/lib/mcp';
 import { IngredientService } from '@/lib/services/IngredientService';
 
+// Helper function to calculate nutrition based on serving size
+function calculateIngredientNutrition(ingredient: any, amount: number, unit: string) {
+  // Parse the serving size to get the base amount
+  const servingSizeMatch = ingredient.servingSize.match(/(\d+(?:\.\d+)?)\s*(\w+)/);
+  if (!servingSizeMatch) {
+    return {
+      calories: 0,
+      protein: 0,
+      carbs: 0,
+      fat: 0
+    };
+  }
+
+  const baseAmount = parseFloat(servingSizeMatch[1]);
+  const baseUnit = servingSizeMatch[2].toLowerCase();
+  
+  // Convert to grams for calculation
+  let amountInGrams = amount;
+  if (unit.toLowerCase() === 'ml') {
+    amountInGrams = amount; // 1ml ≈ 1g for most ingredients
+  } else if (unit.toLowerCase() === 'g') {
+    amountInGrams = amount;
+  } else if (unit.toLowerCase() === 'kg') {
+    amountInGrams = amount * 1000;
+  } else if (unit.toLowerCase() === 'l') {
+    amountInGrams = amount * 1000;
+  }
+
+  let baseAmountInGrams = baseAmount;
+  if (baseUnit === 'ml') {
+    baseAmountInGrams = baseAmount;
+  } else if (baseUnit === 'g') {
+    baseAmountInGrams = baseAmount;
+  } else if (baseUnit === 'kg') {
+    baseAmountInGrams = baseAmount * 1000;
+  } else if (baseUnit === 'l') {
+    baseAmountInGrams = baseAmount * 1000;
+  }
+
+  // Calculate scaling factor
+  const scalingFactor = amountInGrams / baseAmountInGrams;
+
+  return {
+    calories: Math.round(ingredient.calories * scalingFactor),
+    protein: Math.round(ingredient.protein * scalingFactor * 10) / 10,
+    carbs: Math.round(ingredient.carbs * scalingFactor * 10) / 10,
+    fat: Math.round(ingredient.fat * scalingFactor * 10) / 10
+  };
+}
+
 export async function POST(request: NextRequest) {
   try {
     const user = await verifyAuth(request);
@@ -68,8 +118,6 @@ export async function POST(request: NextRequest) {
     // Prepare comprehensive user context for AI
     const userContext = {
       profile: {
-        age: userDetails?.age,
-        gender: userDetails?.gender,
         height: userDetails?.height,
         weight: userDetails?.weight,
         activityLevel: userDetails?.activityLevel,
@@ -78,7 +126,6 @@ export async function POST(request: NextRequest) {
         fitnessGoals: userDetails?.fitnessGoals ? JSON.parse(userDetails.fitnessGoals) : [],
         dietaryGoals: userDetails?.dietaryGoals ? JSON.parse(userDetails.dietaryGoals) : [],
         weightGoals: userDetails?.weightGoals ? JSON.parse(userDetails.weightGoals) : [],
-        healthConditions: userDetails?.healthConditions ? JSON.parse(userDetails.healthConditions) : [],
         allergies: userDetails?.allergies ? JSON.parse(userDetails.allergies) : []
       },
       biomarkers: recentBiomarkers.map(b => ({
@@ -92,8 +139,7 @@ export async function POST(request: NextRequest) {
           ingredient: p.ingredient.name,
           category: p.ingredient.category,
           preference: p.preference
-        })),
-        exercisePreferences: userDetails?.exercisePreferences ? JSON.parse(userDetails.exercisePreferences) : []
+        }))
       }
     };
 
@@ -139,9 +185,14 @@ export async function POST(request: NextRequest) {
 
     // STEP 2: Use AI ingredient search for each ingredient
     console.log('Step 2: Using AI ingredient search...');
-    const ingredientSearchResults = await Promise.all(
-      (initialRecipe.ingredients || []).map(async (ing: any) => {
+    const ingredientSearchResults: any[] = [];
+    const resolvedIngredients: any[] = [];
+    const unresolvedIngredients: any[] = [];
+
+    await Promise.all(
+      (initialRecipe.ingredients || []).map(async (ing: any, index: number) => {
         const ingredientName = ing.name;
+        console.log(`Searching for ingredient: ${ingredientName}`);
         
         try {
           // Use MCP AI ingredient search tool directly
@@ -159,93 +210,187 @@ export async function POST(request: NextRequest) {
             role: user.role
           });
 
-          if (aiSearchResponse.success && aiSearchResponse.data.success) {
-            const aiResult = aiSearchResponse.data.data;
-            console.log(`✅ AI found best match for "${ingredientName}": ${aiResult.bestMatch.name}`);
-            return {
-              original_name: ingredientName,
-              search_results: [{
-                name: aiResult.bestMatch.name,
-                calories: aiResult.bestMatch.calories,
-                protein: aiResult.bestMatch.protein,
-                carbs: aiResult.bestMatch.carbs,
-                fat: aiResult.bestMatch.fat,
-                fiber: aiResult.bestMatch.fiber,
-                sugar: aiResult.bestMatch.sugar,
-                sodium: aiResult.bestMatch.sodium,
-                servingSize: aiResult.bestMatch.servingSize,
-                category: aiResult.bestMatch.category,
-                aisle: aiResult.bestMatch.aisle,
-                ai_selected: true,
-                reasoning: aiResult.reasoning
-              }]
-            };
+          if (aiSearchResponse.success && aiSearchResponse.data?.bestMatch) {
+            const bestMatch = aiSearchResponse.data.bestMatch;
+            console.log(`✅ AI found best match for "${ingredientName}": ${bestMatch.name}`);
+            
+            // Get the full ingredient data
+            const foundIngredient = await prisma.ingredient.findFirst({
+              where: {
+                name: bestMatch.name,
+                isActive: true
+              }
+            });
+
+            if (foundIngredient) {
+              // Calculate nutrition based on serving size
+              const nutrition = calculateIngredientNutrition(foundIngredient, ing.amount || 0, ing.unit || 'g');
+              
+              resolvedIngredients.push({
+                ...ing,
+                resolvedIngredient: foundIngredient,
+                nutrition
+              });
+
+              ingredientSearchResults.push({
+                original_name: ingredientName,
+                search_results: [{
+                  name: foundIngredient.name,
+                  calories: foundIngredient.calories,
+                  protein: foundIngredient.protein,
+                  carbs: foundIngredient.carbs,
+                  fat: foundIngredient.fat,
+                  servingSize: foundIngredient.servingSize
+                }]
+              });
+            } else {
+              console.log(`⚠️  AI suggested ingredient not found in database: ${bestMatch.name}`);
+              unresolvedIngredients.push(ing);
+            }
+          } else {
+            console.log(`⚠️  AI search failed for "${ingredientName}", using fallback search...`);
+            
+            // Fallback search with better filtering
+            const ingredientService = new IngredientService();
+            const fallbackResults = await ingredientService.getIngredientsPaginated(
+              1, 100, false, ingredientName, ing.category, undefined
+            );
+
+            // Filter out processed foods and prefer basic ingredients
+            const filteredResults = fallbackResults.ingredients.filter((ingredient: any) => {
+              const name = ingredient.name.toLowerCase();
+              
+              // Avoid processed foods
+              if (name.includes('with salt added') || 
+                  name.includes('with added') ||
+                  name.includes('dry roasted') ||
+                  name.includes('bottled') ||
+                  name.includes('frozen') ||
+                  name.includes('cooked') ||
+                  name.includes('processed') ||
+                  name.includes('canned') ||
+                  name.includes('sweetened') ||
+                  name.includes('drained')) {
+                return false;
+              }
+              
+              // Prefer basic ingredients
+              return true;
+            });
+
+            // Sort by relevance (exact matches first, then simple names)
+            const sortedResults = filteredResults.sort((a, b) => {
+              const aName = a.name.toLowerCase();
+              const bName = b.name.toLowerCase();
+              const searchTerm = ingredientName.toLowerCase();
+              
+              // Exact match gets highest priority
+              if (aName === searchTerm && bName !== searchTerm) return -1;
+              if (bName === searchTerm && aName !== searchTerm) return 1;
+              
+              // Simple names get priority over complex ones
+              const aComplexity = aName.split(',').length + aName.split(' ').length;
+              const bComplexity = bName.split(',').length + bName.split(' ').length;
+              
+              if (aComplexity !== bComplexity) return aComplexity - bComplexity;
+              
+              // Alphabetical as tiebreaker
+              return aName.localeCompare(bName);
+            });
+
+            console.log(`Fallback search results for "${ingredientName}": ${sortedResults.length} matches`);
+            
+            if (sortedResults.length > 0) {
+              const bestMatch = sortedResults[0];
+              console.log(`✅ Found ingredient with fallback search: ${bestMatch.name}`);
+              
+              // Calculate nutrition based on serving size
+              const nutrition = calculateIngredientNutrition(bestMatch, ing.amount || 0, ing.unit || 'g');
+              
+              resolvedIngredients.push({
+                ...ing,
+                resolvedIngredient: bestMatch,
+                nutrition
+              });
+
+              ingredientSearchResults.push({
+                original_name: ingredientName,
+                search_results: [{
+                  name: bestMatch.name,
+                  calories: bestMatch.calories,
+                  protein: bestMatch.protein,
+                  carbs: bestMatch.carbs,
+                  fat: bestMatch.fat,
+                  servingSize: bestMatch.servingSize
+                }]
+              });
+            } else {
+              // Try common substitutions if ingredient not found
+              const substitutions: Record<string, string[]> = {
+                'pork chops': ['pork', 'pork loin', 'pork tenderloin'],
+                'salt': ['salt, table, iodized'],
+                'pepper': ['pepper, black', 'peppercorns'],
+                'milk': ['milk, lowfat, fluid, 1% milkfat', 'milk, reduced fat, fluid, 2% milkfat'],
+                'butter': ['butter, stick, unsalted', 'butter, stick, salted'],
+                'garlic': ['garlic, raw'],
+                'potatoes': ['potato, russet, without skin, raw'],
+                'broccoli': ['broccoli, raw', 'broccoli, cooked, boiled, drained, with salt'],
+                'apples': ['apple, raw, with skin'],
+                'walnuts': ['nuts, walnuts, english'],
+                'oats': ['oats, whole grain, rolled, old fashioned'],
+                'flour': ['flour, wheat, all-purpose, enriched, bleached'],
+                'brown sugar': ['sugars, brown'],
+                'cinnamon': ['spices, cinnamon, ground']
+              };
+
+              let foundWithSubstitution = false;
+              for (const [original, substitutes] of Object.entries(substitutions)) {
+                if (ingredientName.toLowerCase().includes(original.toLowerCase())) {
+                  for (const substitute of substitutes) {
+                    const subResults = await IngredientService.getIngredientsPaginated(
+                      1, 10, false, substitute, undefined, undefined
+                    );
+                    
+                    if (subResults.ingredients.length > 0) {
+                      const bestMatch = subResults.ingredients[0];
+                      console.log(`✅ Found ingredient with substitution: ${ingredientName} → ${bestMatch.name}`);
+                      
+                      const nutrition = calculateIngredientNutrition(bestMatch, ing.amount || 0, ing.unit || 'g');
+                      
+                      resolvedIngredients.push({
+                        ...ing,
+                        resolvedIngredient: bestMatch,
+                        nutrition
+                      });
+
+                      ingredientSearchResults.push({
+                        original_name: ingredientName,
+                        search_results: [{
+                          name: bestMatch.name,
+                          calories: bestMatch.calories,
+                          protein: bestMatch.protein,
+                          carbs: bestMatch.carbs,
+                          fat: bestMatch.fat,
+                          servingSize: bestMatch.servingSize
+                        }]
+                      });
+                      
+                      foundWithSubstitution = true;
+                      break;
+                    }
+                  }
+                  if (foundWithSubstitution) break;
+                }
+              }
+
+              if (!foundWithSubstitution) {
+                console.log(`❌ No ingredient found for "${ingredientName}" even with substitutions`);
+                unresolvedIngredients.push(ing);
+              }
+            }
           }
         } catch (error) {
-          console.error(`AI search failed for "${ingredientName}":`, error);
-        }
-
-        // Fallback search with better filtering
-        const ingredientService = new IngredientService();
-        const fallbackResults = await ingredientService.getIngredientsPaginated(
-          1, 100, false, ingredientName, ing.category, undefined
-        );
-
-        // Filter out processed foods and prefer basic ingredients
-        const filteredResults = fallbackResults.ingredients.filter(ingredient => {
-          const name = ingredient.name.toLowerCase();
-          
-          // Avoid processed foods
-          if (name.includes('with salt added') || 
-              name.includes('with added') ||
-              name.includes('dry roasted') ||
-              name.includes('bottled') ||
-              name.includes('frozen') ||
-              name.includes('cooked') ||
-              name.includes('processed')) {
-            return false;
-          }
-          
-          // Prefer basic ingredients
-          return true;
-        });
-
-        // Sort by relevance (exact matches first, then simple names)
-        const sortedResults = filteredResults.sort((a, b) => {
-          const aName = a.name.toLowerCase();
-          const bName = b.name.toLowerCase();
-          const searchTerm = ingredientName.toLowerCase();
-          
-          // Exact match gets highest priority
-          if (aName === searchTerm && bName !== searchTerm) return -1;
-          if (bName === searchTerm && aName !== searchTerm) return 1;
-          
-          // Simple names get priority over complex ones
-          const aComplexity = aName.split(',').length + aName.split(' ').length;
-          const bComplexity = bName.split(',').length + bName.split(' ').length;
-          
-          if (aComplexity !== bComplexity) return aComplexity - bComplexity;
-          
-          // Alphabetical as tiebreaker
-          return aName.localeCompare(bName);
-        });
-
-        console.log(`Fallback search results for "${ingredientName}": ${sortedResults.length} matches`);
-        
-        if (sortedResults.length > 0) {
-          const bestMatch = sortedResults[0];
-          console.log(`✅ Found ingredient with fallback search: ${bestMatch.name}`);
-          
-          // Calculate nutrition based on serving size
-          const nutrition = calculateIngredientNutrition(bestMatch, ing.amount || 0, ing.unit || 'g');
-          
-          resolvedIngredients.push({
-            ...ing,
-            resolvedIngredient: bestMatch,
-            nutrition
-          });
-        } else {
-          console.log(`❌ No ingredient found for "${ingredientName}" even with fallback search`);
+          console.error(`Error searching for ingredient "${ingredientName}":`, error);
           unresolvedIngredients.push(ing);
         }
       })
@@ -389,7 +534,7 @@ export async function POST(request: NextRequest) {
         for (const [original, substitutes] of Object.entries(substitutions)) {
           if (ingredientName.toLowerCase().includes(original.toLowerCase())) {
             for (const substitute of substitutes) {
-              const subResults = await ingredientService.getIngredientsPaginated(
+              const subResults = await IngredientService.getIngredientsPaginated(
                 1, 10, false, substitute, undefined, undefined
               );
               
