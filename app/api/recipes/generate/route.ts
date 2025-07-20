@@ -124,7 +124,7 @@ export async function POST(request: NextRequest) {
     }
 
     console.log('Step 1 response:', JSON.stringify(step1Response, null, 2));
-    const initialRecipe = step1Response.data.recipe;
+    const initialRecipe = step1Response.data.data.recipe;
     
     if (!initialRecipe) {
       console.error('No recipe found in step1Response.data:', step1Response.data);
@@ -297,7 +297,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const refinedRecipe = step2Response.data.recipe;
+    const refinedRecipe = step2Response.data.data.recipe;
     console.log('Recipe refined:', refinedRecipe.name);
 
     // STEP 4: Resolve ingredients and calculate nutrition with precise scaling
