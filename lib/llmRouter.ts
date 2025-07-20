@@ -494,7 +494,7 @@ export class LLMRouter {
       throw new Error('No available LLM providers');
     }
 
-    // Try providers in priority order
+    // Try providers in priority order with exponential backoff
     let lastError: Error | null = null;
     
     for (const provider of availableProviders) {
@@ -515,7 +515,7 @@ export class LLMRouter {
           await this.ensureOllamaModelLoaded(provider);
         }
 
-        const response = await this.callProvider(provider, request);
+        const response = await this.callProviderWithRetry(provider, request);
         
         // Cache the response
         this.cache.set(cacheKey, response);
@@ -555,6 +555,42 @@ export class LLMRouter {
     
     // If we get here, all providers failed
     throw new Error(`All LLM providers failed. Last error: ${lastError?.message || 'Unknown error'}`);
+  }
+
+  private async callProviderWithRetry(provider: LLMProvider, request: LLMRequest, maxRetries: number = 3): Promise<LLMResponse> {
+    let lastError: Error | null = null;
+    
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        return await this.callProvider(provider, request);
+      } catch (error) {
+        lastError = error as Error;
+        
+        // Check if it's a rate limit error
+        const isRateLimit = error instanceof Error && (
+          error.message.includes('rate limit') ||
+          error.message.includes('429') ||
+          error.message.includes('Too Many Requests') ||
+          error.message.includes('TPM')
+        );
+        
+        if (isRateLimit && attempt < maxRetries) {
+          // Calculate exponential backoff delay
+          const baseDelay = 1000; // 1 second base
+          const maxDelay = 30000; // 30 seconds max
+          const delay = Math.min(baseDelay * Math.pow(2, attempt), maxDelay);
+          
+          console.log(`Rate limit hit for ${provider.name}, retrying in ${delay}ms (attempt ${attempt + 1}/${maxRetries + 1})`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+          continue;
+        }
+        
+        // For non-rate-limit errors or final attempt, throw the error
+        throw error;
+      }
+    }
+    
+    throw lastError || new Error('Max retries exceeded');
   }
 
   private getAvailableProvidersInOrder(): LLMProvider[] {

@@ -994,7 +994,10 @@ Format the response as a JSON object with alternatives array.`;
             };
           }
 
-          // Use LLM to find the best match
+          // Clear cache to prevent context pollution
+          this.llmRouter.clearCache();
+
+          // Use LLM to find the best match with minimal context
           const aiPrompt = `You are an expert at matching ingredient names. Given the search term "${args.search_term}" and the following list of ingredients, find the single best match.
 
 Available ingredients:
@@ -1157,7 +1160,10 @@ Return your response as JSON with this exact format:
             };
           }
 
-          // Use LLM to find the best match
+          // Clear cache to prevent context pollution
+          this.llmRouter.clearCache();
+
+          // Use LLM to find the best match with minimal context
           const aiPrompt = `You are an expert at matching exercise names. Given the search term "${args.search_term}" and the following list of exercises, find the single best match.
 
 Available exercises:
