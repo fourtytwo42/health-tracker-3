@@ -347,7 +347,7 @@ export async function POST(request: NextRequest) {
               for (const [original, substitutes] of Object.entries(substitutions)) {
                 if (ingredientName.toLowerCase().includes(original.toLowerCase())) {
                   for (const substitute of substitutes) {
-                    const subResults = await IngredientService.getIngredientsPaginated(
+                    const subResults = await ingredientService.getIngredientsPaginated(
                       1, 10, false, substitute, undefined, undefined
                     );
                     
@@ -428,7 +428,7 @@ export async function POST(request: NextRequest) {
 
     // STEP 4: Resolve ingredients and calculate nutrition with precise scaling
     console.log('Step 4: Calculating nutrition with precise scaling...');
-    const resolvedIngredients = await Promise.all(
+    const finalResolvedIngredients = await Promise.all(
       (refinedRecipe.ingredients || []).map(async (ing: any, index: number) => {
         const ingredientName = ing.name;
         
@@ -518,56 +518,31 @@ export async function POST(request: NextRequest) {
           }
         }
 
-        // If ingredient not found, try common substitutions if ingredient not found
-        const substitutions: Record<string, string[]> = {
-          'pork chops': ['pork', 'pork loin', 'pork tenderloin'],
-          'salt': ['salt, table, iodized'],
-          'pepper': ['pepper, black', 'peppercorns'],
-          'milk': ['milk, lowfat, fluid, 1% milkfat', 'milk, reduced fat, fluid, 2% milkfat'],
-          'butter': ['butter, stick, unsalted', 'butter, stick, salted'],
-          'garlic': ['garlic, raw'],
-          'potatoes': ['potato, russet, without skin, raw'],
-          'broccoli': ['broccoli, raw', 'broccoli, cooked, boiled, drained, with salt']
-        };
-
-        let foundWithSubstitution = false;
-        for (const [original, substitutes] of Object.entries(substitutions)) {
-          if (ingredientName.toLowerCase().includes(original.toLowerCase())) {
-            for (const substitute of substitutes) {
-              const subResults = await IngredientService.getIngredientsPaginated(
-                1, 10, false, substitute, undefined, undefined
-              );
-              
-              if (subResults.ingredients.length > 0) {
-                const bestMatch = subResults.ingredients[0];
-                console.log(`✅ Found ingredient with substitution: ${ingredientName} → ${bestMatch.name}`);
-                
-                const nutrition = calculateIngredientNutrition(bestMatch, ing.amount || 0, ing.unit || 'g');
-                
-                resolvedIngredients.push({
-                  ...ing,
-                  resolvedIngredient: bestMatch,
-                  nutrition
-                });
-                
-                foundWithSubstitution = true;
-                break;
-              }
-            }
-            if (foundWithSubstitution) break;
-          }
-        }
-
-        if (!foundWithSubstitution) {
-          console.log(`❌ No ingredient found for "${ingredientName}" even with substitutions`);
-          unresolvedIngredients.push(ing);
+        if (foundIngredient) {
+          console.log(`✅ Resolved ingredient: ${ingredientName} -> ${foundIngredient.name} (${ing.amount || 0}${ing.unit || 'g'} = ${Math.round(foundIngredient.calories * (ing.amount || 0) / 100)} cal)`);
+          
+          // Calculate nutrition based on serving size
+          const nutrition = calculateIngredientNutrition(foundIngredient, ing.amount || 0, ing.unit || 'g');
+          
+          return {
+            ...ing,
+            resolvedIngredient: foundIngredient,
+            nutrition
+          };
+        } else {
+          console.log(`❌ Ingredient not found: ${ingredientName}`);
+          return {
+            ...ing,
+            resolvedIngredient: null,
+            nutrition: { calories: 0, protein: 0, carbs: 0, fat: 0 }
+          };
         }
       })
     );
 
     // Filter out unavailable ingredients and calculate total nutrition
-    const availableIngredients = resolvedIngredients.filter(ing => !ing.unavailable);
-    const unavailableIngredients = resolvedIngredients.filter(ing => ing.unavailable);
+    const availableIngredients = finalResolvedIngredients.filter(ing => !ing.unavailable);
+    const unavailableIngredients = finalResolvedIngredients.filter(ing => ing.unavailable);
 
     if (unavailableIngredients.length > 0) {
       console.log(`⚠️  ${unavailableIngredients.length} ingredients not found in database:`);
@@ -606,7 +581,7 @@ export async function POST(request: NextRequest) {
     const calorieThreshold = targetCalories * 0.15; // 15% threshold
     
     let finalRecipeData = refinedRecipe;
-    let finalResolvedIngredients = resolvedIngredients;
+    let finalIngredientsList = finalResolvedIngredients;
     let finalPerServingNutrition = perServingNutrition;
     let scalingApplied = false;
 
@@ -618,7 +593,7 @@ export async function POST(request: NextRequest) {
       const scalingFactor = targetCalories / perServingNutrition.calories;
       
       // Scale up all ingredient amounts (only available ingredients)
-      finalResolvedIngredients = resolvedIngredients.map(ing => {
+      finalIngredientsList = finalResolvedIngredients.map(ing => {
         if (ing.unavailable) {
           return ing; // Keep unavailable ingredients as-is
         }
@@ -643,7 +618,7 @@ export async function POST(request: NextRequest) {
       });
 
       // Recalculate total nutrition
-      const scaledTotalNutrition = finalResolvedIngredients
+      const scaledTotalNutrition = finalIngredientsList
         .filter(ing => !ing.unavailable)
         .reduce((total, ing) => ({
           calories: total.calories + ing.nutrition.calories,
@@ -691,7 +666,7 @@ export async function POST(request: NextRequest) {
       tags: finalRecipeData.tags,
       aiGenerated: true,
       originalQuery: keywords,
-      ingredients: finalResolvedIngredients.map(ing => ({
+      ingredients: finalIngredientsList.map(ing => ({
         ingredientId: ing.ingredientId,
         amount: ing.amount,
         unit: ing.unit,
@@ -732,7 +707,7 @@ export async function POST(request: NextRequest) {
           difficulty: recipe.difficulty,
           cuisine: recipe.cuisine,
           tags: recipe.tags,
-          ingredients: finalResolvedIngredients
+          ingredients: finalIngredientsList
             .filter(ing => !ing.unavailable) // Only include available ingredients in the main ingredients list
             .map(ing => ({
               name: ing.notes,
