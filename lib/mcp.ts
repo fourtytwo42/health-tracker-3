@@ -576,6 +576,7 @@ IMPORTANT REQUIREMENTS:
 3. Provide amounts in grams (g) or milliliters (ml) for precise measurement
 4. Include detailed step-by-step instructions
 5. For each ingredient, specify the most appropriate category from the available list above
+6. For each ingredient, provide a brief description explaining what it is and its culinary use
 
 INGREDIENT NAMING GUIDELINES:
 - Use basic, common names (e.g., "beef", "chicken breast", "tomatoes")
@@ -603,7 +604,8 @@ Generate a complete recipe in the following JSON format (ensure valid JSON with 
       "name": "Ingredient Name",
       "amount": 100,
       "unit": "g",
-      "category": "appropriate_category_from_list"
+      "category": "appropriate_category_from_list",
+      "description": "Brief description of what this ingredient is and how it's used in cooking"
     }
   ],
   "instructions": [
@@ -612,7 +614,7 @@ Generate a complete recipe in the following JSON format (ensure valid JSON with 
   ]
 }
 
-IMPORTANT: For each ingredient, choose the most appropriate category from the available categories listed above. Use simple, common ingredient names that are likely to be found in a database.
+IMPORTANT: For each ingredient, choose the most appropriate category from the available categories listed above. Use simple, common ingredient names that are likely to be found in a database. Provide helpful descriptions that explain what the ingredient is and its culinary purpose.
 
 Timestamp: ${Date.now()}`;
 
@@ -676,13 +678,15 @@ Timestamp: ${Date.now()}`;
       "name": "chicken breast",
       "amount": 400,
       "unit": "g",
-      "category": "Meat"
+      "category": "Meat",
+      "description": "Boneless chicken breast, commonly used for grilling and pan-frying"
     },
     {
       "name": "olive oil",
       "amount": 15,
       "unit": "ml",
-      "category": "Oils"
+      "category": "Oils",
+      "description": "Extra virgin olive oil used for cooking and flavoring"
     }
   ],
   "instructions": [
@@ -746,7 +750,8 @@ Timestamp: ${Date.now()}`;
             name: z.string(),
             amount: z.number().optional(),
             unit: z.string().optional(),
-            category: z.string().optional()
+            category: z.string().optional(),
+            description: z.string().optional()
           })),
           instructions: z.array(z.string())
         }).describe('The original recipe from step 1'),
@@ -992,6 +997,7 @@ Format the response as a JSON object with alternatives array.`;
         search_term: z.string().describe('Search term for ingredients'),
         category: z.string().optional().describe('Filter by ingredient category'),
         aisle: z.string().optional().describe('Filter by grocery aisle'),
+        description: z.string().optional().describe('Description of what the ingredient is and its culinary use'),
       }),
       handler: async (args, authInfo) => {
         try {
@@ -1025,6 +1031,8 @@ Format the response as a JSON object with alternatives array.`;
           // Use LLM to find the best match with minimal context
           const aiPrompt = `You are an expert at matching ingredient names. Given the search term "${args.search_term}" and the following list of ingredients, find the single best match.
 
+${args.description ? `INGREDIENT DESCRIPTION: "${args.description}"` : ''}
+
 Available ingredients (top 20 results):
 ${topResults.map((ing, i) => `${i + 1}. ${ing.name} (${ing.description || 'No description'})`).join('\n')}
 
@@ -1035,18 +1043,21 @@ Please analyze the search term and return the best matching ingredient. Consider
 - Description relevance
 - PREFER basic, unprocessed ingredients over processed/specific varieties
 - AVOID selecting processed foods when basic ingredients are available
+- If a description is provided, use it to understand the culinary purpose and find the best substitute
 
 SELECTION PRIORITY:
 1. Basic, unprocessed ingredients (e.g., "onion" over "onion rings")
 2. Generic names over specific varieties (e.g., "salt" over "sea salt")
 3. Raw/fresh over processed (e.g., "garlic" over "garlic bread")
 4. Simple names over complex descriptions
+5. If exact match not found, choose the closest substitute based on culinary use
 
 EXAMPLES:
 - Search "onion" → Choose "onion" not "onion rings"
 - Search "salt" → Choose "salt" not "nuts with salt"
 - Search "garlic" → Choose "garlic" not "garlic bread"
 - Search "beef" → Choose "beef" not "beef sandwich"
+- Search "beef striploin" with description "cut of steak" → Choose "beef" or "beef steak"
 
 Return your response as JSON with this exact format:
 {

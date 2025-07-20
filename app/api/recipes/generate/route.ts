@@ -149,7 +149,8 @@ export async function POST(request: NextRequest) {
             args: {
               search_term: ingredientName,
               category: ing.category, // Use category from recipe if available
-              aisle: undefined
+              aisle: undefined,
+              description: ing.description // Use description from recipe if available
             }
           }, {
             userId: user.userId,
