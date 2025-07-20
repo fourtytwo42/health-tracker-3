@@ -202,17 +202,24 @@ export async function POST(request: NextRequest) {
           'black pepper': 'spices, pepper, black',
           'red bell pepper': 'peppers, sweet, red, raw',
           'bell pepper': 'peppers, sweet, green, raw',
+          'bell peppers': 'peppers, sweet, green, raw',
           'yellow onion': 'onions, yellow, raw',
           'onion': 'onions, raw',
+          'onions': 'onions, raw',
           'zucchini': 'squash, summer, green, zucchini, includes skin, raw',
           'tahini': 'tahini',
           'greek yogurt': 'yogurt, greek, plain, nonfat',
           'olive oil': 'olive oil',
           'garlic': 'garlic, raw',
-          'lemon juice': 'lemon juice, 100%, ns as to form'
+          'lemon juice': 'lemon juice, 100%, ns as to form',
+          'boneless chicken breast': 'chicken, broiler or fryers, breast, skinless, boneless, meat only, cooked, braised',
+          'chicken breast': 'chicken, broiler or fryers, breast, skinless, boneless, meat only, cooked, braised',
+          'fajita seasoning': 'spices, poultry seasoning',
+          'whole wheat tortillas': 'tortillas, ready-to-bake or -fry, corn, without added salt',
+          'tortillas': 'tortillas, ready-to-bake or -fry, corn, without added salt'
         };
         
-        // Check if we have a hardcoded mapping
+        // Check if we have a hardcoded mapping (case-insensitive)
         const hardcodedMatch = hardcodedMappings[ingredientName.toLowerCase()];
         let ingredientFound = false;
         
@@ -233,7 +240,7 @@ export async function POST(request: NextRequest) {
               ...ing,
               resolvedIngredient: foundIngredient,
               nutrition,
-              originalName: ingredientName
+              originalName: ingredientName // Preserve the original AI ingredient name (e.g., "Salt", "Black Pepper")
             });
             
             ingredientSearchResults.push({
@@ -321,6 +328,7 @@ export async function POST(request: NextRequest) {
               const filteredResults = fallbackResults.ingredients.filter((ingredient: any) => {
                 const name = ingredient.name.toLowerCase();
                 const searchTerm = ingredientName.toLowerCase();
+                const category = ingredient.category?.toLowerCase() || '';
 
                 // Avoid processed foods and complex recipes
                 if (name.includes('with salt added') ||
@@ -352,6 +360,35 @@ export async function POST(request: NextRequest) {
                     name.includes('chinese') ||
                     name.includes('pasteurized')) {
                   return false;
+                }
+
+                // Category-specific filtering to prevent cross-category mismatches
+                if (searchTerm.includes('bell pepper') || searchTerm.includes('peppers')) {
+                  // Bell peppers should be in Vegetables category, not Snacks
+                  if (category !== 'vegetables' && !name.includes('peppers, sweet')) {
+                    return false;
+                  }
+                }
+                
+                if (searchTerm.includes('onion')) {
+                  // Onions should be in Vegetables category, not Snacks
+                  if (category !== 'vegetables' && !name.includes('onions')) {
+                    return false;
+                  }
+                }
+                
+                if (searchTerm.includes('chicken')) {
+                  // Chicken should be in Proteins category
+                  if (category !== 'proteins' && !name.includes('chicken')) {
+                    return false;
+                  }
+                }
+                
+                if (searchTerm.includes('tortilla')) {
+                  // Tortillas should be in Breads and Grains category
+                  if (category !== 'breads and grains' && !name.includes('tortilla')) {
+                    return false;
+                  }
                 }
 
                 // Prefer exact matches or close matches
@@ -833,7 +870,7 @@ export async function POST(request: NextRequest) {
           ingredients: finalIngredientsList
             .filter(ing => !ing.unavailable) // Only include available ingredients in the main ingredients list
             .map(ing => ({
-              name: ing.notes,
+              name: ing.originalName, // Use the original AI ingredient name (e.g., "Salt", "Black Pepper")
               amount: ing.amount,
               unit: ing.unit,
               originalAmount: ing.originalAmount,
