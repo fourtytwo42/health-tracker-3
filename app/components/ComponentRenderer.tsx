@@ -9,6 +9,7 @@ import GroceryListCard from './cards/GroceryListCard';
 import GoalBadge from './cards/GoalBadge';
 import BiomarkerChart from './cards/BiomarkerChart';
 import MealCard from './cards/MealCard';
+import IngredientAlternatives from './cards/IngredientAlternatives';
 import QuickReplies from './QuickReplies';
 
 export interface ComponentJson {
@@ -31,6 +32,7 @@ const componentRegistry: Record<string, React.ComponentType<any>> = {
   GoalBadge,
   BiomarkerChart,
   MealCard,
+  IngredientAlternatives,
 };
 
 export default function ComponentRenderer({ component, onQuickReply }: ComponentRendererProps) {
@@ -49,7 +51,7 @@ export default function ComponentRenderer({ component, onQuickReply }: Component
 
   return (
     <Box sx={{ my: 1 }}>
-      <Component {...component.props} />
+      <Component {...component.props} onQuickReply={onQuickReply} />
       {component.quickReplies && component.quickReplies.length > 0 && (
         <QuickReplies 
           replies={component.quickReplies} 

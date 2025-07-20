@@ -1,10 +1,8 @@
-import { PrismaClient } from '@prisma/client';
 import { parse } from 'csv-parse/sync';
 import { stringify } from 'csv-stringify/sync';
-import { portablePrisma } from '../prisma';
+import { prisma } from '../prisma';
 
-// Use portable database for ingredients
-const prisma = portablePrisma;
+// Use main database for ingredients
 
 export interface IngredientData {
   name: string;

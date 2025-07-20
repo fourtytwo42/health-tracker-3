@@ -1,4 +1,4 @@
-import { portablePrisma } from '@/lib/prisma';
+import { prisma } from '@/lib/prisma';
 
 export interface RecipeIngredientInput {
   ingredientId: string;
@@ -31,6 +31,7 @@ export interface CreateRecipeInput {
 
 export interface RecipeWithNutrition {
   id: string;
+  userId: string;
   name: string;
   description?: string;
   mealType: string;
@@ -89,7 +90,7 @@ export class RecipeService {
   async createRecipe(input: CreateRecipeInput): Promise<RecipeWithNutrition> {
     const { ingredients, ...recipeData } = input;
 
-    const recipe = await portablePrisma.recipe.create({
+    const recipe = await prisma.Recipe.create({
       data: {
         ...recipeData,
         tags: recipeData.tags ? JSON.stringify(recipeData.tags) : null,
@@ -120,7 +121,7 @@ export class RecipeService {
   }
 
   async getRecipeById(id: string): Promise<RecipeWithNutrition | null> {
-    const recipe = await portablePrisma.recipe.findUnique({
+    const recipe = await prisma.Recipe.findUnique({
       where: { id },
       include: {
         ingredients: {
@@ -170,7 +171,7 @@ export class RecipeService {
     }
 
     const [recipes, total] = await Promise.all([
-      portablePrisma.recipe.findMany({
+      prisma.Recipe.findMany({
         where,
         include: {
           ingredients: {
@@ -186,7 +187,7 @@ export class RecipeService {
         skip,
         take: limit
       }),
-      portablePrisma.recipe.count({ where })
+      prisma.Recipe.count({ where })
     ]);
 
     const recipesWithNutrition = recipes.map(recipe => this.calculateNutrition(recipe));
@@ -206,7 +207,7 @@ export class RecipeService {
       updateData.tags = JSON.stringify(recipeData.tags);
     }
 
-    const recipe = await portablePrisma.recipe.update({
+    const recipe = await prisma.Recipe.update({
       where: { id },
       data: updateData,
       include: {
@@ -224,19 +225,31 @@ export class RecipeService {
     return this.calculateNutrition(recipe);
   }
 
-  async deleteRecipe(id: string): Promise<boolean> {
+  async deleteRecipe(id: string, userId: string): Promise<boolean> {
     try {
-      await portablePrisma.recipe.delete({
+      // First check if the recipe belongs to the user
+      const recipe = await prisma.Recipe.findFirst({
+        where: { id, userId }
+      });
+
+      if (!recipe) {
+        return false; // Recipe not found or doesn't belong to user
+      }
+
+      // Delete the recipe (cascade will handle recipe_ingredients)
+      await prisma.Recipe.delete({
         where: { id }
       });
+
       return true;
     } catch (error) {
+      console.error('Error deleting recipe:', error);
       return false;
     }
   }
 
   async toggleFavorite(id: string): Promise<RecipeWithNutrition | null> {
-    const recipe = await portablePrisma.recipe.findUnique({
+    const recipe = await prisma.Recipe.findUnique({
       where: { id },
       include: {
         ingredients: {
@@ -252,7 +265,7 @@ export class RecipeService {
 
     if (!recipe) return null;
 
-    const updatedRecipe = await portablePrisma.recipe.update({
+    const updatedRecipe = await prisma.Recipe.update({
       where: { id },
       data: { isFavorite: !recipe.isFavorite },
       include: {
@@ -276,7 +289,7 @@ export class RecipeService {
     newIngredientId: string,
     adjustAmount: boolean = true
   ): Promise<RecipeWithNutrition | null> {
-    const recipe = await portablePrisma.recipe.findUnique({
+    const recipe = await prisma.Recipe.findUnique({
       where: { id: recipeId },
       include: {
         ingredients: {
@@ -295,7 +308,7 @@ export class RecipeService {
     const oldIngredient = recipe.ingredients.find(ri => ri.ingredientId === ingredientId);
     if (!oldIngredient) return null;
 
-    const newIngredient = await portablePrisma.ingredient.findUnique({
+    const newIngredient = await prisma.ingredient.findUnique({
       where: { id: newIngredientId }
     });
 
@@ -309,7 +322,7 @@ export class RecipeService {
       newAmount = oldIngredient.amount * calorieRatio;
     }
 
-    await portablePrisma.recipeIngredient.update({
+    await prisma.recipeIngredient.update({
       where: { id: oldIngredient.id },
       data: {
         ingredientId: newIngredientId,
@@ -332,7 +345,7 @@ export class RecipeService {
 
     // Update all ingredient amounts
     for (const recipeIngredient of recipe.ingredients) {
-      await portablePrisma.recipeIngredient.update({
+      await prisma.recipeIngredient.update({
         where: { id: recipeIngredient.id },
         data: {
           amount: recipeIngredient.amount * adjustmentFactor

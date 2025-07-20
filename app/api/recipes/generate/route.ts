@@ -1,14 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
-import { portablePrisma } from '@/lib/prisma';
+import { verifyAuth } from '@/lib/middleware/auth';
+import { prisma } from '@/lib/prisma';
 import { RecipeService } from '@/lib/services/RecipeService';
-import { searchIngredients } from '@/lib/searchService';
+import { MCPHandler } from '@/lib/mcp';
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
+    const user = await verifyAuth(request);
+    if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -19,7 +18,9 @@ export async function POST(request: NextRequest) {
       servings,
       calorieGoal,
       preferences,
-      healthMetrics
+      healthMetrics,
+      difficulty,
+      cuisine
     } = body;
 
     if (!keywords || !mealType || !servings) {
@@ -30,67 +31,390 @@ export async function POST(request: NextRequest) {
     }
 
     // Get user's food preferences
-    const userPreferences = await portablePrisma.foodPreference.findMany({
-      where: { userId: session.user.id }
-    });
-
-    // Get user's profile for health metrics
-    const userProfile = await portablePrisma.profile.findUnique({
-      where: { userId: session.user.id }
-    });
-
-    // Build context for AI
-    const context = {
-      keywords,
-      mealType,
-      servings,
-      calorieGoal: calorieGoal || userProfile?.calorieTarget,
-      preferences: userPreferences.map(p => ({
-        type: p.type,
-        value: p.value,
-        isExcluded: p.isExcluded
-      })),
-      healthMetrics: {
-        dietaryPreferences: userProfile?.dietaryPreferences,
-        calorieTarget: userProfile?.calorieTarget,
-        proteinTarget: userProfile?.proteinTarget,
-        carbTarget: userProfile?.carbTarget,
-        fatTarget: userProfile?.fatTarget,
-        fiberTarget: userProfile?.fiberTarget
+    const foodPreferences = await prisma.foodPreference.findMany({
+      where: {
+        userId: user.userId
       }
-    };
+    });
 
-    // Generate recipe using AI
-    const recipeData = await generateRecipeWithAI(context);
+    // Get user's profile for health metrics from main database
+    const userProfile = await prisma.profile.findUnique({
+      where: { userId: user.userId }
+    });
 
-    if (!recipeData) {
+    // Use MCP server for sophisticated recipe generation
+    const mcpHandler = MCPHandler.getInstance();
+    
+    // Prepare dietary preferences from user preferences
+    const dietaryPreferences = foodPreferences
+      .filter((p: any) => p.preference === 'LIKE')
+      .map((p: any) => p.ingredient.category)
+      .filter(Boolean);
+
+    // Call MCP generate_recipe tool
+    const mcpResponse = await mcpHandler.handleToolCall({
+      tool: 'generate_recipe',
+      args: {
+        keywords,
+        meal_type: mealType.toUpperCase(),
+        servings,
+        calorie_goal: calorieGoal || userProfile?.calorieTarget,
+        dietary_preferences: dietaryPreferences,
+        difficulty: difficulty || 'medium',
+        cuisine: cuisine || 'general'
+      }
+    }, {
+      userId: user.userId,
+      username: user.username,
+      role: user.role
+    });
+
+    if (!mcpResponse.success) {
       return NextResponse.json(
-        { error: 'Failed to generate recipe' },
+        { error: mcpResponse.error || 'Failed to generate recipe' },
         { status: 500 }
       );
     }
 
-    // Save recipe to database
-    const recipeService = new RecipeService();
-    const recipe = await recipeService.createRecipe({
-      userId: session.user.id,
-      name: recipeData.name,
-      description: recipeData.description,
-      mealType,
-      servings,
-      instructions: recipeData.instructions,
-      prepTime: recipeData.prepTime,
-      cookTime: recipeData.cookTime,
-      totalTime: recipeData.totalTime,
-      difficulty: recipeData.difficulty,
-      cuisine: recipeData.cuisine,
-      tags: recipeData.tags,
-      aiGenerated: true,
-      originalQuery: keywords,
-      ingredients: recipeData.ingredients
+    // Extract recipe data from MCP response
+    const recipeData = mcpResponse.data?.props || mcpResponse.componentJson?.props;
+    
+    if (!recipeData) {
+      return NextResponse.json(
+        { error: 'Failed to generate recipe data' },
+        { status: 500 }
+      );
+    }
+
+    // Resolve ingredients and calculate nutrition
+    const resolvedIngredients = await Promise.all(
+      (recipeData.ingredients || []).map(async (ing: any, index: number) => {
+        const ingredientName = ing.name;
+        
+        // Try multiple search strategies to find the ingredient
+        let foundIngredient = null;
+        
+        // Strategy 1: Exact name match
+        foundIngredient = await prisma.ingredient.findFirst({
+          where: {
+            name: {
+              equals: ingredientName
+            },
+            isActive: true
+          }
+        });
+
+        // Strategy 2: Contains name match
+        if (!foundIngredient) {
+          foundIngredient = await prisma.ingredient.findFirst({
+            where: {
+              name: {
+                contains: ingredientName
+              },
+              isActive: true
+            }
+          });
+        }
+
+        // Strategy 3: Search by first word
+        if (!foundIngredient) {
+          const firstWord = ingredientName.split(' ')[0];
+          foundIngredient = await prisma.ingredient.findFirst({
+            where: {
+              name: {
+                contains: firstWord
+              },
+              isActive: true
+            }
+          });
+        }
+
+        // Strategy 4: Search by category
+        if (!foundIngredient) {
+          foundIngredient = await prisma.ingredient.findFirst({
+            where: {
+              OR: [
+                { category: { contains: ingredientName } },
+                { category: { contains: ingredientName.split(' ')[0] } }
+              ],
+              isActive: true
+            }
+          });
+        }
+
+        // Strategy 5: Search by description
+        if (!foundIngredient) {
+          foundIngredient = await prisma.ingredient.findFirst({
+            where: {
+              description: {
+                contains: ingredientName
+              },
+              isActive: true
+            }
+          });
+        }
+
+        // If still not found, create a more intelligent fallback ingredient
+        if (!foundIngredient) {
+          console.log(`Creating intelligent fallback ingredient for: ${ingredientName}`);
+          
+          // Estimate nutrition based on ingredient type
+          let estimatedNutrition = {
+            calories: 100,
+            protein: 5,
+            carbs: 10,
+            fat: 2,
+            fiber: 2,
+            sugar: 5,
+            sodium: 100
+          };
+
+          // Adjust estimates based on ingredient type
+          const lowerName = ingredientName.toLowerCase();
+          if (lowerName.includes('beef') || lowerName.includes('lamb') || lowerName.includes('pork') || lowerName.includes('meat')) {
+            estimatedNutrition = { calories: 250, protein: 25, carbs: 0, fat: 15, fiber: 0, sugar: 0, sodium: 70 };
+          } else if (lowerName.includes('chicken') || lowerName.includes('turkey') || lowerName.includes('poultry')) {
+            estimatedNutrition = { calories: 165, protein: 31, carbs: 0, fat: 3.6, fiber: 0, sugar: 0, sodium: 74 };
+          } else if (lowerName.includes('fish') || lowerName.includes('salmon') || lowerName.includes('tuna')) {
+            estimatedNutrition = { calories: 208, protein: 25, carbs: 0, fat: 12, fiber: 0, sugar: 0, sodium: 59 };
+          } else if (lowerName.includes('rice') || lowerName.includes('pasta') || lowerName.includes('bread')) {
+            estimatedNutrition = { calories: 130, protein: 2.7, carbs: 28, fat: 0.3, fiber: 0.4, sugar: 0.1, sodium: 1 };
+          } else if (lowerName.includes('oil') || lowerName.includes('butter') || lowerName.includes('fat')) {
+            estimatedNutrition = { calories: 884, protein: 0, carbs: 0, fat: 100, fiber: 0, sugar: 0, sodium: 0 };
+          } else if (lowerName.includes('vegetable') || lowerName.includes('carrot') || lowerName.includes('broccoli')) {
+            estimatedNutrition = { calories: 25, protein: 1.5, carbs: 5, fat: 0.3, fiber: 2.5, sugar: 2.5, sodium: 30 };
+          } else if (lowerName.includes('fruit') || lowerName.includes('apple') || lowerName.includes('banana')) {
+            estimatedNutrition = { calories: 52, protein: 0.3, carbs: 14, fat: 0.2, fiber: 2.4, sugar: 10, sodium: 1 };
+          } else if (lowerName.includes('milk') || lowerName.includes('cheese') || lowerName.includes('yogurt')) {
+            estimatedNutrition = { calories: 42, protein: 3.4, carbs: 5, fat: 1, fiber: 0, sugar: 5, sodium: 44 };
+          } else if (lowerName.includes('egg')) {
+            estimatedNutrition = { calories: 155, protein: 13, carbs: 1.1, fat: 11, fiber: 0, sugar: 1.1, sodium: 124 };
+          }
+
+          foundIngredient = await prisma.ingredient.create({
+            data: {
+              name: ingredientName,
+              description: `AI-generated ingredient: ${ingredientName}`,
+              servingSize: '100g',
+              calories: estimatedNutrition.calories,
+              protein: estimatedNutrition.protein,
+              carbs: estimatedNutrition.carbs,
+              fat: estimatedNutrition.fat,
+              fiber: estimatedNutrition.fiber,
+              sugar: estimatedNutrition.sugar,
+              sodium: estimatedNutrition.sodium,
+              category: 'Other',
+              aisle: 'Other',
+              isActive: true
+            }
+          });
+        }
+
+        // Calculate nutrition based on actual ingredient amount and serving size
+        let servingRatio = 1;
+        
+        // Parse serving size to get base amount
+        const servingSizeStr = foundIngredient.servingSize || '100g';
+        const servingSizeMatch = servingSizeStr.match(/(\d+(?:\.\d+)?)\s*(g|ml|oz|lb|kg|l|cup|cups|tbsp|tsp)/i);
+        
+        if (servingSizeMatch) {
+          const baseAmount = parseFloat(servingSizeMatch[1]);
+          const baseUnit = servingSizeMatch[2].toLowerCase();
+          
+          // Convert units to grams for comparison if possible
+          const unitConversions: { [key: string]: number } = {
+            'g': 1,
+            'kg': 1000,
+            'oz': 28.35,
+            'lb': 453.59,
+            'ml': 1, // Assuming 1ml ≈ 1g for most ingredients
+            'l': 1000,
+            'cup': 236.59, // 1 cup ≈ 236.59ml
+            'cups': 236.59,
+            'tbsp': 14.79, // 1 tbsp ≈ 14.79ml
+            'tsp': 4.93 // 1 tsp ≈ 4.93ml
+          };
+          
+          const baseAmountInGrams = baseAmount * (unitConversions[baseUnit] || 1);
+          const ingredientAmountInGrams = ing.amount * (unitConversions[ing.unit.toLowerCase()] || 1);
+          
+          servingRatio = ingredientAmountInGrams / baseAmountInGrams;
+        } else {
+          // Fallback to simple ratio if serving size parsing fails
+          servingRatio = ing.amount / 100;
+        }
+
+        const ingredientNutrition = {
+          calories: Math.round(foundIngredient.calories * servingRatio),
+          protein: Math.round(foundIngredient.protein * servingRatio * 10) / 10,
+          carbs: Math.round(foundIngredient.carbs * servingRatio * 10) / 10,
+          fat: Math.round(foundIngredient.fat * servingRatio * 10) / 10,
+          fiber: Math.round((foundIngredient.fiber || 0) * servingRatio * 10) / 10,
+          sugar: Math.round((foundIngredient.sugar || 0) * servingRatio * 10) / 10,
+          sodium: Math.round((foundIngredient.sodium || 0) * servingRatio)
+        };
+
+        console.log(`Resolved ingredient: ${ingredientName} -> ${foundIngredient.name} (${ing.amount}${ing.unit} = ${ingredientNutrition.calories} cal)`);
+
+        return {
+          ingredientId: foundIngredient.id,
+          amount: ing.amount,
+          unit: ing.unit,
+          notes: ing.name,
+          isOptional: false,
+          nutrition: ingredientNutrition
+        };
+      })
+    );
+
+    // Calculate total nutrition for the recipe
+    const totalNutrition = resolvedIngredients.reduce((total, ing) => ({
+      calories: total.calories + ing.nutrition.calories,
+      protein: total.protein + ing.nutrition.protein,
+      carbs: total.carbs + ing.nutrition.carbs,
+      fat: total.fat + ing.nutrition.fat,
+      fiber: total.fiber + ing.nutrition.fiber,
+      sugar: total.sugar + ing.nutrition.sugar,
+      sodium: total.sodium + ing.nutrition.sodium
+    }), {
+      calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0, sugar: 0, sodium: 0
     });
 
-    return NextResponse.json({ recipe });
+    // Calculate per-serving nutrition
+    const perServingNutrition = {
+      calories: Math.round(totalNutrition.calories / recipeData.servings),
+      protein: Math.round(totalNutrition.protein / recipeData.servings * 10) / 10,
+      carbs: Math.round(totalNutrition.carbs / recipeData.servings * 10) / 10,
+      fat: Math.round(totalNutrition.fat / recipeData.servings * 10) / 10,
+      fiber: Math.round(totalNutrition.fiber / recipeData.servings * 10) / 10,
+      sugar: Math.round(totalNutrition.sugar / recipeData.servings * 10) / 10,
+      sodium: Math.round(totalNutrition.sodium / recipeData.servings)
+    };
+
+    // Check if calories are within 15% of target
+    const targetCalories = calorieGoal || userProfile?.calorieTarget || 500;
+    const calorieDifference = Math.abs(perServingNutrition.calories - targetCalories);
+    const calorieThreshold = targetCalories * 0.15; // 15% threshold
+    
+    let finalRecipeData = recipeData;
+    let finalResolvedIngredients = resolvedIngredients;
+    let finalPerServingNutrition = perServingNutrition;
+
+    // If calories are outside the acceptable range, scale up the ingredients
+    if (calorieDifference > calorieThreshold && perServingNutrition.calories < targetCalories) {
+      console.log(`Recipe calories (${perServingNutrition.calories}) below target range (${targetCalories} ± ${calorieThreshold}). Scaling up ingredients...`);
+      
+      // Calculate scaling factor to reach target calories
+      const scalingFactor = targetCalories / perServingNutrition.calories;
+      
+      // Scale up all ingredient amounts
+      finalResolvedIngredients = resolvedIngredients.map(ing => ({
+        ...ing,
+        amount: Math.round(ing.amount * scalingFactor * 10) / 10, // Round to 1 decimal place
+        nutrition: {
+          calories: Math.round(ing.nutrition.calories * scalingFactor),
+          protein: Math.round(ing.nutrition.protein * scalingFactor * 10) / 10,
+          carbs: Math.round(ing.nutrition.carbs * scalingFactor * 10) / 10,
+          fat: Math.round(ing.nutrition.fat * scalingFactor * 10) / 10,
+          fiber: Math.round(ing.nutrition.fiber * scalingFactor * 10) / 10,
+          sugar: Math.round(ing.nutrition.sugar * scalingFactor * 10) / 10,
+          sodium: Math.round(ing.nutrition.sodium * scalingFactor)
+        }
+      }));
+
+      // Recalculate total nutrition
+      const scaledTotalNutrition = finalResolvedIngredients.reduce((total, ing) => ({
+        calories: total.calories + ing.nutrition.calories,
+        protein: total.protein + ing.nutrition.protein,
+        carbs: total.carbs + ing.nutrition.carbs,
+        fat: total.fat + ing.nutrition.fat,
+        fiber: total.fiber + ing.nutrition.fiber,
+        sugar: total.sugar + ing.nutrition.sugar,
+        sodium: total.sodium + ing.nutrition.sodium
+      }), {
+        calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0, sugar: 0, sodium: 0
+      });
+
+      // Recalculate per-serving nutrition
+      finalPerServingNutrition = {
+        calories: Math.round(scaledTotalNutrition.calories / recipeData.servings),
+        protein: Math.round(scaledTotalNutrition.protein / recipeData.servings * 10) / 10,
+        carbs: Math.round(scaledTotalNutrition.carbs / recipeData.servings * 10) / 10,
+        fat: Math.round(scaledTotalNutrition.fat / recipeData.servings * 10) / 10,
+        fiber: Math.round(scaledTotalNutrition.fiber / recipeData.servings * 10) / 10,
+        sugar: Math.round(scaledTotalNutrition.sugar / recipeData.servings * 10) / 10,
+        sodium: Math.round(scaledTotalNutrition.sodium / recipeData.servings)
+      };
+
+      console.log(`Scaled recipe to ${finalPerServingNutrition.calories} calories per serving (target: ${targetCalories})`);
+    }
+
+    // Save recipe to main database
+    const recipeService = new RecipeService();
+    const recipe = await recipeService.createRecipe({
+      userId: user.userId,
+      name: finalRecipeData.title || finalRecipeData.name,
+      description: finalRecipeData.description,
+      mealType: finalRecipeData.mealType,
+      servings: finalRecipeData.servings,
+      instructions: Array.isArray(finalRecipeData.instructions) 
+        ? finalRecipeData.instructions.join('\n') 
+        : finalRecipeData.instructions,
+      prepTime: finalRecipeData.prepTime,
+      cookTime: finalRecipeData.cookTime,
+      totalTime: finalRecipeData.totalTime,
+      difficulty: finalRecipeData.difficulty,
+      cuisine: finalRecipeData.cuisine,
+      tags: finalRecipeData.tags,
+      aiGenerated: true,
+      originalQuery: keywords,
+      ingredients: finalResolvedIngredients.map(ing => ({
+        ingredientId: ing.ingredientId,
+        amount: ing.amount,
+        unit: ing.unit,
+        notes: ing.notes,
+        isOptional: ing.isOptional
+      }))
+    });
+
+    return NextResponse.json({ 
+      recipe,
+      nutrition: finalPerServingNutrition,
+      mcpResponse: {
+        ...mcpResponse.data || mcpResponse.componentJson,
+        props: {
+          ...(mcpResponse.data?.props || mcpResponse.componentJson?.props),
+          id: recipe.id, // Include the saved recipe ID
+          title: recipe.name,
+          description: recipe.description,
+          mealType: recipe.mealType,
+          servings: recipe.servings,
+          prepTime: recipe.prepTime,
+          cookTime: recipe.cookTime,
+          totalTime: recipe.totalTime,
+          difficulty: recipe.difficulty,
+          cuisine: recipe.cuisine,
+          tags: recipe.tags,
+          ingredients: finalResolvedIngredients.map(ing => ({
+            name: ing.notes,
+            amount: ing.amount,
+            unit: ing.unit,
+            calories: ing.nutrition.calories,
+            protein: ing.nutrition.protein,
+            carbs: ing.nutrition.carbs,
+            fat: ing.nutrition.fat,
+            fiber: ing.nutrition.fiber,
+            sugar: ing.nutrition.sugar,
+            sodium: ing.nutrition.sodium
+          })),
+          instructions: Array.isArray(recipe.instructions) 
+            ? recipe.instructions 
+            : recipe.instructions.split('\n'),
+          aiGenerated: true,
+          originalQuery: keywords
+        }
+      }
+    });
   } catch (error) {
     console.error('Error generating recipe:', error);
     return NextResponse.json(
@@ -98,81 +422,4 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-}
-
-async function generateRecipeWithAI(context: any) {
-  // This is a simplified version - in a real implementation, you'd use your LLM service
-  // For now, let's create a basic recipe structure
-  
-  const { keywords, mealType, servings, calorieGoal } = context;
-  
-  // Search for ingredients based on keywords
-  const allIngredients = await portablePrisma.ingredient.findMany({
-    where: { isActive: true },
-    take: 1000
-  });
-
-  const searchResults = searchIngredients(allIngredients, keywords, 10);
-  
-  if (searchResults.length === 0) {
-    return null;
-  }
-
-  // Create a basic recipe structure
-  const recipeName = `${keywords} ${mealType}`;
-  const mainIngredient = searchResults[0];
-  
-  // Calculate target calories per serving
-  const targetCaloriesPerServing = calorieGoal ? calorieGoal / servings : 500;
-  
-  // Create ingredients list with appropriate amounts
-  const ingredients = searchResults.slice(0, 5).map((ingredient, index) => {
-    // Calculate amount based on calories and servings
-    const caloriesPer100g = ingredient.calories;
-    const targetCalories = targetCaloriesPerServing * (index === 0 ? 0.4 : 0.15); // Main ingredient gets more
-    const amount = (targetCalories / caloriesPer100g) * 100;
-    
-    return {
-      ingredientId: ingredient.id,
-      amount: Math.round(amount * 10) / 10,
-      unit: 'g',
-      notes: index === 0 ? 'Main ingredient' : undefined,
-      isOptional: index > 2
-    };
-  });
-
-  // Add some common ingredients
-  const commonIngredients = [
-    { name: 'olive oil', amount: 15, unit: 'ml' },
-    { name: 'salt', amount: 2, unit: 'g' },
-    { name: 'black pepper', amount: 1, unit: 'g' }
-  ];
-
-  for (const common of commonIngredients) {
-    const found = allIngredients.find(ing => 
-      ing.name.toLowerCase().includes(common.name.toLowerCase())
-    );
-    if (found) {
-      ingredients.push({
-        ingredientId: found.id,
-        amount: common.amount * servings,
-        unit: common.unit,
-        notes: 'Seasoning',
-        isOptional: true
-      });
-    }
-  }
-
-  return {
-    name: recipeName,
-    description: `A delicious ${mealType} featuring ${keywords}`,
-    instructions: `1. Prepare ${mainIngredient.name} according to your preference.\n2. Combine all ingredients in a suitable cooking vessel.\n3. Cook until done, adjusting seasoning to taste.\n4. Serve hot and enjoy!`,
-    prepTime: 15,
-    cookTime: 30,
-    totalTime: 45,
-    difficulty: 'easy',
-    cuisine: 'general',
-    tags: [mealType, keywords.toLowerCase()],
-    ingredients
-  };
 } 

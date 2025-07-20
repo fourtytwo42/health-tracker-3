@@ -44,8 +44,66 @@ import {
   Timer as TimerIcon,
   LocalDining as LocalDiningIcon,
   SwapHoriz as SwapIcon,
-  TrendingUp as TrendingUpIcon
+  TrendingUp as TrendingUpIcon,
+  Delete as DeleteIcon
 } from '@mui/icons-material';
+
+// Utility function to convert metric to cups
+const convertToCups = (amount: number, unit: string): string => {
+  // Common conversion factors
+  const conversions: { [key: string]: number } = {
+    // Weight to cups (approximate)
+    'g': 0.004, // 1g ≈ 0.004 cups (varies by ingredient)
+    'kg': 4, // 1kg ≈ 4 cups
+    'oz': 0.125, // 1oz ≈ 1/8 cup
+    'lb': 2, // 1lb ≈ 2 cups
+    
+    // Volume to cups
+    'ml': 0.004, // 1ml ≈ 0.004 cups
+    'l': 4, // 1L ≈ 4 cups
+    'tbsp': 0.0625, // 1 tbsp = 1/16 cup
+    'tsp': 0.0208, // 1 tsp ≈ 1/48 cup
+    'cup': 1, // 1 cup = 1 cup
+    'cups': 1
+  };
+
+  const conversionFactor = conversions[unit.toLowerCase()] || 0.004; // Default to 0.004 for unknown units
+  const cups = amount * conversionFactor;
+
+  // Round to nearest fraction
+  if (cups < 1) {
+    // For amounts under 1 cup, round to nearest 1/8
+    const eighths = Math.round(cups * 8);
+    if (eighths === 0) return '';
+    if (eighths === 1) return '1/8 cup';
+    if (eighths === 2) return '1/4 cup';
+    if (eighths === 3) return '3/8 cup';
+    if (eighths === 4) return '1/2 cup';
+    if (eighths === 5) return '5/8 cup';
+    if (eighths === 6) return '3/4 cup';
+    if (eighths === 7) return '7/8 cup';
+    return '1 cup';
+  } else {
+    // For amounts over 1 cup, round to nearest 1/4
+    const quarters = Math.round(cups * 4);
+    const wholeCups = Math.floor(quarters / 4);
+    const remainder = quarters % 4;
+    
+    let result = '';
+    if (wholeCups > 0) {
+      result += `${wholeCups} cup${wholeCups > 1 ? 's' : ''}`;
+    }
+    
+    if (remainder > 0) {
+      if (result) result += ' ';
+      if (remainder === 1) result += '1/4';
+      else if (remainder === 2) result += '1/2';
+      else if (remainder === 3) result += '3/4';
+    }
+    
+    return result;
+  }
+};
 
 interface Recipe {
   id: string;
@@ -142,6 +200,7 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
 
   const loadRecipes = async () => {
     try {
+      const token = localStorage.getItem('accessToken');
       const params = new URLSearchParams({
         page: currentPage.toString(),
         limit: '10'
@@ -151,7 +210,11 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
       if (filterMealType) params.append('mealType', filterMealType);
       if (filterFavorite !== undefined) params.append('isFavorite', filterFavorite.toString());
 
-      const response = await fetch(`/api/recipes?${params}`);
+      const response = await fetch(`/api/recipes?${params}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
       if (response.ok) {
         const data = await response.json();
         setRecipes(data.recipes);
@@ -170,9 +233,13 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
 
     setIsGenerating(true);
     try {
+      const token = localStorage.getItem('accessToken');
       const response = await fetch('/api/recipes/generate', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify({
           keywords,
           mealType,
@@ -202,8 +269,12 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
 
   const toggleFavorite = async (recipeId: string) => {
     try {
+      const token = localStorage.getItem('accessToken');
       const response = await fetch(`/api/recipes/${recipeId}/toggle-favorite`, {
-        method: 'POST'
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
       });
 
       if (response.ok) {
@@ -225,9 +296,13 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
 
     setIsGenerating(true);
     try {
+      const token = localStorage.getItem('accessToken');
       const response = await fetch('/api/recipes/generate', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify({
           keywords: recipe.originalQuery,
           mealType: recipe.mealType,
@@ -255,9 +330,13 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
 
   const replaceIngredient = async (recipeId: string, ingredientId: string, newIngredientId: string) => {
     try {
+      const token = localStorage.getItem('accessToken');
       const response = await fetch(`/api/recipes/${recipeId}/replace-ingredient`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify({
           ingredientId,
           newIngredientId,
@@ -283,9 +362,13 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
 
   const adjustNutrition = async (recipeId: string) => {
     try {
+      const token = localStorage.getItem('accessToken');
       const response = await fetch(`/api/recipes/${recipeId}/adjust-nutrition`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify({ targetCalories })
       });
 
@@ -297,11 +380,36 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
           )
         );
         setShowNutritionDialog(false);
-        alert('Nutrition adjusted successfully!');
       }
     } catch (error) {
       console.error('Error adjusting nutrition:', error);
-      alert('Error adjusting nutrition');
+    }
+  };
+
+  const deleteRecipe = async (recipeId: string) => {
+    if (!confirm('Are you sure you want to delete this recipe? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('accessToken');
+      const response = await fetch(`/api/recipes/${recipeId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.ok) {
+        setRecipes(prev => prev.filter(recipe => recipe.id !== recipeId));
+        alert('Recipe deleted successfully!');
+      } else {
+        const error = await response.json();
+        alert(`Error deleting recipe: ${error.error}`);
+      }
+    } catch (error) {
+      console.error('Error deleting recipe:', error);
+      alert('Error deleting recipe');
     }
   };
 
@@ -514,6 +622,13 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                     >
                       <RefreshIcon />
                     </IconButton>
+                    <IconButton
+                      size="small"
+                      color="error"
+                      onClick={() => deleteRecipe(recipe.id)}
+                    >
+                      <DeleteIcon />
+                    </IconButton>
                   </Box>
                 </Box>
 
@@ -625,8 +740,51 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                       <React.Fragment key={ri.id}>
                         <ListItem>
                           <ListItemText
-                            primary={`${ri.amount} ${ri.unit} ${ri.ingredient.name}`}
-                            secondary={ri.notes}
+                            primary={
+                              <Box>
+                                <Typography variant="body1">
+                                  {ri.amount} {ri.unit} {ri.ingredient.name}
+                                </Typography>
+                                {convertToCups(ri.amount, ri.unit) && (
+                                  <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                                    ({convertToCups(ri.amount, ri.unit)})
+                                  </Typography>
+                                )}
+                              </Box>
+                            }
+                            secondary={
+                              <Box>
+                                {ri.notes && (
+                                  <Typography variant="body2" color="text.secondary">
+                                    {ri.notes}
+                                  </Typography>
+                                )}
+                                <Box sx={{ mt: 0.5 }}>
+                                  <Grid container spacing={1}>
+                                    {ri.ingredient.calories > 0 && (
+                                      <Grid item>
+                                        <Chip label={`${ri.ingredient.calories} cal`} size="small" variant="outlined" />
+                                      </Grid>
+                                    )}
+                                    {ri.ingredient.protein > 0 && (
+                                      <Grid item>
+                                        <Chip label={`${ri.ingredient.protein}g protein`} size="small" variant="outlined" />
+                                      </Grid>
+                                    )}
+                                    {ri.ingredient.carbs > 0 && (
+                                      <Grid item>
+                                        <Chip label={`${ri.ingredient.carbs}g carbs`} size="small" variant="outlined" />
+                                      </Grid>
+                                    )}
+                                    {ri.ingredient.fat > 0 && (
+                                      <Grid item>
+                                        <Chip label={`${ri.ingredient.fat}g fat`} size="small" variant="outlined" />
+                                      </Grid>
+                                    )}
+                                  </Grid>
+                                </Box>
+                              </Box>
+                            }
                           />
                           <Tooltip title="Find alternative">
                             <IconButton

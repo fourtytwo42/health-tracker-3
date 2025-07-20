@@ -873,6 +873,9 @@ export class LLMRouter {
             model: provider.model,
             prompt: request.prompt,
             stream: false,
+            options: {
+              num_ctx: this.getProviderContextLimit(provider)  // 128k token context window
+            }
           }),
         });
 
@@ -929,7 +932,7 @@ export class LLMRouter {
           content: request.prompt,
         },
       ],
-      max_tokens: request.maxTokens || 1000,
+      max_tokens: request.maxTokens || this.getProviderContextLimit(provider),
       temperature: request.temperature || 0.7,
     };
     
@@ -963,7 +966,7 @@ export class LLMRouter {
   private async callAnthropic(provider: LLMProvider, request: LLMRequest): Promise<LLMResponse> {
     const requestBody = {
       model: provider.model,
-      max_tokens: request.maxTokens || 1000,
+      max_tokens: request.maxTokens || this.getProviderContextLimit(provider),
       messages: [
         {
           role: 'user',
@@ -1015,6 +1018,28 @@ export class LLMRouter {
       maxSize: 1000,
       hitRate: 0, // Would need to track hits/misses for accurate rate
     };
+  }
+
+  // Add method to get context limit for a provider
+  private getProviderContextLimit(provider: LLMProvider): number {
+    // Default to 128k for all providers
+    const defaultLimit = 128000;
+    
+    switch (provider.name) {
+      case 'Ollama':
+        return 131072; // 128k tokens (131072 = 128 * 1024)
+      case 'OpenAI':
+        // GPT-4 models have 128k context, GPT-3.5 has 16k
+        return provider.model?.includes('gpt-4') ? 128000 : 16000;
+      case 'Groq':
+        // Groq models typically have 32k-128k context
+        return 128000;
+      case 'Anthropic':
+        // Claude models have 200k context
+        return 200000;
+      default:
+        return defaultLimit;
+    }
   }
 }
 

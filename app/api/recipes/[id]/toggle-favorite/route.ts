@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { verifyAuth } from '@/lib/middleware/auth';
 import { RecipeService } from '@/lib/services/RecipeService';
 
 export async function POST(
@@ -8,8 +7,8 @@ export async function POST(
   { params }: { params: { id: string } }
 ) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
+    const user = await verifyAuth(request);
+    if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -21,7 +20,7 @@ export async function POST(
       return NextResponse.json({ error: 'Recipe not found' }, { status: 404 });
     }
     
-    if (existingRecipe.userId !== session.user.id) {
+    if (existingRecipe.userId !== user.id) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 

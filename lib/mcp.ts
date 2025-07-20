@@ -426,6 +426,7 @@ Make sure each recipe is realistic, healthy, and includes proper nutritional inf
 
         const llmResponse = await this.llmRouter.generateResponse({
           prompt: mealPlanPrompt,
+          maxTokens: 128000,
           userId: authInfo.userId,
           tool: 'generate_meal_plan',
         });
@@ -681,6 +682,304 @@ The meal plan includes detailed recipes for each meal with complete ingredient l
             { label: 'Add items', value: 'I want to add items to this list' },
             { label: 'Export list', value: 'I want to export this grocery list' },
             { label: 'Create meal plan', value: 'I want to create a meal plan first' },
+          ],
+        };
+      },
+    });
+
+    // Generate recipe tool
+    this.registerTool({
+      name: 'generate_recipe',
+      description: 'Generate a personalized recipe with ingredient search and nutrition calculation',
+      schema: z.object({
+        keywords: z.string().describe('Main ingredients or cuisine type'),
+        meal_type: z.enum(['BREAKFAST', 'LUNCH', 'DINNER', 'SNACK', 'DESSERT']).describe('Type of meal (BREAKFAST, LUNCH, DINNER, SNACK, or DESSERT)'),
+        servings: z.number().min(1).max(20).describe('Number of servings'),
+        calorie_goal: z.number().optional().describe('Target calories per serving'),
+        dietary_preferences: z.array(z.string()).optional().describe('Dietary preferences or restrictions'),
+        difficulty: z.string().optional().describe('Difficulty level (easy, medium, hard)'),
+        cuisine: z.string().optional().describe('Cuisine type'),
+      }),
+      handler: async (args, authInfo) => {
+        const recipePrompt = `Generate a detailed recipe based on the following requirements:
+
+Keywords: ${args.keywords}
+Meal Type: ${args.meal_type} (must be one of: BREAKFAST, LUNCH, DINNER, SNACK, DESSERT)
+Servings: ${args.servings}
+${args.calorie_goal ? `Calorie Goal: ${args.calorie_goal} calories per serving` : ''}
+${args.dietary_preferences?.length ? `Dietary Preferences: ${args.dietary_preferences.join(', ')}` : ''}
+Difficulty: ${args.difficulty || 'medium'}
+Cuisine: ${args.cuisine || 'general'}
+
+IMPORTANT REQUIREMENTS:
+1. Meal type must be exactly one of: BREAKFAST, LUNCH, DINNER, SNACK, DESSERT
+2. Use common, recognizable ingredient names (e.g., "chicken breast", "olive oil", "tomatoes")
+3. Provide amounts in grams (g) or milliliters (ml) for precise measurement
+4. Include detailed step-by-step instructions
+5. Keep ingredient names simple and recognizable
+
+Generate a complete recipe in the following JSON format (ensure valid JSON with proper quotes, commas, and structure):
+
+{
+  "name": "Recipe Name",
+  "description": "Brief description of the recipe",
+  "mealType": "${args.meal_type}",
+  "servings": ${args.servings},
+  "prepTime": 15,
+  "cookTime": 30,
+  "totalTime": 45,
+  "difficulty": "${args.difficulty || 'medium'}",
+  "cuisine": "${args.cuisine || 'general'}",
+  "tags": ["tag1", "tag2"],
+  "ingredients": [
+    {
+      "name": "Ingredient Name",
+      "amount": 100,
+      "unit": "g"
+    }
+  ],
+  "instructions": [
+    "Step 1: Detailed instruction",
+    "Step 2: Detailed instruction"
+  ]
+}
+
+Timestamp: ${Date.now()}`;
+
+        let llmResponse = await this.llmRouter.generateResponse({
+          prompt: recipePrompt,
+          maxTokens: 128000,
+          userId: authInfo.userId,
+          tool: 'generate_recipe',
+        });
+
+        // Parse the LLM response to extract the recipe
+        let recipe;
+        let retryCount = 0;
+        const maxRetries = 2;
+        
+        while (retryCount <= maxRetries) {
+          try {
+            // Try multiple strategies to extract JSON from the response
+            let jsonString = null;
+            
+            console.log('Attempting to extract JSON from response...');
+            console.log('Response length:', llmResponse.content.length);
+            console.log('Response preview:', llmResponse.content.substring(0, 200));
+            
+            // Strategy 1: Look for JSON code blocks (```json ... ```)
+            const codeBlockMatch = llmResponse.content.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/);
+            if (codeBlockMatch) {
+              console.log('Found JSON in code block');
+              jsonString = codeBlockMatch[1];
+            }
+            
+            // Strategy 2: Look for JSON object with better regex
+            if (!jsonString) {
+              const jsonMatch = llmResponse.content.match(/\{[\s\S]*?\}/);
+              if (jsonMatch) {
+                console.log('Found JSON with basic regex');
+                jsonString = jsonMatch[0];
+              }
+            }
+            
+            // Strategy 3: Look for JSON after common prefixes
+            if (!jsonString) {
+              const afterPrefixMatch = llmResponse.content.match(/(?:Here is|Here's|Generated recipe|Recipe:)[\s\S]*?(\{[\s\S]*?\})/);
+              if (afterPrefixMatch) {
+                console.log('Found JSON after prefix');
+                jsonString = afterPrefixMatch[1];
+              }
+            }
+            
+            // Strategy 4: Simple approach - find the first { and last }
+            if (!jsonString) {
+              const firstBrace = llmResponse.content.indexOf('{');
+              const lastBrace = llmResponse.content.lastIndexOf('}');
+              if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+                console.log('Found JSON with brace matching');
+                jsonString = llmResponse.content.substring(firstBrace, lastBrace + 1);
+              }
+            }
+            
+            if (jsonString) {
+              console.log('Extracted JSON string length:', jsonString.length);
+              console.log('JSON preview:', jsonString.substring(0, 200));
+              
+              // Clean up the JSON string
+              jsonString = jsonString
+                // Remove any remaining text before the first {
+                .replace(/^[^{]*/, '')
+                // Remove any text after the last }
+                .replace(/}[^}]*$/, '}')
+                // Fix missing quotes around property names (only if they're missing)
+                .replace(/([{,]\s*)([a-zA-Z_][a-zA-Z0-9_]*)\s*:/g, '$1"$2":')
+                // Fix trailing commas
+                .replace(/,(\s*[}\]])/g, '$1')
+                // Fix null values
+                .replace(/"null"/g, 'null')
+                .replace(/null\s*,/g, 'null,')
+                .replace(/null\s*}/g, 'null}');
+              
+              console.log('Cleaned JSON preview:', jsonString.substring(0, 200));
+              
+              recipe = JSON.parse(jsonString);
+              console.log('Successfully parsed recipe:', recipe.name);
+              break; // Success, exit the retry loop
+            } else {
+              throw new Error('No JSON found in response');
+            }
+          } catch (error) {
+            console.error(`Failed to parse recipe JSON (attempt ${retryCount + 1}):`, error);
+            console.error('Raw response:', llmResponse.content);
+            
+            if (retryCount < maxRetries) {
+              // Retry with better instructions
+              const retryPrompt = `Your previous response had malformed JSON. Here's an example of the correct format:
+
+{
+  "name": "Grilled Chicken Breast",
+  "description": "Simple grilled chicken breast with herbs",
+  "mealType": "DINNER",
+  "servings": 2,
+  "prepTime": 10,
+  "cookTime": 20,
+  "totalTime": 30,
+  "difficulty": "easy",
+  "cuisine": "american",
+  "tags": ["chicken", "grilled", "healthy"],
+  "ingredients": [
+    {
+      "name": "chicken breast",
+      "amount": 400,
+      "unit": "g"
+    },
+    {
+      "name": "olive oil",
+      "amount": 15,
+      "unit": "ml"
+    }
+  ],
+  "instructions": [
+    "Season chicken with salt and pepper",
+    "Heat grill to medium-high",
+    "Grill chicken for 10 minutes per side"
+  ]
+}
+
+Please generate a recipe for: ${args.keywords} (${args.meal_type}) with ${args.servings} servings.
+Ensure your response is valid JSON with proper quotes, commas, and structure.
+Timestamp: ${Date.now()}`;
+
+              llmResponse = await this.llmRouter.generateResponse({
+                prompt: retryPrompt,
+                maxTokens: 128000,
+                userId: authInfo.userId,
+                tool: 'generate_recipe',
+              });
+              
+              retryCount++;
+            } else {
+              // Final attempt failed, throw error
+              throw new Error('Failed to generate valid recipe JSON after multiple attempts');
+            }
+          }
+        }
+
+        return {
+          type: 'RecipeCard',
+          props: {
+            title: recipe.name,
+            description: recipe.description,
+            mealType: recipe.mealType,
+            servings: recipe.servings,
+            prepTime: recipe.prepTime,
+            cookTime: recipe.cookTime,
+            totalTime: recipe.totalTime,
+            difficulty: recipe.difficulty,
+            cuisine: recipe.cuisine,
+            tags: recipe.tags,
+            ingredients: recipe.ingredients,
+            instructions: recipe.instructions,
+            status: 'generated',
+            aiGenerated: true,
+            originalQuery: args.keywords
+          },
+          quickReplies: [
+            { label: 'Save this recipe', value: 'I want to save this recipe' },
+            { label: 'Generate another recipe', value: 'I want to generate a different recipe' },
+            { label: 'Modify this recipe', value: 'I want to modify this recipe' },
+          ],
+        };
+      },
+    });
+
+    // Find ingredient alternative tool
+    this.registerTool({
+      name: 'find_ingredient_alternative',
+      description: 'Find alternative ingredients based on dietary preferences or requirements',
+      schema: z.object({
+        ingredient_name: z.string().describe('Name of the ingredient to find alternatives for'),
+        requirements: z.string().describe('Requirements for the alternative (e.g., "lower calorie", "gluten-free", "vegan")'),
+        recipe_context: z.string().optional().describe('Context of the recipe this ingredient is used in'),
+      }),
+      handler: async (args, authInfo) => {
+        const alternativePrompt = `Find alternative ingredients for "${args.ingredient_name}" with the following requirements: ${args.requirements}
+
+${args.recipe_context ? `Recipe context: ${args.recipe_context}` : ''}
+
+Provide 3-5 alternative ingredients with:
+1. Name of the alternative
+2. Why it's a good substitute
+3. Any adjustments needed (amount, cooking method, etc.)
+4. Nutritional differences
+
+Format the response as a JSON object with alternatives array.`;
+
+        const llmResponse = await this.llmRouter.generateResponse({
+          prompt: alternativePrompt,
+          maxTokens: 128000,
+          userId: authInfo.userId,
+          tool: 'find_ingredient_alternative',
+        });
+
+        // Parse the LLM response to extract alternatives
+        let alternatives;
+        try {
+          const jsonMatch = llmResponse.content.match(/\{[\s\S]*\}/);
+          if (jsonMatch) {
+            alternatives = JSON.parse(jsonMatch[0]);
+          } else {
+            throw new Error('No JSON found in response');
+          }
+        } catch (error) {
+          console.error('Failed to parse alternatives JSON:', error);
+          alternatives = {
+            originalIngredient: args.ingredient_name,
+            requirements: args.requirements,
+            alternatives: [
+              {
+                name: 'Alternative not found',
+                reason: 'Unable to generate alternatives at this time',
+                adjustments: 'Please try again',
+                nutrition: 'N/A'
+              }
+            ]
+          };
+        }
+
+        return {
+          type: 'IngredientAlternatives',
+          props: {
+            originalIngredient: args.ingredient_name,
+            requirements: args.requirements,
+            alternatives: alternatives.alternatives || [],
+            message: `Found ${(alternatives.alternatives || []).length} alternatives for ${args.ingredient_name}`
+          },
+          quickReplies: [
+            { label: 'Find more alternatives', value: `Find more alternatives for ${args.ingredient_name}` },
+            { label: 'Generate recipe with alternative', value: `Generate a recipe using one of these alternatives` },
+            { label: 'Search for different ingredient', value: 'I want to find alternatives for a different ingredient' },
           ],
         };
       },

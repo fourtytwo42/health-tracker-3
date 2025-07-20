@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { portablePrisma } from '@/lib/prisma';
+import { prisma } from '@/lib/prisma';
 import { searchExercises } from '@/lib/searchService';
 
 export async function GET(request: NextRequest) {
@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
 
     // If loading categories or intensities, return all exercises
     if (loadCategories || loadIntensities) {
-      const exercises = await portablePrisma.exercise.findMany({
+      const exercises = await prisma.exercise.findMany({
         where: { isActive: true },
         select: {
           id: true,
@@ -52,7 +52,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Get exercises from database
-    const exercises = await portablePrisma.exercise.findMany({
+    const exercises = await prisma.exercise.findMany({
       where: whereClause,
       select: {
         id: true,

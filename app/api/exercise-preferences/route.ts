@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
     }
 
     const preferences = await prisma.exercisePreference.findMany({
-      where: { userId: user.id },
+      where: { userId: user.userId },
       include: {
         exercise: {
           select: {
@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
     const existingPreference = await prisma.exercisePreference.findUnique({
       where: {
         userId_exerciseId: {
-          userId: user.id,
+          userId: user.userId,
           exerciseId: body.exerciseId
         }
       }
@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
     // Create new preference
     const preference = await prisma.exercisePreference.create({
       data: {
-        userId: user.id,
+        userId: user.userId,
         exerciseId: body.exerciseId,
         preference: body.preference,
         notes: body.notes

@@ -1,6 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -11,61 +8,56 @@ datasource db {
 }
 
 model User {
-  id           String   @id @default(cuid())
-  username     String   @unique
-  email        String   @unique
-  passwordHash String   @map("password_hash")
-  role         String   @default("USER")
-  avatarUrl    String?  @map("avatar_url")
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
-  
-  // Relations
-  profile      Profile?
-  userDetails  UserDetails?
-  meals        Meal[]
-  activities   Activity[]
-  biomarkers   Biomarker[]
-  goals        Goal[]
-  leaderboard  LeaderboardEntry?
-  mealPlans    MealPlan[]
-  activityPlans ActivityPlan[]
-  groceryLists GroceryList[]
-  reports      Report[]
-  llmUsage     LLMUsage[]
-  foodPreferences FoodPreference[]
-  exercisePreferences ExercisePreference[]
-  scheduledMeals ScheduledMeal[]
+  id                  String               @id @default(cuid())
+  username            String               @unique
+  email               String               @unique
+  passwordHash        String               @map("password_hash")
+  role                String               @default("USER")
+  avatarUrl           String?              @map("avatar_url")
+  createdAt           DateTime             @default(now()) @map("created_at")
+  updatedAt           DateTime             @updatedAt @map("updated_at")
+  activities          Activity[]
+  activityPlans       ActivityPlan[]
+  biomarkers          Biomarker[]
+  foodPreferences     FoodPreference[]
+  goals               Goal[]
+  groceryLists        GroceryList[]
+  leaderboard         LeaderboardEntry?
+  llmUsage            LLMUsage[]
+  mealPlans           MealPlan[]
+  meals               Meal[]
+  profile             Profile?
+  recipes             Recipe[]
+  reports             Report[]
   scheduledActivities ScheduledActivity[]
-  recipes      Recipe[]
-  
+  scheduledMeals      ScheduledMeal[]
+  userDetails         UserDetails?
+
   @@map("users")
 }
 
 model Profile {
-  id                String   @id @default(cuid())
-  userId            String   @unique @map("user_id")
-  firstName         String?  @map("first_name")
-  lastName          String?  @map("last_name")
-  dateOfBirth       DateTime? @map("date_of_birth")
-  gender            String?
-  height            Float?   // in cm
-  weight            Float?   // in kg
-  targetWeight      Float?   @map("target_weight")
-  activityLevel     String   @default("SEDENTARY") @map("activity_level")
-  dietaryPreferences String? @map("dietary_preferences") // JSON string
-  calorieTarget     Int?     @map("calorie_target")
-  proteinTarget     Int?     @map("protein_target") // in grams
-  carbTarget        Int?     @map("carb_target") // in grams
-  fatTarget         Int?     @map("fat_target") // in grams
-  fiberTarget       Int?     @map("fiber_target") // in grams
-  privacySettings   String?  @map("privacy_settings") // JSON string
-  createdAt         DateTime @default(now()) @map("created_at")
-  updatedAt         DateTime @updatedAt @map("updated_at")
-  
-  // Relations
-  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
+  id                 String    @id @default(cuid())
+  userId             String    @unique @map("user_id")
+  firstName          String?   @map("first_name")
+  lastName           String?   @map("last_name")
+  dateOfBirth        DateTime? @map("date_of_birth")
+  gender             String?
+  height             Float?
+  weight             Float?
+  targetWeight       Float?    @map("target_weight")
+  activityLevel      String    @default("SEDENTARY") @map("activity_level")
+  dietaryPreferences String?   @map("dietary_preferences")
+  calorieTarget      Int?      @map("calorie_target")
+  proteinTarget      Int?      @map("protein_target")
+  carbTarget         Int?      @map("carb_target")
+  fatTarget          Int?      @map("fat_target")
+  fiberTarget        Int?      @map("fiber_target")
+  privacySettings    String?   @map("privacy_settings")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+  user               User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@map("profiles")
 }
 
@@ -74,37 +66,48 @@ model Meal {
   userId        String   @map("user_id")
   name          String
   mealType      String   @map("meal_type")
-  ingredients   String   // JSON string of ingredients with quantities
-  nutritionInfo String?  @map("nutrition_info") // JSON string of calories, macros, etc.
+  ingredients   String
+  nutritionInfo String?  @map("nutrition_info")
   photoUrl      String?  @map("photo_url")
   notes         String?
   loggedAt      DateTime @default(now()) @map("logged_at")
   createdAt     DateTime @default(now()) @map("created_at")
   updatedAt     DateTime @updatedAt @map("updated_at")
-  
-  // Relations
   user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
+
   @@map("meals")
 }
 
 model Activity {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  name      String
+  type      String
+  duration  Int
+  calories  Int?
+  intensity String   @default("MODERATE")
+  notes     String?
+  loggedAt  DateTime @default(now()) @map("logged_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("activities")
+}
+
+model Exercise {
   id          String   @id @default(cuid())
-  userId      String   @map("user_id")
-  name        String
-  type        String
-  duration    Int      // in minutes
-  calories    Int?     // calories burned
-  intensity   String   @default("MODERATE")
-  notes       String?
-  loggedAt    DateTime @default(now()) @map("logged_at")
+  activity    String
+  code        String   @unique
+  met         Float
+  description String?
+  category    String?
+  intensity   String?
+  isActive    Boolean  @default(true) @map("is_active")
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
-  
-  // Relations
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  @@map("activities")
+
+  @@map("exercises")
 }
 
 model Biomarker {
@@ -118,87 +121,77 @@ model Biomarker {
   loggedAt  DateTime @default(now()) @map("logged_at")
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
-  
-  // Relations
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
+
   @@map("biomarkers")
 }
 
 model Goal {
-  id          String   @id @default(cuid())
-  userId      String   @map("user_id")
-  title       String
-  description String?
-  type        String
-  targetValue Float?   @map("target_value")
-  currentValue Float?  @map("current_value")
-  unit        String?
-  deadline    DateTime?
-  status      String   @default("ACTIVE")
-  completedAt DateTime? @map("completed_at")
-  certificateUrl String? @map("certificate_url")
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
-  
-  // Relations
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
+  id             String    @id @default(cuid())
+  userId         String    @map("user_id")
+  title          String
+  description    String?
+  type           String
+  targetValue    Float?    @map("target_value")
+  currentValue   Float?    @map("current_value")
+  unit           String?
+  deadline       DateTime?
+  status         String    @default("ACTIVE")
+  completedAt    DateTime? @map("completed_at")
+  certificateUrl String?   @map("certificate_url")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@map("goals")
 }
 
 model LeaderboardEntry {
-  userId      String @id @map("user_id")
-  totalPoints Int    @default(0) @map("total_points")
+  userId      String   @id @map("user_id")
+  totalPoints Int      @default(0) @map("total_points")
   rank        Int?
   lastUpdated DateTime @default(now()) @map("last_updated")
-  
-  // Relations
-  user        User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@map("leaderboard")
 }
 
 model MealPlan {
-  id          String   @id @default(cuid())
-  userId      String   @map("user_id")
-  title       String
-  description String?
-  startDate   DateTime @map("start_date")
-  endDate     DateTime @map("end_date")
-  planData    String   @map("plan_data") // JSON string of meal plan data
-  totalCalories Int?   @map("total_calories")
-  totalProtein Int?    @map("total_protein")
-  totalCarbs   Int?    @map("total_carbs")
-  totalFat     Int?    @map("total_fat")
-  totalFiber   Int?    @map("total_fiber")
-  isActive     Boolean @default(true) @map("is_active")
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
-  
-  // Relations
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
+  id            String   @id @default(cuid())
+  userId        String   @map("user_id")
+  title         String
+  description   String?
+  startDate     DateTime @map("start_date")
+  endDate       DateTime @map("end_date")
+  planData      String   @map("plan_data")
+  totalCalories Int?     @map("total_calories")
+  totalProtein  Int?     @map("total_protein")
+  totalCarbs    Int?     @map("total_carbs")
+  totalFat      Int?     @map("total_fat")
+  totalFiber    Int?     @map("total_fiber")
+  isActive      Boolean  @default(true) @map("is_active")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@map("meal_plans")
 }
 
 model ActivityPlan {
-  id          String   @id @default(cuid())
-  userId      String   @map("user_id")
-  title       String
-  description String?
-  startDate   DateTime @map("start_date")
-  endDate     DateTime @map("end_date")
-  planData    String   @map("plan_data") // JSON string of activity plan data
-  totalDuration Int?   @map("total_duration") // in minutes
-  totalCalories Int?   @map("total_calories")
-  isActive     Boolean @default(true) @map("is_active")
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
-  
-  // Relations
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
+  id            String   @id @default(cuid())
+  userId        String   @map("user_id")
+  title         String
+  description   String?
+  startDate     DateTime @map("start_date")
+  endDate       DateTime @map("end_date")
+  planData      String   @map("plan_data")
+  totalDuration Int?     @map("total_duration")
+  totalCalories Int?     @map("total_calories")
+  isActive      Boolean  @default(true) @map("is_active")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@map("activity_plans")
 }
 
@@ -206,124 +199,160 @@ model GroceryList {
   id          String   @id @default(cuid())
   userId      String   @map("user_id")
   title       String
-  items       String   // JSON string of grocery items grouped by aisle
+  items       String
   totalItems  Int      @default(0) @map("total_items")
   isCompleted Boolean  @default(false) @map("is_completed")
   pdfUrl      String?  @map("pdf_url")
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
-  
-  // Relations
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
+
   @@map("grocery_lists")
 }
 
 model Report {
-  id          String   @id @default(cuid())
-  userId      String   @map("user_id")
-  title       String
-  type        String
-  data        String   // JSON string of report data
-  pdfUrl      String?  @map("pdf_url")
-  docxUrl     String?  @map("docx_url")
-  createdAt   DateTime @default(now()) @map("created_at")
-  
-  // Relations
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  title     String
+  type      String
+  data      String
+  pdfUrl    String?  @map("pdf_url")
+  docxUrl   String?  @map("docx_url")
+  createdAt DateTime @default(now()) @map("created_at")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@map("reports")
 }
 
 model IngredientTaxonomy {
-  id    String @id @default(cuid())
-  name  String @unique
-  aisle String
+  id       String  @id @default(cuid())
+  name     String  @unique
+  aisle    String
   category String?
-  
+
   @@map("ingredient_taxonomy")
 }
 
 model Ingredient {
-  id                    String   @id @default(cuid())
-  name                  String   @unique
-  description           String?
-  servingSize           String   @map("serving_size") // e.g., "100g", "1 cup", "1 medium"
-  calories              Float
-  protein               Float    // in grams
-  carbs                 Float    // in grams
-  fat                   Float    // in grams
-  fiber                 Float?   // in grams
-  sugar                 Float?   // in grams
-  sodium                Float?   // in mg
-  cholesterol           Float?   // in mg
-  saturatedFat          Float?   @map("saturated_fat") // in grams
-  monounsaturatedFat    Float?   @map("monounsaturated_fat") // in grams
-  polyunsaturatedFat    Float?   @map("polyunsaturated_fat") // in grams
-  transFat              Float?   @map("trans_fat") // in grams
-  netCarbs              Float?   @map("net_carbs") // in grams
-  glycemicIndex         Float?   @map("glycemic_index")
-  glycemicLoad          Float?   @map("glycemic_load")
-  dietaryFlags          String?  @map("dietary_flags") // JSON string of dietary flags
-  allergens             String?  // JSON string of allergens
-  category              String?  // Comprehensive category from the list
-  aisle                 String?  // e.g., "produce", "meat", "dairy", "pantry"
-  isActive              Boolean  @default(true) @map("is_active")
-  createdAt             DateTime @default(now()) @map("created_at")
-  updatedAt             DateTime @updatedAt @map("updated_at")
-  
-  // Relations
-  foodPreferences       FoodPreference[]
-  recipeIngredients     RecipeIngredient[]
-  
+  id                 String             @id @default(cuid())
+  name               String             @unique
+  description        String?
+  servingSize        String             @map("serving_size")
+  calories           Float
+  protein            Float
+  carbs              Float
+  fat                Float
+  fiber              Float?
+  sugar              Float?
+  sodium             Float?
+  category           String?
+  aisle              String?
+  isActive           Boolean            @default(true) @map("is_active")
+  createdAt          DateTime           @default(now()) @map("created_at")
+  updatedAt          DateTime           @updatedAt @map("updated_at")
+  allergens          String?
+  cholesterol        Float?
+  dietaryFlags       String?            @map("dietary_flags")
+  glycemicIndex      Float?             @map("glycemic_index")
+  glycemicLoad       Float?             @map("glycemic_load")
+  monounsaturatedFat Float?             @map("monounsaturated_fat")
+  netCarbs           Float?             @map("net_carbs")
+  polyunsaturatedFat Float?             @map("polyunsaturated_fat")
+  saturatedFat       Float?             @map("saturated_fat")
+  transFat           Float?             @map("trans_fat")
+  foodPreferences    FoodPreference[]
+  recipeIngredients  RecipeIngredient[]
+
   @@map("ingredients")
 }
 
+model Recipe {
+  id            String             @id @default(cuid())
+  userId        String             @map("user_id")
+  name          String
+  description   String?
+  mealType      String             @map("meal_type")
+  servings      Int                @default(1)
+  instructions  String
+  prepTime      Int?               @map("prep_time")
+  cookTime      Int?               @map("cook_time")
+  totalTime     Int?               @map("total_time")
+  difficulty    String?
+  cuisine       String?
+  tags          String?
+  photoUrl      String?            @map("photo_url")
+  isFavorite    Boolean            @default(false) @map("is_favorite")
+  isPublic      Boolean            @default(false) @map("is_public")
+  aiGenerated   Boolean            @default(false) @map("ai_generated")
+  originalQuery String?            @map("original_query")
+  createdAt     DateTime           @default(now()) @map("created_at")
+  updatedAt     DateTime           @updatedAt @map("updated_at")
+  ingredients   RecipeIngredient[]
+  user          User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("recipes")
+}
+
+model RecipeIngredient {
+  id           String   @id @default(cuid())
+  recipeId     String   @map("recipe_id")
+  ingredientId String   @map("ingredient_id")
+  amount       Float
+  unit         String
+  notes        String?
+  isOptional   Boolean  @default(false) @map("is_optional")
+  order        Int
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+  recipe       Recipe   @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  ingredient   Ingredient @relation(fields: [ingredientId], references: [id], onDelete: Cascade)
+
+  @@map("recipe_ingredients")
+}
+
 model Setting {
-  id          String @id @default(cuid())
-  key         String @unique
+  id          String   @id @default(cuid())
+  key         String   @unique
   value       String
   description String?
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
-  
+
   @@map("settings")
 }
 
 model LLMUsage {
-  id              String   @id @default(cuid())
-  providerKey     String   @map("provider_key")
-  model           String
-  promptTokens    Int      @map("prompt_tokens")
-  completionTokens Int     @map("completion_tokens")
-  totalTokens     Int      @map("total_tokens")
-  inputCost       Float    @map("input_cost")
-  outputCost      Float    @map("output_cost")
-  totalCost       Float    @map("total_cost")
-  userId          String?  @map("user_id")
-  requestType     String?  @map("request_type") // e.g., "chat", "meal_plan", "test"
-  createdAt       DateTime @default(now()) @map("created_at")
-  
-  // Relations
-  user            User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
-  
+  id               String   @id @default(cuid())
+  providerKey      String   @map("provider_key")
+  model            String
+  promptTokens     Int      @map("prompt_tokens")
+  completionTokens Int      @map("completion_tokens")
+  totalTokens      Int      @map("total_tokens")
+  inputCost        Float    @map("input_cost")
+  outputCost       Float    @map("output_cost")
+  totalCost        Float    @map("total_cost")
+  userId           String?  @map("user_id")
+  requestType      String?  @map("request_type")
+  createdAt        DateTime @default(now()) @map("created_at")
+  user             User?    @relation(fields: [userId], references: [id])
+
   @@map("llm_usage")
 }
 
 model LLMUsageSummary {
-  id              String   @id @default(cuid())
-  providerKey     String   @unique @map("provider_key")
-  totalPromptTokens Int    @default(0) @map("total_prompt_tokens")
-  totalCompletionTokens Int @default(0) @map("total_completion_tokens")
-  totalTokens     Int      @default(0) @map("total_tokens")
-  totalInputCost  Float    @default(0) @map("total_input_cost")
-  totalOutputCost Float    @default(0) @map("total_output_cost")
-  totalCost       Float    @default(0) @map("total_cost")
-  requestCount    Int      @default(0) @map("request_count")
-  lastResetAt     DateTime @default(now()) @map("last_reset_at")
-  createdAt       DateTime @default(now()) @map("created_at")
-  updatedAt       DateTime @updatedAt @map("updated_at")
-  
+  id                    String   @id @default(cuid())
+  providerKey           String   @unique @map("provider_key")
+  totalPromptTokens     Int      @default(0) @map("total_prompt_tokens")
+  totalCompletionTokens Int      @default(0) @map("total_completion_tokens")
+  totalTokens           Int      @default(0) @map("total_tokens")
+  totalInputCost        Float    @default(0) @map("total_input_cost")
+  totalOutputCost       Float    @default(0) @map("total_output_cost")
+  totalCost             Float    @default(0) @map("total_cost")
+  requestCount          Int      @default(0) @map("request_count")
+  lastResetAt           DateTime @default(now()) @map("last_reset_at")
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @updatedAt @map("updated_at")
+
   @@map("llm_usage_summary")
 }
 
@@ -332,197 +361,97 @@ model SystemMessage {
   key         String   @unique
   title       String
   content     String
-  category    String   // e.g., "chat", "mcp", "prompts", "errors", "quick_replies"
+  category    String
   description String?
   isActive    Boolean  @default(true) @map("is_active")
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
-  
+
   @@map("system_messages")
 }
 
-model Exercise {
-  id          String   @id @default(cuid())
-  activity    String
-  code        String   @unique
-  met         Float
-  description String
-  category    String?
-  intensity   String?  @default("MODERATE") // LIGHT, MODERATE, VIGOROUS
-  isActive    Boolean  @default(true) @map("is_active")
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
-  
-  // Relations
-  exercisePreferences ExercisePreference[]
-  scheduledActivities ScheduledActivity[]
-  
-  @@map("exercises")
-}
+
 
 model UserDetails {
-  id                    String   @id @default(cuid())
-  userId                String   @unique @map("user_id")
-  
-  // Physical measurements
-  height                Float?   // in cm
-  weight                Float?   // in kg
-  targetWeight          Float?   @map("target_weight")
-  bodyFatPercentage     Float?   @map("body_fat_percentage")
-  muscleMass            Float?   @map("muscle_mass") // in kg
-  bmi                   Float?
-  
-  // Health information
-  bloodType             String?  @map("blood_type")
-  allergies             String?  // JSON string of allergies
-  medications           String?  // JSON string of medications
-  medicalConditions     String?  @map("medical_conditions") // JSON string of conditions
-  disabilities          String?  // JSON string of disabilities and limitations
-  
-  // Exercise limitations
-  exerciseLimitations   String?  @map("exercise_limitations") // JSON string of body parts/limitations
-  mobilityIssues        String?  @map("mobility_issues") // JSON string of mobility issues
-  injuryHistory         String?  @map("injury_history") // JSON string of past injuries
-  
-  // Lifestyle
-  activityLevel         String   @default("SEDENTARY") @map("activity_level")
-  sleepQuality          String?  @map("sleep_quality")
-  stressLevel           String?  @map("stress_level")
-  smokingStatus         String?  @map("smoking_status")
-  alcoholConsumption    String?  @map("alcohol_consumption")
-  
-  // Goals and preferences
-  fitnessGoals          String?  @map("fitness_goals") // JSON string of goals
-  dietaryGoals          String?  @map("dietary_goals") // JSON string of goals
-  weightGoals           String?  @map("weight_goals") // JSON string of goals
-  
-  createdAt             DateTime @default(now()) @map("created_at")
-  updatedAt             DateTime @updatedAt @map("updated_at")
-  
-  // Relations
-  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
+  id                  String   @id @default(cuid())
+  userId              String   @unique @map("user_id")
+  height              Float?
+  weight              Float?
+  targetWeight        Float?   @map("target_weight")
+  bodyFatPercentage   Float?   @map("body_fat_percentage")
+  muscleMass          Float?   @map("muscle_mass")
+  bmi                 Float?
+  bloodType           String?  @map("blood_type")
+  allergies           String?
+  medications         String?
+  medicalConditions   String?  @map("medical_conditions")
+  disabilities        String?
+  exerciseLimitations String?  @map("exercise_limitations")
+  mobilityIssues      String?  @map("mobility_issues")
+  injuryHistory       String?  @map("injury_history")
+  activityLevel       String   @default("SEDENTARY") @map("activity_level")
+  sleepQuality        String?  @map("sleep_quality")
+  stressLevel         String?  @map("stress_level")
+  smokingStatus       String?  @map("smoking_status")
+  alcoholConsumption  String?  @map("alcohol_consumption")
+  fitnessGoals        String?  @map("fitness_goals")
+  dietaryGoals        String?  @map("dietary_goals")
+  weightGoals         String?  @map("weight_goals")
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@map("user_details")
 }
 
 model FoodPreference {
-  id          String   @id @default(cuid())
-  userId      String   @map("user_id")
-  ingredientId String  @map("ingredient_id")
-  preference  String   // LIKE, DISLIKE, ALLERGY, INTOLERANCE
-  notes       String?
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
-  
-  // Relations
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  ingredient  Ingredient @relation(fields: [ingredientId], references: [id], onDelete: Cascade)
-  
+  id           String     @id @default(cuid())
+  userId       String     @map("user_id")
+  ingredientId String     @map("ingredient_id")
+  preference   String
+  notes        String?
+  createdAt    DateTime   @default(now()) @map("created_at")
+  updatedAt    DateTime   @updatedAt @map("updated_at")
+  ingredient   Ingredient @relation(fields: [ingredientId], references: [id], onDelete: Cascade)
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@unique([userId, ingredientId])
   @@map("food_preferences")
 }
 
-model ExercisePreference {
-  id          String   @id @default(cuid())
-  userId      String   @map("user_id")
-  exerciseId  String   @map("exercise_id")
-  preference  String   // LIKE, DISLIKE, CANNOT_DO, MODIFIED
-  notes       String?
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
-  
-  // Relations
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  exercise    Exercise @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
-  
-  @@unique([userId, exerciseId])
-  @@map("exercise_preferences")
-}
-
 model ScheduledMeal {
-  id          String   @id @default(cuid())
-  userId      String   @map("user_id")
-  title       String
-  mealType    String   @map("meal_type") // BREAKFAST, LUNCH, DINNER, SNACK
-  ingredients String   // JSON string of ingredients with quantities
-  nutritionInfo String? @map("nutrition_info") // JSON string of nutrition data
+  id            String   @id @default(cuid())
+  userId        String   @map("user_id")
+  title         String
+  mealType      String   @map("meal_type")
+  ingredients   String
+  nutritionInfo String?  @map("nutrition_info")
   scheduledDate DateTime @map("scheduled_date")
-  scheduledTime String? @map("scheduled_time") // HH:MM format
-  notes       String?
-  isCompleted Boolean  @default(false) @map("is_completed")
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
-  
-  // Relations
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
+  scheduledTime String?  @map("scheduled_time")
+  notes         String?
+  isCompleted   Boolean  @default(false) @map("is_completed")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@map("scheduled_meals")
 }
 
 model ScheduledActivity {
-  id          String   @id @default(cuid())
-  userId      String   @map("user_id")
-  exerciseId  String   @map("exercise_id")
-  scheduledAt DateTime @map("scheduled_at")
-  duration    Int      // in minutes
-  intensity   String   @default("MODERATE")
+  id          String    @id @default(cuid())
+  userId      String    @map("user_id")
+  exerciseId  String    @map("exercise_id")
+  scheduledAt DateTime  @map("scheduled_at")
+  duration    Int
+  intensity   String    @default("MODERATE")
   notes       String?
-  isCompleted Boolean  @default(false) @map("is_completed")
+  isCompleted Boolean   @default(false) @map("is_completed")
   completedAt DateTime? @map("completed_at")
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
-  
-  // Relations
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  exercise    Exercise @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
-  
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@map("scheduled_activities")
 }
 
-model Recipe {
-  id              String   @id @default(cuid())
-  userId          String   @map("user_id")
-  name            String
-  description     String?
-  mealType        String   @map("meal_type") // breakfast, lunch, dinner, snack, dessert
-  servings        Int      @default(1)
-  instructions    String   // Cooking instructions
-  prepTime        Int?     @map("prep_time") // in minutes
-  cookTime        Int?     @map("cook_time") // in minutes
-  totalTime       Int?     @map("total_time") // in minutes
-  difficulty      String?  // easy, medium, hard
-  cuisine         String?
-  tags            String?  // JSON array of tags
-  photoUrl        String?  @map("photo_url")
-  isFavorite      Boolean  @default(false) @map("is_favorite")
-  isPublic        Boolean  @default(false) @map("is_public")
-  aiGenerated     Boolean  @default(false) @map("ai_generated")
-  originalQuery   String?  @map("original_query") // The original user query that generated this recipe
-  createdAt       DateTime @default(now()) @map("created_at")
-  updatedAt       DateTime @updatedAt @map("updated_at")
-  
-  // Relations
-  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  ingredients     RecipeIngredient[]
-  
-  @@map("recipes")
-}
 
-model RecipeIngredient {
-  id          String   @id @default(cuid())
-  recipeId    String   @map("recipe_id")
-  ingredientId String  @map("ingredient_id")
-  amount      Float
-  unit        String
-  notes       String?  // Additional notes for this ingredient
-  isOptional  Boolean  @default(false) @map("is_optional")
-  order       Int      @default(0) // Order in the ingredient list
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
-  
-  // Relations
-  recipe      Recipe     @relation(fields: [recipeId], references: [id], onDelete: Cascade)
-  ingredient  Ingredient @relation(fields: [ingredientId], references: [id], onDelete: Cascade)
-  
-  @@map("recipe_ingredients")
-}

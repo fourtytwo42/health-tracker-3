@@ -1,9 +1,8 @@
 import { PrismaClient } from '@prisma/client';
 import { parse } from 'csv-parse/sync';
-import { portablePrisma } from '../prisma';
+import { prisma } from '../prisma';
 
-// Use portable database for exercises
-const prisma = portablePrisma;
+// Use main database for exercises
 
 export interface ExerciseData {
   activity: string;

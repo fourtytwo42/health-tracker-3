@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { verifyAuth } from '@/lib/middleware/auth';
 import { RecipeService } from '@/lib/services/RecipeService';
 
 export async function GET(
@@ -8,8 +7,8 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
+    const user = await verifyAuth(request);
+    if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -20,12 +19,12 @@ export async function GET(
       return NextResponse.json({ error: 'Recipe not found' }, { status: 404 });
     }
 
-    // Check if user owns this recipe
-    if (recipe.userId !== session.user.id) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    // Check if user owns the recipe or if it's public
+    if (recipe.userId !== user.userId && !recipe.isPublic) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    return NextResponse.json({ recipe });
+    return NextResponse.json(recipe);
   } catch (error) {
     console.error('Error fetching recipe:', error);
     return NextResponse.json(
@@ -40,8 +39,8 @@ export async function PUT(
   { params }: { params: { id: string } }
 ) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
+    const user = await verifyAuth(request);
+    if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -54,7 +53,7 @@ export async function PUT(
       return NextResponse.json({ error: 'Recipe not found' }, { status: 404 });
     }
     
-    if (existingRecipe.userId !== session.user.id) {
+    if (existingRecipe.userId !== user.userId) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
@@ -74,32 +73,22 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
+    const user = await verifyAuth(request);
+    if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const recipeService = new RecipeService();
-    
-    // Check if recipe exists and user owns it
-    const existingRecipe = await recipeService.getRecipeById(params.id);
-    if (!existingRecipe) {
-      return NextResponse.json({ error: 'Recipe not found' }, { status: 404 });
-    }
-    
-    if (existingRecipe.userId !== session.user.id) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-    }
+    const success = await recipeService.deleteRecipe(params.id, user.userId);
 
-    const success = await recipeService.deleteRecipe(params.id);
     if (!success) {
       return NextResponse.json(
-        { error: 'Failed to delete recipe' },
-        { status: 500 }
+        { error: 'Recipe not found or unauthorized' },
+        { status: 404 }
       );
     }
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ message: 'Recipe deleted successfully' });
   } catch (error) {
     console.error('Error deleting recipe:', error);
     return NextResponse.json(

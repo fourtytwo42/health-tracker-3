@@ -1,12 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { verifyAuth } from '@/lib/middleware/auth';
 import { RecipeService } from '@/lib/services/RecipeService';
 
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
+    const user = await verifyAuth(request);
+    if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -20,7 +19,7 @@ export async function GET(request: NextRequest) {
 
     const recipeService = new RecipeService();
     const result = await recipeService.getUserRecipes(
-      session.user.id,
+      user.userId,
       page,
       limit,
       search,
@@ -40,8 +39,8 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
+    const user = await verifyAuth(request);
+    if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -49,7 +48,7 @@ export async function POST(request: NextRequest) {
     const recipeService = new RecipeService();
     const recipe = await recipeService.createRecipe({
       ...body,
-      userId: session.user.id
+      userId: user.userId
     });
 
     return NextResponse.json({ recipe });

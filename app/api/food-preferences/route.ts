@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
     }
 
     const preferences = await prisma.foodPreference.findMany({
-      where: { userId: user.id },
+      where: { userId: user.userId },
       include: {
         ingredient: {
           select: {
@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
     const existingPreference = await prisma.foodPreference.findUnique({
       where: {
         userId_ingredientId: {
-          userId: user.id,
+          userId: user.userId,
           ingredientId: body.ingredientId
         }
       }
@@ -77,7 +77,7 @@ export async function POST(request: NextRequest) {
     // Create new preference
     const preference = await prisma.foodPreference.create({
       data: {
-        userId: user.id,
+        userId: user.userId,
         ingredientId: body.ingredientId,
         preference: body.preference,
         notes: body.notes

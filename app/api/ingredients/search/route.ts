@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { portablePrisma } from '@/lib/prisma';
+import { prisma } from '@/lib/prisma';
 import { searchIngredients } from '@/lib/searchService';
 
 export async function GET(request: NextRequest) {
@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
 
     // If loading categories or aisles, return all ingredients
     if (loadCategories || loadAisles) {
-      const ingredients = await portablePrisma.ingredient.findMany({
+      const ingredients = await prisma.ingredient.findMany({
         where: { isActive: true },
         select: {
           id: true,
@@ -55,7 +55,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Get ingredients from database
-    const ingredients = await portablePrisma.ingredient.findMany({
+    const ingredients = await prisma.ingredient.findMany({
       where: whereClause,
       select: {
         id: true,

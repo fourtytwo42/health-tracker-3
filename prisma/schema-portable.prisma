@@ -1,0 +1,24 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../node_modules/@prisma/client-portable"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:../data/health-tracker-data.db"
+}
+
+model Exercise {
+  id          String   @id @default(cuid())
+  activity    String
+  code        String   @unique
+  met         Float
+  description String?
+  category    String?
+  intensity   String?
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("exercises")
+} 
