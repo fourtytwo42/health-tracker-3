@@ -94,60 +94,86 @@ export async function POST(request: NextRequest) {
         // Try multiple search strategies to find the ingredient
         let foundIngredient = null;
         
-        // Strategy 1: Exact name match
+        // Strategy 1: Exact name match (case insensitive)
         foundIngredient = await prisma.ingredient.findFirst({
           where: {
             name: {
-              equals: ingredientName
+              equals: ingredientName.toLowerCase()
             },
             isActive: true
           }
         });
 
-        // Strategy 2: Contains name match
+        // Strategy 2: Contains name match (case insensitive)
         if (!foundIngredient) {
           foundIngredient = await prisma.ingredient.findFirst({
             where: {
               name: {
-                contains: ingredientName
+                contains: ingredientName.toLowerCase()
               },
               isActive: true
             }
           });
         }
 
-        // Strategy 3: Search by first word
+        // Strategy 3: Search by first word (case insensitive)
         if (!foundIngredient) {
           const firstWord = ingredientName.split(' ')[0];
-          foundIngredient = await prisma.ingredient.findFirst({
-            where: {
-              name: {
-                contains: firstWord
-              },
-              isActive: true
-            }
-          });
+          if (firstWord.length > 2) { // Only search if first word is meaningful
+            foundIngredient = await prisma.ingredient.findFirst({
+              where: {
+                name: {
+                  contains: firstWord.toLowerCase()
+                },
+                isActive: true
+              }
+            });
+          }
         }
 
-        // Strategy 4: Search by category
+        // Strategy 4: Search by key words (remove common words and search)
+        if (!foundIngredient) {
+          const keyWords = ingredientName
+            .toLowerCase()
+            .split(' ')
+            .filter((word: string) => 
+              word.length > 2 && 
+              !['the', 'and', 'or', 'with', 'without', 'fresh', 'raw', 'cooked', 'canned', 'frozen'].includes(word)
+            );
+          
+          if (keyWords.length > 0) {
+            foundIngredient = await prisma.ingredient.findFirst({
+              where: {
+                OR: keyWords.map((word: string) => ({
+                  name: {
+                    contains: word
+                  }
+                })),
+                isActive: true
+              }
+            });
+          }
+        }
+
+        // Strategy 5: Search by category
         if (!foundIngredient) {
           foundIngredient = await prisma.ingredient.findFirst({
             where: {
               OR: [
-                { category: { contains: ingredientName } },
-                { category: { contains: ingredientName.split(' ')[0] } }
+                { category: { contains: ingredientName.toLowerCase() } },
+                { category: { contains: ingredientName.split(' ')[0].toLowerCase() } }
               ],
               isActive: true
             }
           });
         }
 
-        // Strategy 5: Search by description
+        // Strategy 6: Search by description
         if (!foundIngredient) {
           foundIngredient = await prisma.ingredient.findFirst({
             where: {
               description: {
-                contains: ingredientName
+                contains: ingredientName.toLowerCase()
               },
               isActive: true
             }
@@ -189,6 +215,16 @@ export async function POST(request: NextRequest) {
             estimatedNutrition = { calories: 42, protein: 3.4, carbs: 5, fat: 1, fiber: 0, sugar: 5, sodium: 44 };
           } else if (lowerName.includes('egg')) {
             estimatedNutrition = { calories: 155, protein: 13, carbs: 1.1, fat: 11, fiber: 0, sugar: 1.1, sodium: 124 };
+          } else if (lowerName.includes('salt') || lowerName.includes('pepper') || lowerName.includes('spice')) {
+            estimatedNutrition = { calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0, sugar: 0, sodium: 1000 };
+          } else if (lowerName.includes('water') || lowerName.includes('broth') || lowerName.includes('stock')) {
+            estimatedNutrition = { calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0, sugar: 0, sodium: 50 };
+          } else if (lowerName.includes('vinegar') || lowerName.includes('lemon') || lowerName.includes('lime')) {
+            estimatedNutrition = { calories: 3, protein: 0, carbs: 0.5, fat: 0, fiber: 0, sugar: 0.5, sodium: 1 };
+          } else if (lowerName.includes('herb') || lowerName.includes('basil') || lowerName.includes('oregano')) {
+            estimatedNutrition = { calories: 1, protein: 0.1, carbs: 0.2, fat: 0, fiber: 0.1, sugar: 0, sodium: 1 };
+          } else if (lowerName.includes('garlic') || lowerName.includes('onion')) {
+            estimatedNutrition = { calories: 4, protein: 0.2, carbs: 1, fat: 0, fiber: 0.1, sugar: 0.3, sodium: 1 };
           }
 
           foundIngredient = await prisma.ingredient.create({

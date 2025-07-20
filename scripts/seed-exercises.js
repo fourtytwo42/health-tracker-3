@@ -43,15 +43,18 @@ async function seedExercises() {
           console.log(`Processed ${processed}/${exercises.length} exercises...`);
         }
         
-        // Skip if no activity name
+        // Skip if no activity category
         if (!exercise.Actvitiy) {
           skipped++;
           continue;
         }
         
-        // Check if exercise already exists
+        // Use description as activity name, fallback to category if no description
+        const activityName = exercise.Description || exercise.Actvitiy;
+        
+        // Check if exercise already exists by code
         const existing = await prisma.exercise.findFirst({
-          where: { activity: exercise.Actvitiy }
+          where: { code: exercise.Code }
         });
         
         if (existing) {
@@ -66,14 +69,19 @@ async function seedExercises() {
           continue;
         }
         
+        // Determine intensity based on MET value
+        let intensity = 'moderate';
+        if (met < 3.0) intensity = 'light';
+        else if (met >= 6.0) intensity = 'vigorous';
+        
         // Create exercise
         const exerciseData = {
-          activity: exercise.Actvitiy,
-          code: exercise.Code || exercise.Actvitiy.replace(/\s+/g, '_').toUpperCase(),
+          activity: activityName,
+          code: exercise.Code || `${exercise.Actvitiy}_${processed}`,
           met: met,
           description: exercise.Description || exercise.Actvitiy,
-          category: null,
-          intensity: null,
+          category: exercise.Actvitiy,
+          intensity: intensity,
           isActive: true
         };
         
@@ -84,7 +92,7 @@ async function seedExercises() {
         created++;
         
       } catch (error) {
-        console.error(`Error processing exercise "${exercise.Actvitiy}":`, error.message);
+        console.error(`Error processing exercise "${exercise.Description || exercise.Actvitiy}":`, error.message);
         skipped++;
       }
     }
