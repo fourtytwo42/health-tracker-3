@@ -997,11 +997,14 @@ Format the response as a JSON object with alternatives array.`;
           // Clear cache to prevent context pollution
           this.llmRouter.clearCache();
 
+          // Limit to top 20 results for AI analysis to reduce context size
+          const topResults = searchResults.ingredients.slice(0, 20);
+
           // Use LLM to find the best match with minimal context
           const aiPrompt = `You are an expert at matching ingredient names. Given the search term "${args.search_term}" and the following list of ingredients, find the single best match.
 
-Available ingredients:
-${searchResults.ingredients.map((ing, i) => `${i + 1}. ${ing.name} (${ing.description || 'No description'})`).join('\n')}
+Available ingredients (top 20 results):
+${topResults.map((ing, i) => `${i + 1}. ${ing.name} (${ing.description || 'No description'})`).join('\n')}
 
 Please analyze the search term and return the best matching ingredient. Consider:
 - Exact matches
@@ -1163,11 +1166,14 @@ Return your response as JSON with this exact format:
           // Clear cache to prevent context pollution
           this.llmRouter.clearCache();
 
+          // Limit to top 20 results for AI analysis to reduce context size
+          const topResults = searchResults.exercises.slice(0, 20);
+
           // Use LLM to find the best match with minimal context
           const aiPrompt = `You are an expert at matching exercise names. Given the search term "${args.search_term}" and the following list of exercises, find the single best match.
 
-Available exercises:
-${searchResults.exercises.map((ex, i) => `${i + 1}. ${ex.activity} (${ex.description || 'No description'}) - Category: ${ex.category}, Intensity: ${ex.intensity}, MET: ${ex.met}`).join('\n')}
+Available exercises (top 20 results):
+${topResults.map((ex, i) => `${i + 1}. ${ex.activity} (${ex.description || 'No description'}) - Category: ${ex.category}, Intensity: ${ex.intensity}, MET: ${ex.met}`).join('\n')}
 
 Please analyze the search term and return the best matching exercise. Consider:
 - Exact matches

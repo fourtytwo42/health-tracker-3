@@ -40,17 +40,21 @@ export const POST = withAuth(async (req: AuthenticatedRequest) => {
       );
     }
 
+    // Limit to top 20 results for AI analysis to reduce context size
+    const topResults = ingredients.slice(0, 20);
+    console.log(`AI Search: Using top ${topResults.length} results for AI analysis (reduced from ${ingredients.length})`);
+
     // Prepare the prompt for the AI
     const prompt = `You are an expert at matching ingredient search terms to the most appropriate ingredient from a database.
 
 SEARCH TERM: "${searchTerm}"
 
-AVAILABLE INGREDIENTS (${ingredients.length} total):
-${ingredients.map((ingredient: any, index: number) => 
+AVAILABLE INGREDIENTS (top 20 results from ${ingredients.length} total):
+${topResults.map((ingredient: any, index: number) => 
   `${index + 1}. ID: ${ingredient.id} - ${ingredient.name} (${ingredient.category || 'Unknown'}) - ${ingredient.description || 'No description'}`
 ).join('\n')}
 
-TASK: Analyze the search term and all available ingredients. Return ONLY the single best matching ingredient as JSON.
+TASK: Analyze the search term and the top 20 available ingredients. Return ONLY the single best matching ingredient as JSON.
 
 CRITERIA for best match:
 1. Exact name match (highest priority)
