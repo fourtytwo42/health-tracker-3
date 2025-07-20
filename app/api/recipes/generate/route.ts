@@ -259,9 +259,10 @@ export async function POST(request: NextRequest) {
             // Filter out processed foods and prefer basic ingredients
             const filteredResults = fallbackResults.ingredients.filter((ingredient: any) => {
               const name = ingredient.name.toLowerCase();
-              
+              const searchTerm = ingredientName.toLowerCase();
+
               // Avoid processed foods
-              if (name.includes('with salt added') || 
+              if (name.includes('with salt added') ||
                   name.includes('with added') ||
                   name.includes('dry roasted') ||
                   name.includes('bottled') ||
@@ -270,11 +271,31 @@ export async function POST(request: NextRequest) {
                   name.includes('processed') ||
                   name.includes('canned') ||
                   name.includes('sweetened') ||
-                  name.includes('drained')) {
+                  name.includes('drained') ||
+                  name.includes('frankfurter') ||
+                  name.includes('bologna') ||
+                  name.includes('cake') ||
+                  name.includes('cupcake') ||
+                  name.includes('gingerbread')) {
                 return false;
               }
+
+              // Prefer exact matches or close matches
+              if (name === searchTerm) return true;
+              if (name.startsWith(searchTerm + ' ')) return true;
+              if (name.includes(searchTerm + ',')) return true;
               
-              // Prefer basic ingredients
+              // For specific ingredients, be more strict
+              if (searchTerm === 'salt' && !name.includes('salt')) return false;
+              if (searchTerm === 'pepper' && !name.includes('pepper')) return false;
+              if (searchTerm === 'beef' && !name.includes('beef')) return false;
+              if (searchTerm === 'garlic' && !name.includes('garlic')) return false;
+              if (searchTerm === 'ginger' && !name.includes('ginger')) return false;
+              if (searchTerm === 'olive oil' && !name.includes('olive')) return false;
+              if (searchTerm === 'soy sauce' && !name.includes('soy')) return false;
+              if (searchTerm === 'bell peppers' && !name.includes('pepper')) return false;
+              if (searchTerm === 'broccoli' && !name.includes('broccoli')) return false;
+
               return true;
             });
 
@@ -330,9 +351,11 @@ export async function POST(request: NextRequest) {
                 'pork chops': ['pork', 'pork loin', 'pork tenderloin'],
                 'salt': ['salt, table, iodized'],
                 'pepper': ['pepper, black', 'peppercorns'],
+                'black pepper': ['pepper, black', 'peppercorns'],
                 'milk': ['milk, lowfat, fluid, 1% milkfat', 'milk, reduced fat, fluid, 2% milkfat'],
                 'butter': ['butter, stick, unsalted', 'butter, stick, salted'],
                 'garlic': ['garlic, raw'],
+                'ginger': ['ginger root, raw'],
                 'potatoes': ['potato, russet, without skin, raw'],
                 'broccoli': ['broccoli, raw', 'broccoli, cooked, boiled, drained, with salt'],
                 'apples': ['apple, raw, with skin'],
@@ -340,7 +363,11 @@ export async function POST(request: NextRequest) {
                 'oats': ['oats, whole grain, rolled, old fashioned'],
                 'flour': ['flour, wheat, all-purpose, enriched, bleached'],
                 'brown sugar': ['sugars, brown'],
-                'cinnamon': ['spices, cinnamon, ground']
+                'cinnamon': ['spices, cinnamon, ground'],
+                'olive oil': ['oil, olive, salad or cooking'],
+                'soy sauce': ['soy sauce made from soy and wheat (shoyu)'],
+                'bell peppers': ['peppers, sweet, green, raw', 'peppers, sweet, red, raw'],
+                'beef': ['beef, ground, 85% lean meat / 15% fat, raw', 'beef, chuck, blade roast, separable lean and fat, trimmed to 0" fat, all grades, raw']
               };
 
               let foundWithSubstitution = false;
@@ -526,6 +553,7 @@ export async function POST(request: NextRequest) {
           
           return {
             ...ing,
+            ingredientId: foundIngredient.id, // Set the ingredient ID
             resolvedIngredient: foundIngredient,
             nutrition
           };
@@ -533,6 +561,7 @@ export async function POST(request: NextRequest) {
           console.log(`❌ Ingredient not found: ${ingredientName}`);
           return {
             ...ing,
+            ingredientId: null,
             resolvedIngredient: null,
             nutrition: { calories: 0, protein: 0, carbs: 0, fat: 0 }
           };
