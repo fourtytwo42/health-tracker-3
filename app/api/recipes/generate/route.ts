@@ -143,43 +143,41 @@ export async function POST(request: NextRequest) {
         const ingredientName = ing.name;
         
         try {
-          // Use AI ingredient search to find the best match
-          const aiSearchResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'}/api/ingredients/ai-search`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${request.headers.get('authorization')}`
-            },
-            body: JSON.stringify({
-              searchTerm: ingredientName,
+          // Use MCP AI ingredient search tool directly
+          const aiSearchResponse = await mcpHandler.handleToolCall({
+            tool: 'ai_search_ingredients',
+            args: {
+              search_term: ingredientName,
               category: undefined,
               aisle: undefined
-            })
+            }
+          }, {
+            userId: user.userId,
+            username: user.username,
+            role: user.role
           });
 
-          if (aiSearchResponse.ok) {
-            const aiResult = await aiSearchResponse.json();
-            if (aiResult.success) {
-              console.log(`✅ AI found best match for "${ingredientName}": ${aiResult.bestMatch.name}`);
-              return {
-                original_name: ingredientName,
-                search_results: [{
-                  name: aiResult.bestMatch.name,
-                  calories: aiResult.bestMatch.calories,
-                  protein: aiResult.bestMatch.protein,
-                  carbs: aiResult.bestMatch.carbs,
-                  fat: aiResult.bestMatch.fat,
-                  fiber: aiResult.bestMatch.fiber,
-                  sugar: aiResult.bestMatch.sugar,
-                  sodium: aiResult.bestMatch.sodium,
-                  servingSize: aiResult.bestMatch.servingSize,
-                  category: aiResult.bestMatch.category,
-                  aisle: aiResult.bestMatch.aisle,
-                  ai_selected: true,
-                  reasoning: aiResult.reasoning
-                }]
-              };
-            }
+          if (aiSearchResponse.success && aiSearchResponse.data.success) {
+            const aiResult = aiSearchResponse.data.data;
+            console.log(`✅ AI found best match for "${ingredientName}": ${aiResult.bestMatch.name}`);
+            return {
+              original_name: ingredientName,
+              search_results: [{
+                name: aiResult.bestMatch.name,
+                calories: aiResult.bestMatch.calories,
+                protein: aiResult.bestMatch.protein,
+                carbs: aiResult.bestMatch.carbs,
+                fat: aiResult.bestMatch.fat,
+                fiber: aiResult.bestMatch.fiber,
+                sugar: aiResult.bestMatch.sugar,
+                sodium: aiResult.bestMatch.sodium,
+                servingSize: aiResult.bestMatch.servingSize,
+                category: aiResult.bestMatch.category,
+                aisle: aiResult.bestMatch.aisle,
+                ai_selected: true,
+                reasoning: aiResult.reasoning
+              }]
+            };
           }
         } catch (error) {
           console.error(`AI search failed for "${ingredientName}":`, error);
