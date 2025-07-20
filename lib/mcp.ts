@@ -353,6 +353,49 @@ export class MCPHandler {
     return jsonString;
   }
 
+  private extractJsonFromResponse(response: string): string | null {
+    // Strategy 1: Look for JSON code blocks (```json ... ```)
+    const codeBlockMatch = response.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/);
+    if (codeBlockMatch) {
+      console.log('Found JSON in code block');
+      return codeBlockMatch[1];
+    }
+    
+    // Strategy 2: Look for JSON after common prefixes
+    const afterPrefixMatch = response.match(/(?:Here is|Here's|Generated recipe|Recipe:)[\s\S]*?(\{[\s\S]*?\})/);
+    if (afterPrefixMatch) {
+      console.log('Found JSON after prefix');
+      return afterPrefixMatch[1];
+    }
+    
+    // Strategy 3: Find the outermost JSON object by counting braces
+    const firstBrace = response.indexOf('{');
+    if (firstBrace === -1) return null;
+    
+    let braceCount = 0;
+    let lastBrace = -1;
+    
+    for (let i = firstBrace; i < response.length; i++) {
+      const char = response[i];
+      if (char === '{') {
+        braceCount++;
+      } else if (char === '}') {
+        braceCount--;
+        if (braceCount === 0) {
+          lastBrace = i;
+          break;
+        }
+      }
+    }
+    
+    if (lastBrace !== -1) {
+      console.log('Found JSON with brace counting');
+      return response.substring(firstBrace, lastBrace + 1);
+    }
+    
+    return null;
+  }
+
   // Add method to ensure LLM Router is initialized
   async ensureLLMInitialized(): Promise<void> {
     // Wait for providers to be initialized and probed
@@ -797,46 +840,11 @@ Timestamp: ${Date.now()}`;
         while (retryCount <= maxRetries) {
           try {
             // Try multiple strategies to extract JSON from the response
-            let jsonString = null;
-            
             console.log('Attempting to extract JSON from response...');
             console.log('Response length:', llmResponse.content.length);
             console.log('Response preview:', llmResponse.content.substring(0, 200));
             
-            // Strategy 1: Look for JSON code blocks (```json ... ```)
-            const codeBlockMatch = llmResponse.content.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/);
-            if (codeBlockMatch) {
-              console.log('Found JSON in code block');
-              jsonString = codeBlockMatch[1];
-            }
-            
-            // Strategy 2: Look for JSON object with better regex
-            if (!jsonString) {
-              const jsonMatch = llmResponse.content.match(/\{[\s\S]*?\}/);
-              if (jsonMatch) {
-                console.log('Found JSON with basic regex');
-                jsonString = jsonMatch[0];
-              }
-            }
-            
-            // Strategy 3: Look for JSON after common prefixes
-            if (!jsonString) {
-              const afterPrefixMatch = llmResponse.content.match(/(?:Here is|Here's|Generated recipe|Recipe:)[\s\S]*?(\{[\s\S]*?\})/);
-              if (afterPrefixMatch) {
-                console.log('Found JSON after prefix');
-                jsonString = afterPrefixMatch[1];
-              }
-            }
-            
-            // Strategy 4: Simple approach - find the first { and last }
-            if (!jsonString) {
-              const firstBrace = llmResponse.content.indexOf('{');
-              const lastBrace = llmResponse.content.lastIndexOf('}');
-              if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
-                console.log('Found JSON with brace matching');
-                jsonString = llmResponse.content.substring(firstBrace, lastBrace + 1);
-              }
-            }
+            const jsonString = this.extractJsonFromResponse(llmResponse.content);
             
             if (jsonString) {
               console.log('Extracted JSON string length:', jsonString.length);
@@ -1001,30 +1009,7 @@ Timestamp: ${Date.now()}`;
         
         while (retryCount <= maxRetries) {
           try {
-            let jsonString = null;
-            
-            // Strategy 1: Look for JSON code blocks
-            const codeBlockMatch = llmResponse.content.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/);
-            if (codeBlockMatch) {
-              jsonString = codeBlockMatch[1];
-            }
-            
-            // Strategy 2: Look for JSON object
-            if (!jsonString) {
-              const jsonMatch = llmResponse.content.match(/\{[\s\S]*?\}/);
-              if (jsonMatch) {
-                jsonString = jsonMatch[0];
-              }
-            }
-            
-            // Strategy 3: Simple approach - find the first { and last }
-            if (!jsonString) {
-              const firstBrace = llmResponse.content.indexOf('{');
-              const lastBrace = llmResponse.content.lastIndexOf('}');
-              if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
-                jsonString = llmResponse.content.substring(firstBrace, lastBrace + 1);
-              }
-            }
+            const jsonString = this.extractJsonFromResponse(llmResponse.content);
             
             if (jsonString) {
               // Clean up the JSON string
