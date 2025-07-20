@@ -723,8 +723,8 @@ Timestamp: ${Date.now()}`;
           tags: z.array(z.string()),
           ingredients: z.array(z.object({
             name: z.string(),
-            amount: z.number(),
-            unit: z.string()
+            amount: z.number().optional(),
+            unit: z.string().optional()
           })),
           instructions: z.array(z.string())
         }).describe('The original recipe from step 1'),
