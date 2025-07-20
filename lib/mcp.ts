@@ -687,10 +687,10 @@ The meal plan includes detailed recipes for each meal with complete ingredient l
       },
     });
 
-    // Generate recipe tool
+    // Generate recipe tool (two-step process)
     this.registerTool({
-      name: 'generate_recipe',
-      description: 'Generate a personalized recipe with ingredient search and nutrition calculation',
+      name: 'generate_recipe_step1',
+      description: 'Step 1: Generate initial recipe with ingredient names - this will be followed by ingredient search and refinement',
       schema: z.object({
         keywords: z.string().describe('Main ingredients or cuisine type'),
         meal_type: z.enum(['BREAKFAST', 'LUNCH', 'DINNER', 'SNACK', 'DESSERT']).describe('Type of meal (BREAKFAST, LUNCH, DINNER, SNACK, or DESSERT)'),
@@ -750,7 +750,7 @@ Timestamp: ${Date.now()}`;
           prompt: recipePrompt,
           maxTokens: 128000,
           userId: authInfo.userId,
-          tool: 'generate_recipe',
+          tool: 'generate_recipe_step1',
         });
 
         // Parse the LLM response to extract the recipe
@@ -875,41 +875,184 @@ Timestamp: ${Date.now()}`;
                 prompt: retryPrompt,
                 maxTokens: 128000,
                 userId: authInfo.userId,
-                tool: 'generate_recipe',
+                tool: 'generate_recipe_step1',
               });
-              
-              retryCount++;
-            } else {
-              // Final attempt failed, throw error
-              throw new Error('Failed to generate valid recipe JSON after multiple attempts');
             }
+            retryCount++;
           }
         }
 
+        if (!recipe) {
+          throw new Error('Failed to generate valid recipe JSON after multiple attempts');
+        }
+
         return {
-          type: 'RecipeCard',
-          props: {
-            title: recipe.name,
-            description: recipe.description,
-            mealType: recipe.mealType,
-            servings: recipe.servings,
-            prepTime: recipe.prepTime,
-            cookTime: recipe.cookTime,
-            totalTime: recipe.totalTime,
-            difficulty: recipe.difficulty,
-            cuisine: recipe.cuisine,
-            tags: recipe.tags,
-            ingredients: recipe.ingredients,
-            instructions: recipe.instructions,
-            status: 'generated',
-            aiGenerated: true,
-            originalQuery: args.keywords
-          },
-          quickReplies: [
-            { label: 'Save this recipe', value: 'I want to save this recipe' },
-            { label: 'Generate another recipe', value: 'I want to generate a different recipe' },
-            { label: 'Modify this recipe', value: 'I want to modify this recipe' },
-          ],
+          success: true,
+          data: {
+            step: 'initial_recipe',
+            recipe: recipe,
+            message: 'Initial recipe generated. Next step: ingredient search and refinement.'
+          }
+        };
+      },
+    });
+
+    // Refine recipe tool (step 2)
+    this.registerTool({
+      name: 'refine_recipe_step2',
+      description: 'Step 2: Refine recipe with proper ingredient names based on search results',
+      schema: z.object({
+        original_recipe: z.object({
+          name: z.string(),
+          description: z.string(),
+          mealType: z.string(),
+          servings: z.number(),
+          prepTime: z.number(),
+          cookTime: z.number(),
+          totalTime: z.number(),
+          difficulty: z.string(),
+          cuisine: z.string(),
+          tags: z.array(z.string()),
+          ingredients: z.array(z.object({
+            name: z.string(),
+            amount: z.number(),
+            unit: z.string()
+          })),
+          instructions: z.array(z.string())
+        }).describe('The original recipe from step 1'),
+        ingredient_search_results: z.array(z.object({
+          original_name: z.string(),
+          search_results: z.array(z.object({
+            name: z.string(),
+            calories: z.number(),
+            protein: z.number(),
+            carbs: z.number(),
+            fat: z.number(),
+            servingSize: z.string()
+          }))
+        })).describe('Search results for each ingredient'),
+        user_profile: z.object({
+          calorieTarget: z.number().optional(),
+          dietaryPreferences: z.array(z.string()).optional(),
+          healthMetrics: z.any().optional()
+        }).describe('User profile information')
+      }),
+      handler: async (args, authInfo) => {
+        const refinePrompt = `You have generated an initial recipe, and I have searched for each ingredient in our database. 
+Now I need you to refine the recipe by choosing the most appropriate ingredients from the search results.
+
+ORIGINAL RECIPE:
+${JSON.stringify(args.original_recipe, null, 2)}
+
+INGREDIENT SEARCH RESULTS:
+${JSON.stringify(args.ingredient_search_results, null, 2)}
+
+USER PROFILE:
+${JSON.stringify(args.user_profile, null, 2)}
+
+TASK: Refine the recipe by:
+1. For each ingredient, choose the best match from the search results
+2. If no good match is found, suggest a reasonable alternative or keep the original name
+3. Adjust amounts if needed based on the serving sizes in the search results
+4. Ensure the recipe meets the user's dietary preferences and calorie goals
+5. Make any other improvements to the recipe
+
+Please provide the refined recipe in the same JSON format as the original, but with updated ingredient names and amounts if needed.
+
+IMPORTANT: Use the exact ingredient names from the search results when possible, as these will be used for accurate nutrition calculation.
+
+Timestamp: ${Date.now()}`;
+
+        let llmResponse = await this.llmRouter.generateResponse({
+          prompt: refinePrompt,
+          maxTokens: 128000,
+          userId: authInfo.userId,
+          tool: 'refine_recipe_step2',
+        });
+
+        // Parse the refined recipe (same logic as step 1)
+        let refinedRecipe;
+        let retryCount = 0;
+        const maxRetries = 2;
+        
+        while (retryCount <= maxRetries) {
+          try {
+            let jsonString = null;
+            
+            // Strategy 1: Look for JSON code blocks
+            const codeBlockMatch = llmResponse.content.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/);
+            if (codeBlockMatch) {
+              jsonString = codeBlockMatch[1];
+            }
+            
+            // Strategy 2: Look for JSON object
+            if (!jsonString) {
+              const jsonMatch = llmResponse.content.match(/\{[\s\S]*?\}/);
+              if (jsonMatch) {
+                jsonString = jsonMatch[0];
+              }
+            }
+            
+            // Strategy 3: Simple approach - find the first { and last }
+            if (!jsonString) {
+              const firstBrace = llmResponse.content.indexOf('{');
+              const lastBrace = llmResponse.content.lastIndexOf('}');
+              if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+                jsonString = llmResponse.content.substring(firstBrace, lastBrace + 1);
+              }
+            }
+            
+            if (jsonString) {
+              // Clean up the JSON string
+              jsonString = jsonString
+                .replace(/^[^{]*/, '')
+                .replace(/}[^}]*$/, '}')
+                .replace(/([{,]\s*)([a-zA-Z_][a-zA-Z0-9_]*)\s*:/g, '$1"$2":')
+                .replace(/,(\s*[}\]])/g, '$1')
+                .replace(/"null"/g, 'null')
+                .replace(/null\s*,/g, 'null,')
+                .replace(/null\s*}/g, 'null}');
+              
+              refinedRecipe = JSON.parse(jsonString);
+              console.log('Successfully parsed refined recipe:', refinedRecipe.name);
+              break;
+            } else {
+              throw new Error('No JSON found in response');
+            }
+          } catch (error) {
+            console.error(`Failed to parse refined recipe JSON (attempt ${retryCount + 1}):`, error);
+            
+            if (retryCount < maxRetries) {
+              const retryPrompt = `Your previous response had malformed JSON. Please provide the refined recipe in valid JSON format.
+
+Original recipe: ${JSON.stringify(args.original_recipe, null, 2)}
+Search results: ${JSON.stringify(args.ingredient_search_results, null, 2)}
+
+Please provide the refined recipe as valid JSON.
+Timestamp: ${Date.now()}`;
+
+              llmResponse = await this.llmRouter.generateResponse({
+                prompt: retryPrompt,
+                maxTokens: 128000,
+                userId: authInfo.userId,
+                tool: 'refine_recipe_step2',
+              });
+            }
+            retryCount++;
+          }
+        }
+
+        if (!refinedRecipe) {
+          throw new Error('Failed to generate valid refined recipe JSON after multiple attempts');
+        }
+
+        return {
+          success: true,
+          data: {
+            step: 'refined_recipe',
+            recipe: refinedRecipe,
+            message: 'Recipe refined with proper ingredient names. Ready for nutrition calculation.'
+          }
         };
       },
     });

@@ -51,9 +51,10 @@ export async function POST(request: NextRequest) {
       .map((p: any) => p.ingredient.category)
       .filter(Boolean);
 
-    // Call MCP generate_recipe tool
-    const mcpResponse = await mcpHandler.handleToolCall({
-      tool: 'generate_recipe',
+    // STEP 1: Generate initial recipe
+    console.log('Step 1: Generating initial recipe...');
+    const step1Response = await mcpHandler.handleToolCall({
+      tool: 'generate_recipe_step1',
       args: {
         keywords,
         meal_type: mealType.toUpperCase(),
@@ -69,33 +70,27 @@ export async function POST(request: NextRequest) {
       role: user.role
     });
 
-    if (!mcpResponse.success) {
+    if (!step1Response.success) {
       return NextResponse.json(
-        { error: mcpResponse.error || 'Failed to generate recipe' },
+        { error: step1Response.error || 'Failed to generate initial recipe' },
         { status: 500 }
       );
     }
 
-    // Extract recipe data from MCP response
-    const recipeData = mcpResponse.data?.props || mcpResponse.componentJson?.props;
-    
-    if (!recipeData) {
-      return NextResponse.json(
-        { error: 'Failed to generate recipe data' },
-        { status: 500 }
-      );
-    }
+    const initialRecipe = step1Response.data.recipe;
+    console.log('Initial recipe generated:', initialRecipe.name);
 
-    // Resolve ingredients and calculate nutrition
-    const resolvedIngredients = await Promise.all(
-      (recipeData.ingredients || []).map(async (ing: any, index: number) => {
+    // STEP 2: Search for ingredients and get search results
+    console.log('Step 2: Searching for ingredients...');
+    const ingredientSearchResults = await Promise.all(
+      (initialRecipe.ingredients || []).map(async (ing: any) => {
         const ingredientName = ing.name;
         
-        // Try multiple search strategies to find the ingredient
-        let foundIngredient = null;
+        // Search for the ingredient using multiple strategies
+        let searchResults = [];
         
-        // Strategy 1: Exact name match (case insensitive)
-        foundIngredient = await prisma.ingredient.findFirst({
+        // Strategy 1: Exact name match
+        let foundIngredient = await prisma.ingredient.findFirst({
           where: {
             name: {
               equals: ingredientName.toLowerCase()
@@ -103,9 +98,10 @@ export async function POST(request: NextRequest) {
             isActive: true
           }
         });
+        if (foundIngredient) searchResults.push(foundIngredient);
 
-        // Strategy 2: Contains name match (case insensitive)
-        if (!foundIngredient) {
+        // Strategy 2: Contains name match
+        if (searchResults.length === 0) {
           foundIngredient = await prisma.ingredient.findFirst({
             where: {
               name: {
@@ -114,25 +110,11 @@ export async function POST(request: NextRequest) {
               isActive: true
             }
           });
+          if (foundIngredient) searchResults.push(foundIngredient);
         }
 
-        // Strategy 3: Search by first word (case insensitive)
-        if (!foundIngredient) {
-          const firstWord = ingredientName.split(' ')[0];
-          if (firstWord.length > 2) { // Only search if first word is meaningful
-            foundIngredient = await prisma.ingredient.findFirst({
-              where: {
-                name: {
-                  contains: firstWord.toLowerCase()
-                },
-                isActive: true
-              }
-            });
-          }
-        }
-
-        // Strategy 4: Search by key words (remove common words and search)
-        if (!foundIngredient) {
+        // Strategy 3: Search by key words
+        if (searchResults.length === 0) {
           const keyWords = ingredientName
             .toLowerCase()
             .split(' ')
@@ -142,7 +124,7 @@ export async function POST(request: NextRequest) {
             );
           
           if (keyWords.length > 0) {
-            foundIngredient = await prisma.ingredient.findFirst({
+            const keywordResults = await prisma.ingredient.findMany({
               where: {
                 OR: keyWords.map((word: string) => ({
                   name: {
@@ -150,13 +132,15 @@ export async function POST(request: NextRequest) {
                   }
                 })),
                 isActive: true
-              }
+              },
+              take: 3 // Limit to top 3 matches
             });
+            searchResults.push(...keywordResults);
           }
         }
 
-        // Strategy 5: Search by category
-        if (!foundIngredient) {
+        // Strategy 4: Search by category
+        if (searchResults.length === 0) {
           foundIngredient = await prisma.ingredient.findFirst({
             where: {
               OR: [
@@ -166,23 +150,95 @@ export async function POST(request: NextRequest) {
               isActive: true
             }
           });
+          if (foundIngredient) searchResults.push(foundIngredient);
         }
 
-        // Strategy 6: Search by description
+        // Remove duplicates and format results
+        const uniqueResults = searchResults
+          .filter((result, index, self) => 
+            index === self.findIndex(r => r.id === result.id)
+          )
+          .map(result => ({
+            name: result.name,
+            calories: result.calories,
+            protein: result.protein,
+            carbs: result.carbs,
+            fat: result.fat,
+            servingSize: result.servingSize || '100g'
+          }));
+
+        console.log(`Search results for "${ingredientName}": ${uniqueResults.length} matches`);
+        uniqueResults.forEach((result, index) => {
+          console.log(`  ${index + 1}. ${result.name} (${result.calories} cal per ${result.servingSize})`);
+        });
+
+        return {
+          original_name: ingredientName,
+          search_results: uniqueResults
+        };
+      })
+    );
+
+    // STEP 3: Refine recipe with search results
+    console.log('Step 3: Refining recipe with search results...');
+    const step2Response = await mcpHandler.handleToolCall({
+      tool: 'refine_recipe_step2',
+      args: {
+        original_recipe: initialRecipe,
+        ingredient_search_results: ingredientSearchResults,
+        user_profile: {
+          calorieTarget: calorieGoal || userProfile?.calorieTarget,
+          dietaryPreferences: dietaryPreferences,
+          healthMetrics: healthMetrics
+        }
+      }
+    }, {
+      userId: user.userId,
+      username: user.username,
+      role: user.role
+    });
+
+    if (!step2Response.success) {
+      return NextResponse.json(
+        { error: step2Response.error || 'Failed to refine recipe' },
+        { status: 500 }
+      );
+    }
+
+    const refinedRecipe = step2Response.data.recipe;
+    console.log('Recipe refined:', refinedRecipe.name);
+
+    // STEP 4: Resolve ingredients and calculate nutrition
+    console.log('Step 4: Calculating nutrition...');
+    const resolvedIngredients = await Promise.all(
+      (refinedRecipe.ingredients || []).map(async (ing: any, index: number) => {
+        const ingredientName = ing.name;
+        
+        // Find the ingredient in the database
+        let foundIngredient = await prisma.ingredient.findFirst({
+          where: {
+            name: {
+              equals: ingredientName
+            },
+            isActive: true
+          }
+        });
+
+        // If not found by exact match, try contains
         if (!foundIngredient) {
           foundIngredient = await prisma.ingredient.findFirst({
             where: {
-              description: {
-                contains: ingredientName.toLowerCase()
+              name: {
+                contains: ingredientName
               },
               isActive: true
             }
           });
         }
 
-        // If still not found, create a more intelligent fallback ingredient
+        // If still not found, create fallback ingredient
         if (!foundIngredient) {
-          console.log(`Creating intelligent fallback ingredient for: ${ingredientName}`);
+          console.log(`Creating fallback ingredient for: ${ingredientName}`);
           
           // Estimate nutrition based on ingredient type
           let estimatedNutrition = {
@@ -318,13 +374,13 @@ export async function POST(request: NextRequest) {
 
     // Calculate per-serving nutrition
     const perServingNutrition = {
-      calories: Math.round(totalNutrition.calories / recipeData.servings),
-      protein: Math.round(totalNutrition.protein / recipeData.servings * 10) / 10,
-      carbs: Math.round(totalNutrition.carbs / recipeData.servings * 10) / 10,
-      fat: Math.round(totalNutrition.fat / recipeData.servings * 10) / 10,
-      fiber: Math.round(totalNutrition.fiber / recipeData.servings * 10) / 10,
-      sugar: Math.round(totalNutrition.sugar / recipeData.servings * 10) / 10,
-      sodium: Math.round(totalNutrition.sodium / recipeData.servings)
+      calories: Math.round(totalNutrition.calories / refinedRecipe.servings),
+      protein: Math.round(totalNutrition.protein / refinedRecipe.servings * 10) / 10,
+      carbs: Math.round(totalNutrition.carbs / refinedRecipe.servings * 10) / 10,
+      fat: Math.round(totalNutrition.fat / refinedRecipe.servings * 10) / 10,
+      fiber: Math.round(totalNutrition.fiber / refinedRecipe.servings * 10) / 10,
+      sugar: Math.round(totalNutrition.sugar / refinedRecipe.servings * 10) / 10,
+      sodium: Math.round(totalNutrition.sodium / refinedRecipe.servings)
     };
 
     // Check if calories are within 15% of target
@@ -332,7 +388,7 @@ export async function POST(request: NextRequest) {
     const calorieDifference = Math.abs(perServingNutrition.calories - targetCalories);
     const calorieThreshold = targetCalories * 0.15; // 15% threshold
     
-    let finalRecipeData = recipeData;
+    let finalRecipeData = refinedRecipe;
     let finalResolvedIngredients = resolvedIngredients;
     let finalPerServingNutrition = perServingNutrition;
 
@@ -373,13 +429,13 @@ export async function POST(request: NextRequest) {
 
       // Recalculate per-serving nutrition
       finalPerServingNutrition = {
-        calories: Math.round(scaledTotalNutrition.calories / recipeData.servings),
-        protein: Math.round(scaledTotalNutrition.protein / recipeData.servings * 10) / 10,
-        carbs: Math.round(scaledTotalNutrition.carbs / recipeData.servings * 10) / 10,
-        fat: Math.round(scaledTotalNutrition.fat / recipeData.servings * 10) / 10,
-        fiber: Math.round(scaledTotalNutrition.fiber / recipeData.servings * 10) / 10,
-        sugar: Math.round(scaledTotalNutrition.sugar / recipeData.servings * 10) / 10,
-        sodium: Math.round(scaledTotalNutrition.sodium / recipeData.servings)
+        calories: Math.round(scaledTotalNutrition.calories / refinedRecipe.servings),
+        protein: Math.round(scaledTotalNutrition.protein / refinedRecipe.servings * 10) / 10,
+        carbs: Math.round(scaledTotalNutrition.carbs / refinedRecipe.servings * 10) / 10,
+        fat: Math.round(scaledTotalNutrition.fat / refinedRecipe.servings * 10) / 10,
+        fiber: Math.round(scaledTotalNutrition.fiber / refinedRecipe.servings * 10) / 10,
+        sugar: Math.round(scaledTotalNutrition.sugar / refinedRecipe.servings * 10) / 10,
+        sodium: Math.round(scaledTotalNutrition.sodium / refinedRecipe.servings)
       };
 
       console.log(`Scaled recipe to ${finalPerServingNutrition.calories} calories per serving (target: ${targetCalories})`);
@@ -417,9 +473,9 @@ export async function POST(request: NextRequest) {
       recipe,
       nutrition: finalPerServingNutrition,
       mcpResponse: {
-        ...mcpResponse.data || mcpResponse.componentJson,
+        ...step2Response.data || step2Response.componentJson,
         props: {
-          ...(mcpResponse.data?.props || mcpResponse.componentJson?.props),
+          ...(step2Response.data?.props || step2Response.componentJson?.props),
           id: recipe.id, // Include the saved recipe ID
           title: recipe.name,
           description: recipe.description,
