@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma';
 import { RecipeService } from '@/lib/services/RecipeService';
 import { MCPHandler } from '@/lib/mcp';
 import { IngredientService } from '@/lib/services/IngredientService';
+import { LLMRouter } from '@/lib/llmRouter';
 
 // Helper function to calculate nutrition based on serving size
 function calculateIngredientNutrition(ingredient: any, amount: number, unit: string) {
@@ -143,8 +144,14 @@ export async function POST(request: NextRequest) {
       }
     };
 
-    // STEP 1: Generate initial recipe with comprehensive user context
-    console.log('Step 1: Generating initial recipe with user context...');
+    // STEP 1: Generate initial recipe
+    console.log('Step 1: Generating initial recipe...');
+    
+    // Clear LLM cache to ensure we get fresh responses with updated prompts
+    const llmRouter = LLMRouter.getInstance();
+    llmRouter.clearCache();
+    console.log('Cleared LLM cache to ensure fresh recipe generation');
+    
     const step1Response = await mcpHandler.handleToolCall({
       tool: 'generate_recipe_step1',
       args: {
@@ -217,7 +224,15 @@ export async function POST(request: NextRequest) {
           'fajita seasoning': 'spices, poultry seasoning',
           'whole wheat tortillas': 'tortillas, ready-to-bake or -fry, corn, without added salt',
           'tortillas': 'tortillas, ready-to-bake or -fry, corn, without added salt',
-          'flour': 'flour, wheat, all-purpose, enriched, bleached'
+          'flour': 'flour, wheat, all-purpose, enriched, bleached',
+          'beef': 'beef, flank, steak, boneless, choice, raw',
+          'beef steak': 'beef, flank, steak, boneless, choice, raw',
+          'mushrooms': 'mushrooms, white button',
+          'button mushrooms': 'mushrooms, white button',
+          'cream cheese': 'cheese, cream',
+          'butter': 'butter, salted',
+          'egg noodles': 'noodles, egg, cooked, enriched, with added salt',
+          'noodles': 'noodles, egg, cooked, enriched, with added salt'
         };
         
         // Check if we have a hardcoded mapping (case-insensitive)
