@@ -317,6 +317,42 @@ export class MCPHandler {
     };
   }
 
+  private cleanJsonString(jsonString: string): string {
+    // Remove any remaining text before the first {
+    jsonString = jsonString.replace(/^[^{]*/, '');
+    // Remove any text after the last }
+    jsonString = jsonString.replace(/}[^}]*$/, '}');
+    // Fix missing quotes around property names (only if they're missing)
+    jsonString = jsonString.replace(/([{,]\s*)([a-zA-Z_][a-zA-Z0-9_]*)\s*:/g, '$1"$2":');
+    
+    // More comprehensive trailing comma removal
+    jsonString = jsonString.replace(/,(\s*[}\]])/g, '$1');
+    jsonString = jsonString.replace(/,(\s*})/g, '$1');
+    jsonString = jsonString.replace(/,(\s*\])/g, '$1');
+    
+    // Multiple passes for nested structures
+    jsonString = jsonString.replace(/,(\s*[}\]])/g, '$1');
+    jsonString = jsonString.replace(/,(\s*[}\]])/g, '$1');
+    
+    // Fix null values
+    jsonString = jsonString.replace(/"null"/g, 'null');
+    jsonString = jsonString.replace(/null\s*,/g, 'null,');
+    jsonString = jsonString.replace(/null\s*}/g, 'null}');
+    
+    // Additional manual cleanup for specific issues
+    // Remove trailing commas before closing brackets/braces
+    jsonString = jsonString.replace(/,\s*([}\]])/g, '$1');
+    // Remove trailing commas before closing braces
+    jsonString = jsonString.replace(/,\s*}/g, '}');
+    // Remove trailing commas before closing brackets
+    jsonString = jsonString.replace(/,\s*\]/g, ']');
+    
+    // Additional cleanup for common JSON issues
+    jsonString = jsonString.replace(/\s+/g, ' ').trim();
+    
+    return jsonString;
+  }
+
   // Add method to ensure LLM Router is initialized
   async ensureLLMInitialized(): Promise<void> {
     // Wait for providers to be initialized and probed
@@ -806,20 +842,8 @@ Timestamp: ${Date.now()}`;
               console.log('Extracted JSON string length:', jsonString.length);
               console.log('JSON preview:', jsonString.substring(0, 200));
               
-              // Clean up the JSON string
-              jsonString = jsonString
-                // Remove any remaining text before the first {
-                .replace(/^[^{]*/, '')
-                // Remove any text after the last }
-                .replace(/}[^}]*$/, '}')
-                // Fix missing quotes around property names (only if they're missing)
-                .replace(/([{,]\s*)([a-zA-Z_][a-zA-Z0-9_]*)\s*:/g, '$1"$2":')
-                // Fix trailing commas
-                .replace(/,(\s*[}\]])/g, '$1')
-                // Fix null values
-                .replace(/"null"/g, 'null')
-                .replace(/null\s*,/g, 'null,')
-                .replace(/null\s*}/g, 'null}');
+              // Clean up the JSON string with more robust parsing
+              jsonString = this.cleanJsonString(jsonString);
               
               console.log('Cleaned JSON preview:', jsonString.substring(0, 200));
               
@@ -1004,14 +1028,7 @@ Timestamp: ${Date.now()}`;
             
             if (jsonString) {
               // Clean up the JSON string
-              jsonString = jsonString
-                .replace(/^[^{]*/, '')
-                .replace(/}[^}]*$/, '}')
-                .replace(/([{,]\s*)([a-zA-Z_][a-zA-Z0-9_]*)\s*:/g, '$1"$2":')
-                .replace(/,(\s*[}\]])/g, '$1')
-                .replace(/"null"/g, 'null')
-                .replace(/null\s*,/g, 'null,')
-                .replace(/null\s*}/g, 'null}');
+              jsonString = this.cleanJsonString(jsonString);
               
               refinedRecipe = JSON.parse(jsonString);
               console.log('Successfully parsed refined recipe:', refinedRecipe.name);
