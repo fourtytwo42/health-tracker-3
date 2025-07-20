@@ -148,7 +148,7 @@ export async function POST(request: NextRequest) {
             tool: 'ai_search_ingredients',
             args: {
               search_term: ingredientName,
-              category: undefined,
+              category: ing.category, // Use category from recipe if available
               aisle: undefined
             }
           }, {

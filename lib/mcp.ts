@@ -552,6 +552,11 @@ The meal plan includes detailed recipes for each meal with complete ingredient l
         cuisine: z.string().optional().describe('Cuisine type'),
       }),
       handler: async (args, authInfo) => {
+        // Get available ingredient categories for better search accuracy
+        const { IngredientService } = await import('./services/IngredientService');
+        const ingredientService = IngredientService.getInstance();
+        const categories = await ingredientService.getCategories();
+        
         const recipePrompt = `Generate a detailed recipe based on the following requirements:
 
 Keywords: ${args.keywords}
@@ -562,12 +567,16 @@ ${args.dietary_preferences?.length ? `Dietary Preferences: ${args.dietary_prefer
 Difficulty: ${args.difficulty || 'medium'}
 Cuisine: ${args.cuisine || 'general'}
 
+AVAILABLE INGREDIENT CATEGORIES (use these for ingredient categorization):
+${categories.join(', ')}
+
 IMPORTANT REQUIREMENTS:
 1. Meal type must be exactly one of: BREAKFAST, LUNCH, DINNER, SNACK, DESSERT
 2. Use common, recognizable ingredient names (e.g., "chicken breast", "olive oil", "tomatoes")
 3. Provide amounts in grams (g) or milliliters (ml) for precise measurement
 4. Include detailed step-by-step instructions
 5. Keep ingredient names simple and recognizable
+6. For each ingredient, specify the most appropriate category from the available list above
 
 Generate a complete recipe in the following JSON format (ensure valid JSON with proper quotes, commas, and structure):
 
@@ -586,7 +595,8 @@ Generate a complete recipe in the following JSON format (ensure valid JSON with 
     {
       "name": "Ingredient Name",
       "amount": 100,
-      "unit": "g"
+      "unit": "g",
+      "category": "appropriate_category_from_list"
     }
   ],
   "instructions": [
@@ -594,6 +604,8 @@ Generate a complete recipe in the following JSON format (ensure valid JSON with 
     "Step 2: Detailed instruction"
   ]
 }
+
+IMPORTANT: For each ingredient, choose the most appropriate category from the available categories listed above. This will help with accurate ingredient matching and nutrition calculation.
 
 Timestamp: ${Date.now()}`;
 
@@ -656,12 +668,14 @@ Timestamp: ${Date.now()}`;
     {
       "name": "chicken breast",
       "amount": 400,
-      "unit": "g"
+      "unit": "g",
+      "category": "Meat"
     },
     {
       "name": "olive oil",
       "amount": 15,
-      "unit": "ml"
+      "unit": "ml",
+      "category": "Oils"
     }
   ],
   "instructions": [
@@ -724,7 +738,8 @@ Timestamp: ${Date.now()}`;
           ingredients: z.array(z.object({
             name: z.string(),
             amount: z.number().optional(),
-            unit: z.string().optional()
+            unit: z.string().optional(),
+            category: z.string().optional()
           })),
           instructions: z.array(z.string())
         }).describe('The original recipe from step 1'),
