@@ -690,6 +690,10 @@ Timestamp: ${Date.now()}`;
           throw new Error('Failed to generate valid recipe JSON after multiple attempts');
         }
 
+        console.log('Final recipe object:', JSON.stringify(recipe, null, 2));
+        console.log('Recipe name:', recipe.name);
+        console.log('Recipe ingredients:', recipe.ingredients);
+
         return {
           success: true,
           data: {

@@ -1,151 +1,242 @@
 const { PrismaClient } = require('@prisma/client');
 const fs = require('fs');
 const path = require('path');
+const readline = require('readline');
 
 const prisma = new PrismaClient();
 
-// Nutrition mapping from USDA to our schema
-const nutritionMapping = {
-  '203': 'protein',      // Protein
-  '204': 'fat',          // Total lipid (fat)
-  '205': 'carbs',        // Carbohydrate, by difference
-  '208': 'calories',     // Energy
-  '291': 'fiber',        // Fiber, total dietary
-  '269': 'sugar',        // Total Sugars
-  '307': 'sodium',       // Sodium, Na
-  '601': 'cholesterol',  // Cholesterol
-  '606': 'saturatedFat', // Fatty acids, total saturated
-  '645': 'monounsaturatedFat', // Fatty acids, total monounsaturated
-  '646': 'polyunsaturatedFat', // Fatty acids, total polyunsaturated
+// USDA nutrient ID mappings to our database fields
+const NUTRIENT_MAPPINGS = {
+  1008: 'calories',      // Energy (kcal)
+  1003: 'protein',       // Protein (g)
+  1004: 'fat',          // Total lipid (fat) (g)
+  1005: 'carbs',        // Carbohydrate, by difference (g)
+  2000: 'sugar',        // Total Sugars (g)
+  1079: 'fiber',        // Fiber, total dietary (g)
+  1093: 'sodium',       // Sodium, Na (mg)
+  1253: 'cholesterol',  // Cholesterol (mg)
+  1258: 'saturatedFat', // Fatty acids, total saturated (g)
+  1257: 'transFat'      // Fatty acids, total trans (g)
 };
 
-async function seedFoundationFoods() {
-  console.log('Starting foundation foods seeding...');
-  
-  const filePath = path.join(__dirname, '..', 'ingredientData', 'FoodData_Central_foundation_food_json_2025-04-24.json');
-  
-  if (!fs.existsSync(filePath)) {
-    console.error('Foundation foods file not found:', filePath);
-    return;
+// Category mappings from USDA to our categories
+const CATEGORY_MAPPINGS = {
+  'Vegetables and Vegetable Products': 'Vegetables',
+  'Fruits and Fruit Juices': 'Fruits',
+  'Dairy and Egg Products': 'Dairy',
+  'Legumes and Legume Products': 'Proteins',
+  'Cereal Grains and Pasta': 'Grains and Flours',
+  'Spices and Herbs': 'Spices and Herbs',
+  'Fats and Oils': 'Oils and Fats',
+  'Sweets': 'Sweeteners',
+  'Beverages': 'Beverages',
+  'Poultry Products': 'Proteins',
+  'Pork Products': 'Proteins',
+  'Beef Products': 'Proteins',
+  'Finfish and Shellfish Products': 'Proteins',
+  'Sausages and Luncheon Meats': 'Proteins',
+  'Baked Products': 'Breads and Grains',
+  'Breakfast Cereals': 'Grains and Flours',
+  'Meals, Entrees, and Side Dishes': 'Snacks',
+  'American Indian/Alaska Native Foods': 'Snacks',
+  'Ethnic Foods': 'Snacks',
+  'Baby Foods': 'Snacks',
+  'Fast Foods': 'Snacks',
+  'Restaurant Foods': 'Snacks'
+};
+
+// Aisle mappings
+const AISLE_MAPPINGS = {
+  'Vegetables': 'Produce',
+  'Fruits': 'Produce',
+  'Dairy': 'Dairy',
+  'Proteins': 'Meat',
+  'Grains and Flours': 'Baking',
+  'Baking Essentials': 'Baking',
+  'Oils and Fats': 'Oils',
+  'Condiments': 'Condiments',
+  'Spices and Herbs': 'Spices',
+  'Sweeteners': 'Baking',
+  'Breads and Grains': 'Bread',
+  'Snacks': 'Snacks',
+  'Beverages': 'Beverages',
+  'Canned Goods': 'Canned Goods'
+};
+
+function extractNutrients(foodNutrients) {
+  const nutrients = {
+    calories: 0,
+    protein: 0,
+    carbs: 0,
+    fat: 0,
+    fiber: 0,
+    sugar: 0,
+    sodium: 0,
+    cholesterol: 0,
+    saturatedFat: 0,
+    transFat: 0
+  };
+
+  if (!foodNutrients || !Array.isArray(foodNutrients)) {
+    return nutrients;
   }
 
-  try {
-    const fileContent = fs.readFileSync(filePath, 'utf8');
-    const data = JSON.parse(fileContent);
+  foodNutrients.forEach(nutrient => {
+    const nutrientId = nutrient.nutrient?.id;
+    const amount = nutrient.amount || 0;
+    const field = NUTRIENT_MAPPINGS[nutrientId];
     
-    // The file contains a JSON object with FoundationFoods property
-    const foodsArray = data.FoundationFoods || [];
-    
-    console.log(`Found ${foodsArray.length} foundation foods to process`);
-    
-    let processed = 0;
-    let created = 0;
-    let skipped = 0;
-    
-    for (const food of foodsArray) {
-      try {
-        processed++;
-        
-        if (processed % 100 === 0) {
-          console.log(`Processed ${processed}/${foodsArray.length} foods...`);
-        }
-        
-        // Skip if no description
-        if (!food.description) {
-          skipped++;
-          continue;
-        }
-        
-        // Check if ingredient already exists
-        const existing = await prisma.ingredient.findUnique({
-          where: { name: food.description }
-        });
-        
-        if (existing) {
-          skipped++;
-          continue;
-        }
-        
-        // Extract nutrition data
-        const nutrition = {};
-        
-        if (food.foodNutrients) {
-          for (const nutrient of food.foodNutrients) {
-            const nutrientId = nutrient.nutrient?.number;
-            const amount = nutrient.amount;
-            
-            if (nutritionMapping[nutrientId] && amount !== null && amount !== undefined) {
-              nutrition[nutritionMapping[nutrientId]] = parseFloat(amount);
-            }
-          }
-        }
-        
-        // Get serving size from foodPortions if available
-        let servingSize = '100g';
-        if (food.foodPortions && food.foodPortions.length > 0) {
-          const primaryPortion = food.foodPortions.find(p => p.portionDescription === '1 cup') ||
-                                food.foodPortions.find(p => p.portionDescription === '1 serving') ||
-                                food.foodPortions[0];
-          
-          if (primaryPortion) {
-            servingSize = `${primaryPortion.portionDescription} (${primaryPortion.gramWeight}g)`;
-          }
-        }
-        
-        // Create ingredient
-        const ingredientData = {
-          name: food.description,
-          description: food.description,
-          servingSize: servingSize,
-          calories: nutrition.calories || 0,
-          protein: nutrition.protein || 0,
-          carbs: nutrition.carbs || 0,
-          fat: nutrition.fat || 0,
-          fiber: nutrition.fiber || 0,
-          sugar: nutrition.sugar || 0,
-          sodium: nutrition.sodium || 0,
-          cholesterol: nutrition.cholesterol || 0,
-          saturatedFat: nutrition.saturatedFat || 0,
-          monounsaturatedFat: nutrition.monounsaturatedFat || 0,
-          polyunsaturatedFat: nutrition.polyunsaturatedFat || 0,
-          category: food.foodCategory?.description || null,
-          isActive: true
-        };
-        
-        await prisma.ingredient.create({
-          data: ingredientData
-        });
-        
-        created++;
-        
-      } catch (error) {
-        console.error(`Error processing food "${food.description}":`, error.message);
-        skipped++;
-      }
+    if (field) {
+      nutrients[field] = amount;
     }
-    
-    console.log(`Foundation foods seeding completed!`);
-    console.log(`- Processed: ${processed}`);
-    console.log(`- Created: ${created}`);
-    console.log(`- Skipped: ${skipped}`);
-    
-  } catch (error) {
-    console.error('Error reading or parsing foundation foods file:', error);
-  }
+  });
+
+  return nutrients;
 }
 
-async function main() {
+function determineCategory(foodCategory) {
+  if (!foodCategory) return 'Snacks';
+  return CATEGORY_MAPPINGS[foodCategory.description] || 'Snacks';
+}
+
+function determineAisle(category) {
+  return AISLE_MAPPINGS[category] || 'Snacks';
+}
+
+function cleanDescription(description) {
+  if (!description) return '';
+  
+  // Clean up the description
+  let cleaned = description
+    .replace(/\s+/g, ' ') // Normalize spaces
+    .trim()
+    .toLowerCase();
+  
+  // Capitalize first letter
+  return cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
+}
+
+async function seedFoundationFoods() {
   try {
-    await seedFoundationFoods();
+    console.log('🌱 Starting USDA foundation foods seeding...\n');
+    
+    const filePath = path.join(__dirname, '../ingredientData/FoodData_Central_foundation_food_json_2025-04-24.json');
+    
+    if (!fs.existsSync(filePath)) {
+      console.error('❌ USDA foundation foods file not found:', filePath);
+      return;
+    }
+
+    const stats = fs.statSync(filePath);
+    console.log(`📖 File size: ${(stats.size / 1024 / 1024).toFixed(2)} MB`);
+    console.log('📖 Reading USDA foundation foods file...\n');
+    
+    // Create readline interface for streaming
+    const fileStream = fs.createReadStream(filePath, { 
+      encoding: 'utf8',
+      highWaterMark: 64 * 1024 // 64KB chunks
+    });
+    
+    const rl = readline.createInterface({
+      input: fileStream,
+      crlfDelay: Infinity
+    });
+
+    let processedCount = 0;
+    let addedCount = 0;
+    let skippedCount = 0;
+    let errorCount = 0;
+    let startTime = Date.now();
+
+    // Process each line (each line is a complete JSON object)
+    for await (const line of rl) {
+      try {
+        if (!line.trim()) continue;
+        
+        const foodItem = JSON.parse(line);
+        processedCount++;
+
+        if (processedCount % 100 === 0) {
+          const elapsed = (Date.now() - startTime) / 1000;
+          const rate = processedCount / elapsed;
+          console.log(`⏳ Processed ${processedCount.toLocaleString()} items... (Added: ${addedCount}, Skipped: ${skippedCount}, Rate: ${rate.toFixed(0)}/sec)`);
+        }
+
+        // Extract basic info
+        const description = cleanDescription(foodItem.description);
+        const category = determineCategory(foodItem.foodCategory);
+        const aisle = determineAisle(category);
+
+        // Skip if no description
+        if (!description) {
+          skippedCount++;
+          continue;
+        }
+
+        // Extract nutrition (foundation foods are already per 100g)
+        const nutrients = extractNutrients(foodItem.foodNutrients);
+
+        // Check if ingredient already exists
+        const existing = await prisma.ingredient.findFirst({
+          where: {
+            name: description.toLowerCase(),
+            isActive: true
+          }
+        });
+
+        if (existing) {
+          skippedCount++;
+          continue;
+        }
+
+        // Create ingredient
+        await prisma.ingredient.create({
+          data: {
+            name: description.toLowerCase(),
+            description: `USDA foundation food: ${foodItem.description}`,
+            servingSize: '100g',
+            calories: nutrients.calories,
+            protein: nutrients.protein,
+            carbs: nutrients.carbs,
+            fat: nutrients.fat,
+            fiber: nutrients.fiber,
+            sugar: nutrients.sugar,
+            sodium: nutrients.sodium,
+            cholesterol: nutrients.cholesterol,
+            saturatedFat: nutrients.saturatedFat,
+            transFat: nutrients.transFat,
+            category: category,
+            aisle: aisle,
+            isActive: true
+          }
+        });
+
+        addedCount++;
+
+      } catch (error) {
+        errorCount++;
+        if (errorCount <= 10) { // Only show first 10 errors
+          console.error(`❌ Error processing item ${processedCount}:`, error.message);
+        }
+      }
+    }
+
+    const totalTime = (Date.now() - startTime) / 1000;
+    console.log(`\n✅ USDA foundation foods seeding completed!`);
+    console.log(`📊 Summary:`);
+    console.log(`  - Processed: ${processedCount.toLocaleString()} items`);
+    console.log(`  - Added: ${addedCount.toLocaleString()} new ingredients`);
+    console.log(`  - Skipped: ${skippedCount.toLocaleString()} (already exist or invalid)`);
+    console.log(`  - Errors: ${errorCount}`);
+    console.log(`  - Total time: ${totalTime.toFixed(1)} seconds`);
+    console.log(`  - Average rate: ${(processedCount / totalTime).toFixed(0)} items/second`);
+
   } catch (error) {
-    console.error('Error in main:', error);
+    console.error('❌ Error seeding USDA foundation foods:', error);
   } finally {
     await prisma.$disconnect();
   }
 }
 
-if (require.main === module) {
-  main();
-}
-
-module.exports = { seedFoundationFoods }; 
+// Run the seeding
+seedFoundationFoods(); 

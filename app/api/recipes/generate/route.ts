@@ -123,7 +123,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    console.log('Step 1 response:', JSON.stringify(step1Response, null, 2));
     const initialRecipe = step1Response.data.recipe;
+    
+    if (!initialRecipe) {
+      console.error('No recipe found in step1Response.data:', step1Response.data);
+      return NextResponse.json(
+        { error: 'No recipe generated in step 1' },
+        { status: 500 }
+      );
+    }
+    
     console.log('Initial recipe generated:', initialRecipe.name);
 
     // STEP 2: Use AI ingredient search for each ingredient
