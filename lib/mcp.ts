@@ -578,15 +578,19 @@ IMPORTANT REQUIREMENTS:
 5. For each ingredient, specify the most appropriate category from the available list above
 6. For each ingredient, provide a brief description explaining what it is and its culinary use
 
-INGREDIENT NAMING GUIDELINES:
-- Use the SIMPLEST possible ingredient names (e.g., "salt", "pepper", "flour", "eggs")
-- Use basic, common names (e.g., "beef", "chicken breast", "tomatoes")
-- Avoid overly specific names (e.g., "beef striploin" → use "beef" or "beef steak")
-- Keep names to 1-3 words maximum
-- Use generic terms when possible (e.g., "cheese" instead of "cheddar cheese")
-- Examples of good names: "salt", "pepper", "flour", "eggs", "beef", "chicken", "tomatoes", "onions", "garlic", "olive oil", "butter", "milk", "sugar"
-- Examples of bad names: "salt, table, iodized", "spices, pepper, black", "flour, wheat, all-purpose, enriched, bleached", "beef striploin", "organic cherry tomatoes", "extra virgin olive oil"
-- NEVER use database-style names with commas and technical descriptions
+CATEGORY USAGE EXAMPLES:
+- "salt" → category: "Spices and Herbs"
+- "pepper" → category: "Spices and Herbs" 
+- "beef" → category: "Proteins"
+- "chicken" → category: "Proteins"
+- "onions" → category: "Vegetables"
+- "garlic" → category: "Vegetables"
+- "flour" → category: "Grains and Flours"
+- "milk" → category: "Beverages"
+- "butter" → category: "Oils and Fats"
+- "olive oil" → category: "Oils and Fats"
+- "noodles" → category: "Breads and Grains"
+- "dill" → category: "Spices and Herbs"
 
 Generate a complete recipe in the following JSON format (ensure valid JSON with proper quotes, commas, and structure):
 

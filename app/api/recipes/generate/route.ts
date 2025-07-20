@@ -235,7 +235,9 @@ export async function POST(request: NextRequest) {
           'noodles': 'noodles, egg, cooked, enriched, with added salt',
           'salmon': 'fish, salmon, raw',
           'salmon fillets': 'fish, salmon, raw',
-          'quinoa': 'quinoa, cooked'
+          'quinoa': 'quinoa, cooked',
+          'milk': 'milk, whole, 3.25% milkfat',
+          'dill': 'spices, dill weed, dried'
         };
         
         // Check if we have a hardcoded mapping (case-insensitive)
@@ -377,35 +379,99 @@ export async function POST(request: NextRequest) {
                     name.includes('shiitake') ||
                     name.includes('jujube') ||
                     name.includes('chinese') ||
-                    name.includes('pasteurized')) {
+                    name.includes('pasteurized') ||
+                    name.includes('breaded') ||
+                    name.includes('par fried') ||
+                    name.includes('prepared') ||
+                    name.includes('heated') ||
+                    name.includes('no sauce') ||
+                    name.includes('pickles') ||
+                    name.includes('almonds') ||
+                    name.includes('nuts')) {
                   return false;
                 }
 
-                // Category-specific filtering to prevent cross-category mismatches
-                if (searchTerm.includes('bell pepper') || searchTerm.includes('peppers')) {
-                  // Bell peppers should be in Vegetables category, not Snacks
-                  if (category !== 'vegetables' && !name.includes('peppers, sweet')) {
+                // STRICT category-specific filtering to prevent cross-category mismatches
+                if (searchTerm === 'salt' || searchTerm.includes('salt')) {
+                  // Salt should only be in Spices and Herbs category
+                  if (category !== 'spices and herbs' || !name.includes('salt')) {
                     return false;
                   }
                 }
                 
-                if (searchTerm.includes('onion')) {
-                  // Onions should be in Vegetables category, not Snacks
-                  if (category !== 'vegetables' && !name.includes('onions')) {
+                if (searchTerm === 'pepper' || searchTerm.includes('pepper')) {
+                  // Pepper should only be in Spices and Herbs category
+                  if (category !== 'spices and herbs' || !name.includes('pepper')) {
                     return false;
                   }
                 }
                 
-                if (searchTerm.includes('chicken')) {
-                  // Chicken should be in Proteins category
-                  if (category !== 'proteins' && !name.includes('chicken')) {
+                if (searchTerm === 'beef' || searchTerm.includes('beef')) {
+                  // Beef should only be in Proteins category
+                  if (category !== 'proteins' || !name.includes('beef')) {
                     return false;
                   }
                 }
                 
-                if (searchTerm.includes('tortilla')) {
-                  // Tortillas should be in Breads and Grains category
-                  if (category !== 'breads and grains' && !name.includes('tortilla')) {
+                if (searchTerm === 'chicken' || searchTerm.includes('chicken')) {
+                  // Chicken should only be in Proteins category
+                  if (category !== 'proteins' || !name.includes('chicken')) {
+                    return false;
+                  }
+                }
+                
+                if (searchTerm === 'onion' || searchTerm.includes('onion')) {
+                  // Onions should only be in Vegetables category
+                  if (category !== 'vegetables' || !name.includes('onion')) {
+                    return false;
+                  }
+                }
+                
+                if (searchTerm === 'garlic' || searchTerm.includes('garlic')) {
+                  // Garlic should only be in Vegetables category
+                  if (category !== 'vegetables' || !name.includes('garlic')) {
+                    return false;
+                  }
+                }
+                
+                if (searchTerm === 'flour' || searchTerm.includes('flour')) {
+                  // Flour should only be in Grains and Flours category
+                  if (category !== 'grains and flours' || !name.includes('flour')) {
+                    return false;
+                  }
+                }
+                
+                if (searchTerm === 'noodles' || searchTerm.includes('noodles')) {
+                  // Noodles should only be in Breads and Grains category
+                  if (category !== 'breads and grains' || !name.includes('noodle')) {
+                    return false;
+                  }
+                }
+                
+                if (searchTerm === 'milk' || searchTerm.includes('milk')) {
+                  // Milk should only be in Beverages category
+                  if (category !== 'beverages' || !name.includes('milk')) {
+                    return false;
+                  }
+                }
+                
+                if (searchTerm === 'butter' || searchTerm.includes('butter')) {
+                  // Butter should only be in Oils and Fats category
+                  if (category !== 'oils and fats' || !name.includes('butter')) {
+                    return false;
+                  }
+                }
+                
+                if (searchTerm === 'dill' || searchTerm.includes('dill')) {
+                  // Dill should only be in Spices and Herbs category
+                  if (category !== 'spices and herbs' || !name.includes('dill')) {
+                    return false;
+                  }
+                }
+                
+                if (searchTerm === 'olive oil' || searchTerm.includes('olive oil')) {
+                  // Olive oil should only be in Oils and Fats category
+                  if (category !== 'oils and fats' || !name.includes('olive')) {
                     return false;
                   }
                 }
@@ -415,26 +481,6 @@ export async function POST(request: NextRequest) {
                 if (name.startsWith(searchTerm + ' ')) return true;
                 if (name.includes(searchTerm + ',')) return true;
                 
-                // For specific ingredients, be very strict
-                if (searchTerm === 'salt' && !name.includes('salt')) return false;
-                if (searchTerm === 'pepper' && !name.includes('pepper')) return false;
-                if (searchTerm === 'beef' && !name.includes('beef')) return false;
-                if (searchTerm === 'garlic' && !name.includes('garlic')) return false;
-                if (searchTerm === 'ginger' && !name.includes('ginger')) return false;
-                if (searchTerm === 'olive oil' && !name.includes('olive')) return false;
-                if (searchTerm === 'soy sauce' && !name.includes('soy')) return false;
-                if (searchTerm === 'bell peppers' && !name.includes('pepper')) return false;
-                if (searchTerm === 'broccoli' && !name.includes('broccoli')) return false;
-                if (searchTerm === 'parsley' && !name.includes('parsley')) return false;
-                if (searchTerm === 'chopped fresh parsley' && !name.includes('parsley')) return false;
-                if (searchTerm === 'egg noodles' && !name.includes('noodle')) return false;
-                if (searchTerm === 'mushrooms' && !name.includes('mushroom')) return false;
-                if (searchTerm === 'onions' && !name.includes('onion')) return false;
-                if (searchTerm === 'sour cream' && !name.includes('cream')) return false;
-                if (searchTerm === 'flour' && !name.includes('flour')) return false;
-                if (searchTerm === 'all-purpose flour' && !name.includes('flour')) return false;
-                if (searchTerm === 'beef broth' && !name.includes('broth')) return false;
-
                 return true;
               });
 
