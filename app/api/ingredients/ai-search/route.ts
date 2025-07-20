@@ -148,7 +148,8 @@ IMPORTANT: Return ONLY the JSON object, no additional text or formatting.`;
           bestMatch: fallbackMatch,
           reasoning: aiResult.reasoning || 'AI selected this ingredient as the best match (found by name)',
           searchTerm,
-          totalCandidates: ingredients.length,
+          totalCandidates: topResults.length, // Show actual number analyzed (20)
+          totalFound: ingredients.length, // Show total found for reference
           provider: response.provider,
           note: 'Matched by name due to ID mismatch'
         });
@@ -171,7 +172,8 @@ IMPORTANT: Return ONLY the JSON object, no additional text or formatting.`;
       bestMatch: bestMatchIngredient,
       reasoning: aiResult.reasoning || 'AI selected this ingredient as the best match',
       searchTerm,
-      totalCandidates: ingredients.length,
+      totalCandidates: topResults.length, // Show actual number analyzed (20)
+      totalFound: ingredients.length, // Show total found for reference
       provider: response.provider
     });
 

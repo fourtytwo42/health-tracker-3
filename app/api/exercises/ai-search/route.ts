@@ -40,17 +40,21 @@ export const POST = withAuth(async (req: AuthenticatedRequest) => {
       );
     }
 
+    // Limit to top 20 results for AI analysis to reduce context size
+    const topResults = exercises.slice(0, 20);
+    console.log(`AI Exercise Search: Using top ${topResults.length} results for AI analysis (reduced from ${exercises.length})`);
+
     // Prepare the prompt for the AI
     const prompt = `You are an expert at matching exercise search terms to the most appropriate exercise from a database.
 
 SEARCH TERM: "${searchTerm}"
 
-AVAILABLE EXERCISES (${exercises.length} total):
-${exercises.map((exercise: any, index: number) => 
+AVAILABLE EXERCISES (top 20 results from ${exercises.length} total):
+${topResults.map((exercise: any, index: number) => 
   `${index + 1}. ID: ${exercise.id} - ${exercise.activity} (${exercise.category || 'Unknown'}) - ${exercise.description} - MET: ${exercise.met} - Intensity: ${exercise.intensity}`
 ).join('\n')}
 
-TASK: Analyze the search term and all available exercises. Return ONLY the single best matching exercise as JSON.
+TASK: Analyze the search term and the top 20 available exercises. Return ONLY the single best matching exercise as JSON.
 
 CRITERIA for best match:
 1. Exact activity name match (highest priority)
@@ -140,7 +144,8 @@ IMPORTANT: Return ONLY the JSON object, no additional text or formatting.`;
           bestMatch: fallbackMatch,
           reasoning: aiResult.reasoning || 'AI selected this exercise as the best match (found by activity name)',
           searchTerm,
-          totalCandidates: exercises.length,
+          totalCandidates: topResults.length, // Show actual number analyzed (20)
+          totalFound: exercises.length, // Show total found for reference
           provider: response.provider,
           note: 'Matched by activity name due to ID mismatch'
         });
@@ -163,7 +168,8 @@ IMPORTANT: Return ONLY the JSON object, no additional text or formatting.`;
       bestMatch: bestMatchExercise,
       reasoning: aiResult.reasoning || 'AI selected this exercise as the best match',
       searchTerm,
-      totalCandidates: exercises.length,
+      totalCandidates: topResults.length, // Show actual number analyzed (20)
+      totalFound: exercises.length, // Show total found for reference
       provider: response.provider
     });
 
