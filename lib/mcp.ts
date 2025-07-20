@@ -34,289 +34,6 @@ export class MCPHandler {
     this.registerDefaultTools();
   }
 
-  private generateRealisticMealPlan(args: { duration_days: number; calorie_target?: number; dietary_preferences?: string[]; goal?: string }) {
-    const calorieTarget = args.calorie_target || 2000;
-    const days = [];
-    
-    const breakfastRecipes = [
-      {
-        name: 'Greek Yogurt with Berries and Honey',
-        calories: 350,
-        protein: 25,
-        carbs: 30,
-        fat: 12,
-        ingredients: [
-          '1 cup Greek yogurt (non-fat)',
-          '1/2 cup mixed berries (strawberries, blueberries, raspberries)',
-          '1 tbsp honey',
-          '2 tbsp granola',
-          '1 tbsp chopped almonds'
-        ],
-        instructions: [
-          'In a bowl, add 1 cup of Greek yogurt',
-          'Top with fresh mixed berries',
-          'Drizzle with honey',
-          'Sprinkle granola and chopped almonds on top',
-          'Serve immediately'
-        ],
-        prepTime: '5 minutes',
-        cookTime: '0 minutes'
-      },
-      {
-        name: 'Oatmeal with Banana and Cinnamon',
-        calories: 400,
-        protein: 15,
-        carbs: 65,
-        fat: 8,
-        ingredients: [
-          '1 cup rolled oats',
-          '1 cup water',
-          '1 cup milk (or almond milk)',
-          '1 ripe banana, sliced',
-          '1 tbsp honey',
-          '1/2 tsp cinnamon',
-          'Pinch of salt'
-        ],
-        instructions: [
-          'In a medium saucepan, combine oats, water, milk, and salt',
-          'Bring to a boil over medium heat, then reduce to low',
-          'Simmer for 5 minutes, stirring occasionally',
-          'Remove from heat and let stand for 2 minutes',
-          'Top with sliced banana, honey, and cinnamon',
-          'Serve hot'
-        ],
-        prepTime: '5 minutes',
-        cookTime: '7 minutes'
-      },
-      {
-        name: 'Scrambled Eggs with Whole Grain Toast',
-        calories: 450,
-        protein: 22,
-        carbs: 35,
-        fat: 18,
-        ingredients: [
-          '3 large eggs',
-          '1 tbsp butter',
-          '2 slices whole grain bread',
-          '1/4 cup diced bell peppers',
-          '1/4 cup diced onions',
-          'Salt and pepper to taste',
-          '1 tbsp fresh herbs (optional)'
-        ],
-        instructions: [
-          'Toast the whole grain bread',
-          'In a bowl, whisk eggs with salt and pepper',
-          'Heat butter in a non-stick pan over medium heat',
-          'Add diced peppers and onions, sauté for 2 minutes',
-          'Pour in whisked eggs and cook, stirring gently',
-          'Cook until eggs are set but still moist',
-          'Serve eggs over toast and garnish with fresh herbs'
-        ],
-        prepTime: '5 minutes',
-        cookTime: '8 minutes'
-      }
-    ];
-
-    const lunchRecipes = [
-      {
-        name: 'Grilled Chicken Salad with Mixed Greens',
-        calories: 550,
-        protein: 35,
-        carbs: 25,
-        fat: 22,
-        ingredients: [
-          '4 oz chicken breast',
-          '2 cups mixed greens (spinach, arugula, romaine)',
-          '1/2 cup cherry tomatoes, halved',
-          '1/4 cup cucumber, sliced',
-          '1/4 cup red onion, thinly sliced',
-          '2 tbsp olive oil',
-          '1 tbsp balsamic vinegar',
-          'Salt and pepper to taste'
-        ],
-        instructions: [
-          'Season chicken breast with salt and pepper',
-          'Grill chicken for 6-8 minutes per side until cooked through',
-          'Let chicken rest for 5 minutes, then slice',
-          'In a large bowl, combine mixed greens, tomatoes, cucumber, and onion',
-          'Whisk together olive oil, balsamic vinegar, salt, and pepper',
-          'Toss salad with dressing and top with sliced chicken',
-          'Serve immediately'
-        ],
-        prepTime: '10 minutes',
-        cookTime: '15 minutes'
-      },
-      {
-        name: 'Quinoa Bowl with Roasted Vegetables',
-        calories: 600,
-        protein: 20,
-        carbs: 70,
-        fat: 18,
-        ingredients: [
-          '1/2 cup quinoa',
-          '1 cup vegetable broth',
-          '1 cup broccoli florets',
-          '1 cup cauliflower florets',
-          '1/2 cup chickpeas, drained',
-          '2 tbsp olive oil',
-          '1 tsp garlic powder',
-          '1 tsp paprika',
-          'Salt and pepper to taste',
-          '2 tbsp tahini sauce'
-        ],
-        instructions: [
-          'Rinse quinoa thoroughly and cook in vegetable broth for 15 minutes',
-          'Preheat oven to 400°F (200°C)',
-          'Toss broccoli, cauliflower, and chickpeas with olive oil and spices',
-          'Roast vegetables for 20-25 minutes until tender',
-          'Fluff quinoa with a fork and let cool slightly',
-          'Assemble bowl with quinoa base, roasted vegetables, and tahini sauce',
-          'Serve warm or at room temperature'
-        ],
-        prepTime: '15 minutes',
-        cookTime: '25 minutes'
-      }
-    ];
-
-    const dinnerRecipes = [
-      {
-        name: 'Baked Salmon with Roasted Vegetables',
-        calories: 480,
-        protein: 30,
-        carbs: 25,
-        fat: 20,
-        ingredients: [
-          '6 oz salmon fillet',
-          '1 cup broccoli florets',
-          '1 cup carrots, sliced',
-          '2 tbsp olive oil',
-          '1 lemon, sliced',
-          '2 cloves garlic, minced',
-          '1 tsp dried herbs (thyme, rosemary)',
-          'Salt and pepper to taste'
-        ],
-        instructions: [
-          'Preheat oven to 400°F (200°C)',
-          'Line a baking sheet with parchment paper',
-          'Place salmon in the center and arrange vegetables around it',
-          'Drizzle with olive oil and season with garlic, herbs, salt, and pepper',
-          'Place lemon slices on top of salmon',
-          'Bake for 15-20 minutes until salmon flakes easily',
-          'Serve hot with lemon wedges'
-        ],
-        prepTime: '10 minutes',
-        cookTime: '20 minutes'
-      },
-      {
-        name: 'Lean Beef Stir Fry with Brown Rice',
-        calories: 520,
-        protein: 35,
-        carbs: 30,
-        fat: 22,
-        ingredients: [
-          '4 oz lean beef, sliced thin',
-          '1 cup brown rice, cooked',
-          '1 cup mixed vegetables (bell peppers, broccoli, carrots)',
-          '2 tbsp soy sauce',
-          '1 tbsp sesame oil',
-          '2 cloves garlic, minced',
-          '1 tbsp ginger, minced',
-          '1 tbsp cornstarch',
-          '2 tbsp water'
-        ],
-        instructions: [
-          'Cook brown rice according to package instructions',
-          'Heat sesame oil in a wok or large skillet over high heat',
-          'Add beef and stir-fry for 2-3 minutes until browned',
-          'Add garlic and ginger, stir for 30 seconds',
-          'Add vegetables and stir-fry for 3-4 minutes',
-          'Mix cornstarch with water and soy sauce',
-          'Pour sauce over stir fry and cook until thickened',
-          'Serve over brown rice'
-        ],
-        prepTime: '15 minutes',
-        cookTime: '15 minutes'
-      }
-    ];
-
-    const snackRecipes = [
-      {
-        name: 'Apple with Almonds and Cinnamon',
-        calories: 200,
-        protein: 8,
-        carbs: 25,
-        fat: 12,
-        ingredients: [
-          '1 medium apple, sliced',
-          '1/4 cup raw almonds',
-          '1/2 tsp cinnamon',
-          '1 tsp honey (optional)'
-        ],
-        instructions: [
-          'Wash and slice apple into wedges',
-          'Arrange apple slices on a plate',
-          'Sprinkle with cinnamon',
-          'Serve with almonds on the side',
-          'Drizzle with honey if desired'
-        ],
-        prepTime: '5 minutes',
-        cookTime: '0 minutes'
-      },
-      {
-        name: 'Protein Smoothie Bowl',
-        calories: 180,
-        protein: 25,
-        carbs: 15,
-        fat: 3,
-        ingredients: [
-          '1 scoop vanilla protein powder',
-          '1/2 cup frozen berries',
-          '1/2 cup almond milk',
-          '1 tbsp chia seeds',
-          '1 tbsp granola',
-          'Fresh berries for topping'
-        ],
-        instructions: [
-          'Blend protein powder, frozen berries, and almond milk until smooth',
-          'Pour into a bowl',
-          'Top with chia seeds, granola, and fresh berries',
-          'Serve immediately with a spoon'
-        ],
-        prepTime: '5 minutes',
-        cookTime: '0 minutes'
-      }
-    ];
-
-    for (let i = 0; i < args.duration_days; i++) {
-      const breakfast = breakfastRecipes[i % breakfastRecipes.length];
-      const lunch = lunchRecipes[i % lunchRecipes.length];
-      const dinner = dinnerRecipes[i % dinnerRecipes.length];
-      const snack = snackRecipes[i % snackRecipes.length];
-
-      days.push({
-        day: i + 1,
-        meals: [
-          { ...breakfast, mealType: 'BREAKFAST' },
-          { ...lunch, mealType: 'LUNCH' },
-          { ...dinner, mealType: 'DINNER' },
-          { ...snack, mealType: 'SNACK' }
-        ],
-        totalCalories: breakfast.calories + lunch.calories + dinner.calories + snack.calories,
-      });
-    }
-
-    return {
-      days,
-      totalCalories: days.reduce((sum, day) => sum + day.totalCalories, 0),
-      metadata: {
-        calorieTarget: calorieTarget,
-        dietaryPreferences: args.dietary_preferences || [],
-        goal: args.goal || 'maintenance',
-        duration: args.duration_days
-      }
-    };
-  }
-
   private cleanJsonString(jsonString: string): string {
     // Remove any remaining text before the first {
     jsonString = jsonString.replace(/^[^{]*/, '');
@@ -601,36 +318,54 @@ The meal plan includes detailed recipes for each meal with complete ingredient l
     // Get leaderboard tool
     this.registerTool({
       name: 'get_leaderboard',
-      description: 'Get current leaderboard standings',
+      description: 'Get leaderboard data for users',
       schema: z.object({
-        type: z.enum(['global', 'around_me']).optional().default('global').describe('Type of leaderboard'),
-        limit: z.number().min(1).max(100).optional().default(10).describe('Number of users to show'),
+        type: z.enum(['global', 'around_me', 'me']).describe('Type of leaderboard'),
+        limit: z.number().min(1).max(100).optional().default(10).describe('Number of users to return'),
       }),
       handler: async (args, authInfo) => {
-        const response = await this.llmRouter.generateResponse({
-          prompt: `Show ${args.type} leaderboard with top ${args.limit} users. Include user rankings and points.`,
-          userId: authInfo.userId,
-          tool: 'get_leaderboard',
-        });
+        try {
+          const { LeaderboardService } = await import('./services/LeaderboardService');
+          const leaderboardService = new LeaderboardService();
+          
+          let leaderboardData;
+          
+          switch (args.type) {
+            case 'global':
+              leaderboardData = await leaderboardService.getTopUsers(args.limit);
+              break;
+            case 'around_me':
+              leaderboardData = await leaderboardService.getUsersAroundMe(authInfo.userId, args.limit);
+              break;
+            case 'me':
+              leaderboardData = await leaderboardService.getUserRank(authInfo.userId);
+              break;
+            default:
+              throw new Error(`Unknown leaderboard type: ${args.type}`);
+          }
 
-        return {
-          type: 'LeaderboardSnippet',
-          props: {
-            currentRank: Math.floor(Math.random() * 50) + 1, // Mock data
-            totalPoints: Math.floor(Math.random() * 1000) + 100, // Mock data
-            topUsers: [
-              { username: 'admin', points: 1250 },
-              { username: 'user', points: 850 },
-              { username: 'fitness_guru', points: 720 },
-              { username: 'health_nut', points: 680 },
+          return {
+            type: 'LeaderboardSnippet',
+            props: {
+              currentRank: leaderboardData.currentRank || 0,
+              totalPoints: leaderboardData.totalPoints || 0,
+              topUsers: leaderboardData.users || leaderboardData.topUsers || [],
+              type: args.type,
+              limit: args.limit
+            },
+            quickReplies: [
+              { label: 'View my stats', value: 'Show me my personal health stats' },
+              { label: 'Set a goal', value: 'I want to set a new fitness goal' },
+              { label: 'Log an activity', value: 'I want to log a workout' },
             ],
-          },
-          quickReplies: [
-            { label: 'View my stats', value: 'Show me my personal health stats' },
-            { label: 'Set a goal', value: 'I want to set a new fitness goal' },
-            { label: 'Log an activity', value: 'I want to log a workout' },
-          ],
-        };
+          };
+        } catch (error) {
+          console.error('Leaderboard error:', error);
+          return {
+            success: false,
+            error: error instanceof Error ? error.message : 'Failed to fetch leaderboard'
+          };
+        }
       },
     });
 
@@ -645,32 +380,61 @@ The meal plan includes detailed recipes for each meal with complete ingredient l
         notes: z.string().optional().describe('Additional notes'),
       }),
       handler: async (args, authInfo) => {
-        const response = await this.llmRouter.generateResponse({
-          prompt: `Log ${args.metric}: ${args.value} ${args.unit}${args.notes ? ` - Notes: ${args.notes}` : ''}. Provide analysis and trend information.`,
-          userId: authInfo.userId,
-          tool: 'log_biomarker',
-        });
-
-        return {
-          type: 'BiomarkerChart',
-          props: {
-            metric: args.metric,
-            currentValue: args.value,
+        try {
+          const { BiomarkerService } = await import('./services/BiomarkerService');
+          const biomarkerService = new BiomarkerService();
+          
+          // Log the biomarker
+          const loggedBiomarker = await biomarkerService.logBiomarker({
+            userId: authInfo.userId,
+            type: args.metric,
+            value: args.value,
             unit: args.unit,
-            trend: Math.random() > 0.5 ? 'up' : 'down',
-            data: [
-              { date: '2024-01-01', value: args.value - 2, unit: args.unit },
-              { date: '2024-01-02', value: args.value - 1, unit: args.unit },
-              { date: '2024-01-03', value: args.value, unit: args.unit },
+            notes: args.notes
+          });
+
+          // Get recent history for trend analysis
+          const recentBiomarkers = await biomarkerService.getBiomarkersByUser(
+            authInfo.userId,
+            args.metric,
+            10 // Get last 10 measurements
+          );
+
+          // Calculate trend
+          let trend = 'stable';
+          if (recentBiomarkers.length >= 2) {
+            const latest = recentBiomarkers[0].value;
+            const previous = recentBiomarkers[1].value;
+            trend = latest > previous ? 'up' : latest < previous ? 'down' : 'stable';
+          }
+
+          return {
+            type: 'BiomarkerChart',
+            props: {
+              metric: args.metric,
+              currentValue: args.value,
+              unit: args.unit,
+              trend: trend,
+              data: recentBiomarkers.map(b => ({
+                date: b.loggedAt.toISOString().split('T')[0],
+                value: b.value,
+                unit: b.unit
+              })),
+              targetRange: { min: args.value * 0.9, max: args.value * 1.1 }, // Simple range
+            },
+            quickReplies: [
+              { label: 'Log another biomarker', value: 'I want to log another measurement' },
+              { label: 'View trends', value: 'Show me my biomarker trends' },
+              { label: 'Set target range', value: 'I want to set a target range for this metric' },
             ],
-            targetRange: { min: args.value - 5, max: args.value + 5 },
-          },
-          quickReplies: [
-            { label: 'Log another biomarker', value: 'I want to log another measurement' },
-            { label: 'View trends', value: 'Show me my biomarker trends' },
-            { label: 'Set target range', value: 'I want to set a target range for this metric' },
-          ],
-        };
+          };
+        } catch (error) {
+          console.error('Biomarker logging error:', error);
+          return {
+            success: false,
+            error: error instanceof Error ? error.message : 'Failed to log biomarker'
+          };
+        }
       },
     });
 
@@ -686,30 +450,45 @@ The meal plan includes detailed recipes for each meal with complete ingredient l
         description: z.string().optional().describe('Detailed description of the goal'),
       }),
       handler: async (args, authInfo) => {
-        const response = await this.llmRouter.generateResponse({
-          prompt: `Create a ${args.type} goal: ${args.title} - Target: ${args.target}${args.deadline ? ` - Deadline: ${args.deadline}` : ''}${args.description ? ` - Description: ${args.description}` : ''}. Provide motivation and next steps.`,
-          userId: authInfo.userId,
-          tool: 'create_goal',
-        });
-
-        return {
-          type: 'GoalBadge',
-          props: {
+        try {
+          const { GoalService } = await import('./services/GoalService');
+          const goalService = new GoalService();
+          
+          // Create the goal
+          const createdGoal = await goalService.createGoal({
+            userId: authInfo.userId,
             title: args.title,
-            description: args.description,
             type: args.type,
             target: args.target,
-            current: '0%',
-            progress: 0,
-            deadline: args.deadline,
-            status: 'active',
-          },
-          quickReplies: [
-            { label: 'Update progress', value: 'I want to update my goal progress' },
-            { label: 'Create another goal', value: 'I want to set another goal' },
-            { label: 'View all goals', value: 'Show me all my goals' },
-          ],
-        };
+            deadline: args.deadline ? new Date(args.deadline) : undefined,
+            description: args.description
+          });
+
+          return {
+            type: 'GoalBadge',
+            props: {
+              title: createdGoal.title,
+              description: createdGoal.description,
+              type: createdGoal.type,
+              target: createdGoal.target,
+              current: '0%',
+              progress: 0,
+              deadline: createdGoal.deadline,
+              status: 'active',
+            },
+            quickReplies: [
+              { label: 'Update progress', value: 'I want to update my goal progress' },
+              { label: 'Create another goal', value: 'I want to set another goal' },
+              { label: 'View all goals', value: 'Show me all my goals' },
+            ],
+          };
+        } catch (error) {
+          console.error('Goal creation error:', error);
+          return {
+            success: false,
+            error: error instanceof Error ? error.message : 'Failed to create goal'
+          };
+        }
       },
     });
 
@@ -723,46 +502,39 @@ The meal plan includes detailed recipes for each meal with complete ingredient l
         budget: z.number().optional().describe('Budget limit'),
       }).partial(),
       handler: async (args, authInfo) => {
-        // Get prompt from system messages
-        let prompt = await this.systemMessageService.getMessageContent('prompts.grocery_list_generation');
-        
-        if (!prompt) {
-          // Fallback to default prompt
-          prompt = `Generate a grocery list for {meal_plan_days} days{preferences}{budget}. Group by aisle and include quantities.`;
-        }
+        try {
+          const { GroceryService } = await import('./services/GroceryService');
+          const groceryService = new GroceryService();
+          
+          // Generate grocery list
+          const groceryList = await groceryService.generateGroceryList({
+            userId: authInfo.userId,
+            days: args.meal_plan_days || 7,
+            dietaryPreferences: args.dietary_preferences,
+            budget: args.budget
+          });
 
-        // Replace placeholders with actual values
-        const formattedPrompt = prompt
-          .replace('{meal_plan_days}', (args.meal_plan_days || 7).toString())
-          .replace('{preferences}', args.dietary_preferences ? ` considering: ${args.dietary_preferences.join(', ')}` : '')
-          .replace('{budget}', args.budget ? ` with a budget of $${args.budget}` : '');
-
-        const response = await this.llmRouter.generateResponse({
-          prompt: formattedPrompt,
-          userId: authInfo.userId,
-          tool: 'generate_grocery_list',
-        });
-
-        return {
-          type: 'GroceryListCard',
-          props: {
-            title: `${args.meal_plan_days || 7}-Day Grocery List`,
-            items: [
-              { name: 'Chicken Breast', quantity: '2 lbs', aisle: 'Meat' },
-              { name: 'Brown Rice', quantity: '1 bag', aisle: 'Grains' },
-              { name: 'Broccoli', quantity: '2 heads', aisle: 'Produce' },
-              { name: 'Greek Yogurt', quantity: '32 oz', aisle: 'Dairy' },
-              { name: 'Almonds', quantity: '1 bag', aisle: 'Nuts' },
+          return {
+            type: 'GroceryListCard',
+            props: {
+              title: `${args.meal_plan_days || 7}-Day Grocery List`,
+              items: groceryList.items || [],
+              totalItems: groceryList.items?.length || 0,
+              estimatedCost: groceryList.estimatedCost || '$0.00',
+            },
+            quickReplies: [
+              { label: 'Add items', value: 'I want to add items to this list' },
+              { label: 'Export list', value: 'I want to export this grocery list' },
+              { label: 'Create meal plan', value: 'I want to create a meal plan first' },
             ],
-            totalItems: 5,
-            estimatedCost: '$45.00',
-          },
-          quickReplies: [
-            { label: 'Add items', value: 'I want to add items to this list' },
-            { label: 'Export list', value: 'I want to export this grocery list' },
-            { label: 'Create meal plan', value: 'I want to create a meal plan first' },
-          ],
-        };
+          };
+        } catch (error) {
+          console.error('Grocery list generation error:', error);
+          return {
+            success: false,
+            error: error instanceof Error ? error.message : 'Failed to generate grocery list'
+          };
+        }
       },
     });
 
@@ -844,7 +616,7 @@ Timestamp: ${Date.now()}`;
             console.log('Response length:', llmResponse.content.length);
             console.log('Response preview:', llmResponse.content.substring(0, 200));
             
-            const jsonString = this.extractJsonFromResponse(llmResponse.content);
+            let jsonString = this.extractJsonFromResponse(llmResponse.content);
             
             if (jsonString) {
               console.log('Extracted JSON string length:', jsonString.length);
@@ -1009,7 +781,7 @@ Timestamp: ${Date.now()}`;
         
         while (retryCount <= maxRetries) {
           try {
-            const jsonString = this.extractJsonFromResponse(llmResponse.content);
+            let jsonString = this.extractJsonFromResponse(llmResponse.content);
             
             if (jsonString) {
               // Clean up the JSON string
@@ -1197,38 +969,87 @@ Format the response as a JSON object with alternatives array.`;
       }),
       handler: async (args, authInfo) => {
         try {
-          const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'}/api/ingredients/ai-search`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${authInfo.token}`
-            },
-            body: JSON.stringify({
-              searchTerm: args.search_term,
-              category: args.category,
-              aisle: args.aisle
-            })
+          // Call the AI search logic directly
+          const { IngredientService } = await import('./services/IngredientService');
+          const ingredientService = IngredientService.getInstance();
+          
+          // Get all matching ingredients first
+          const searchResults = await ingredientService.getIngredientsPaginated(
+            1, // Start from page 1
+            1000, // Get a large number for AI analysis
+            false, // includeInactive
+            args.search_term,
+            args.category,
+            args.aisle
+          );
+
+          if (searchResults.ingredients.length === 0) {
+            return {
+              success: false,
+              error: 'No ingredients found matching the search term'
+            };
+          }
+
+          // Use LLM to find the best match
+          const aiPrompt = `You are an expert at matching ingredient names. Given the search term "${args.search_term}" and the following list of ingredients, find the single best match.
+
+Available ingredients:
+${searchResults.ingredients.map((ing, i) => `${i + 1}. ${ing.name} (${ing.description || 'No description'})`).join('\n')}
+
+Please analyze the search term and return the best matching ingredient. Consider:
+- Exact matches
+- Common variations and synonyms
+- Category relevance
+- Description relevance
+
+Return your response as JSON with this exact format:
+{
+  "bestMatch": {
+    "id": "ingredient_id",
+    "name": "ingredient_name",
+    "reasoning": "explanation of why this is the best match"
+  }
+}`;
+
+          const llmResponse = await this.llmRouter.generateResponse({
+            prompt: aiPrompt,
+            userId: authInfo.userId,
+            tool: 'ai_search_ingredients',
           });
 
-          const result = await response.json();
+          // Parse the AI response
+          const jsonString = this.extractJsonFromResponse(llmResponse.content);
+          if (!jsonString) {
+            throw new Error('Failed to extract JSON from AI response');
+          }
 
-          if (response.ok && result.success) {
+          const aiResult = JSON.parse(jsonString);
+          const bestMatch = searchResults.ingredients.find(ing => ing.id === aiResult.bestMatch.id);
+
+          if (!bestMatch) {
+            // Fallback to first result if AI selection not found
             return {
               success: true,
               data: {
                 searchTerm: args.search_term,
-                bestMatch: result.bestMatch,
-                reasoning: result.reasoning,
-                totalCandidates: result.totalCandidates,
-                provider: result.provider
+                bestMatch: searchResults.ingredients[0],
+                reasoning: 'Selected first available match as fallback',
+                totalCandidates: searchResults.ingredients.length,
+                provider: 'fallback'
               }
             };
-          } else {
-            return {
-              success: false,
-              error: result.error || 'AI search failed'
-            };
           }
+
+          return {
+            success: true,
+            data: {
+              searchTerm: args.search_term,
+              bestMatch: bestMatch,
+              reasoning: aiResult.bestMatch.reasoning,
+              totalCandidates: searchResults.ingredients.length,
+              provider: 'ai_analysis'
+            }
+          };
         } catch (error) {
           console.error('AI ingredient search error:', error);
           return {
@@ -1310,39 +1131,89 @@ Format the response as a JSON object with alternatives array.`;
       }),
       handler: async (args, authInfo) => {
         try {
-          const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'}/api/exercises/ai-search`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${authInfo.token}`
-            },
-            body: JSON.stringify({
-              searchTerm: args.search_term,
-              category: args.category,
-              intensity: args.intensity,
-              metRange: args.met_range
-            })
+          // Call the AI search logic directly
+          const { ExerciseService } = await import('./services/ExerciseService');
+          const exerciseService = ExerciseService.getInstance();
+          
+          // Get all matching exercises first
+          const searchResults = await exerciseService.getExercisesPaginated(
+            1, // Start from page 1
+            1000, // Get a large number for AI analysis
+            false, // includeInactive
+            args.search_term,
+            args.category,
+            args.intensity,
+            args.met_range
+          );
+
+          if (searchResults.exercises.length === 0) {
+            return {
+              success: false,
+              error: 'No exercises found matching the search term'
+            };
+          }
+
+          // Use LLM to find the best match
+          const aiPrompt = `You are an expert at matching exercise names. Given the search term "${args.search_term}" and the following list of exercises, find the single best match.
+
+Available exercises:
+${searchResults.exercises.map((ex, i) => `${i + 1}. ${ex.activity} (${ex.description || 'No description'}) - Category: ${ex.category}, Intensity: ${ex.intensity}, MET: ${ex.met}`).join('\n')}
+
+Please analyze the search term and return the best matching exercise. Consider:
+- Exact matches
+- Common variations and synonyms
+- Category relevance
+- Intensity level
+- Description relevance
+
+Return your response as JSON with this exact format:
+{
+  "bestMatch": {
+    "id": "exercise_id",
+    "name": "exercise_name",
+    "reasoning": "explanation of why this is the best match"
+  }
+}`;
+
+          const llmResponse = await this.llmRouter.generateResponse({
+            prompt: aiPrompt,
+            userId: authInfo.userId,
+            tool: 'ai_search_exercises',
           });
 
-          const result = await response.json();
+          // Parse the AI response
+          const jsonString = this.extractJsonFromResponse(llmResponse.content);
+          if (!jsonString) {
+            throw new Error('Failed to extract JSON from AI response');
+          }
 
-          if (response.ok && result.success) {
+          const aiResult = JSON.parse(jsonString);
+          const bestMatch = searchResults.exercises.find(ex => ex.id === aiResult.bestMatch.id);
+
+          if (!bestMatch) {
+            // Fallback to first result if AI selection not found
             return {
               success: true,
               data: {
                 searchTerm: args.search_term,
-                bestMatch: result.bestMatch,
-                reasoning: result.reasoning,
-                totalCandidates: result.totalCandidates,
-                provider: result.provider
+                bestMatch: searchResults.exercises[0],
+                reasoning: 'Selected first available match as fallback',
+                totalCandidates: searchResults.exercises.length,
+                provider: 'fallback'
               }
             };
-          } else {
-            return {
-              success: false,
-              error: result.error || 'AI search failed'
-            };
           }
+
+          return {
+            success: true,
+            data: {
+              searchTerm: args.search_term,
+              bestMatch: bestMatch,
+              reasoning: aiResult.bestMatch.reasoning,
+              totalCandidates: searchResults.exercises.length,
+              provider: 'ai_analysis'
+            }
+          };
         } catch (error) {
           console.error('AI exercise search error:', error);
           return {
