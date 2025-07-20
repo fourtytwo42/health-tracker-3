@@ -236,70 +236,26 @@ export async function POST(request: NextRequest) {
           });
         }
 
-        // If still not found, create fallback ingredient
+        // If ingredient not found, skip it and log warning
         if (!foundIngredient) {
-          console.log(`Creating fallback ingredient for: ${ingredientName}`);
-          
-          // Estimate nutrition based on ingredient type
-          let estimatedNutrition = {
-            calories: 100,
-            protein: 5,
-            carbs: 10,
-            fat: 2,
-            fiber: 2,
-            sugar: 5,
-            sodium: 100
+          console.log(`⚠️  Ingredient not found in database: ${ingredientName}`);
+          return {
+            ingredientId: null,
+            amount: ing.amount,
+            unit: ing.unit,
+            notes: `${ingredientName} (nutrition data not available)`,
+            isOptional: false,
+            nutrition: {
+              calories: 0,
+              protein: 0,
+              carbs: 0,
+              fat: 0,
+              fiber: 0,
+              sugar: 0,
+              sodium: 0
+            },
+            unavailable: true
           };
-
-          // Adjust estimates based on ingredient type
-          const lowerName = ingredientName.toLowerCase();
-          if (lowerName.includes('beef') || lowerName.includes('lamb') || lowerName.includes('pork') || lowerName.includes('meat')) {
-            estimatedNutrition = { calories: 250, protein: 25, carbs: 0, fat: 15, fiber: 0, sugar: 0, sodium: 70 };
-          } else if (lowerName.includes('chicken') || lowerName.includes('turkey') || lowerName.includes('poultry')) {
-            estimatedNutrition = { calories: 165, protein: 31, carbs: 0, fat: 3.6, fiber: 0, sugar: 0, sodium: 74 };
-          } else if (lowerName.includes('fish') || lowerName.includes('salmon') || lowerName.includes('tuna')) {
-            estimatedNutrition = { calories: 208, protein: 25, carbs: 0, fat: 12, fiber: 0, sugar: 0, sodium: 59 };
-          } else if (lowerName.includes('rice') || lowerName.includes('pasta') || lowerName.includes('bread')) {
-            estimatedNutrition = { calories: 130, protein: 2.7, carbs: 28, fat: 0.3, fiber: 0.4, sugar: 0.1, sodium: 1 };
-          } else if (lowerName.includes('oil') || lowerName.includes('butter') || lowerName.includes('fat')) {
-            estimatedNutrition = { calories: 884, protein: 0, carbs: 0, fat: 100, fiber: 0, sugar: 0, sodium: 0 };
-          } else if (lowerName.includes('vegetable') || lowerName.includes('carrot') || lowerName.includes('broccoli')) {
-            estimatedNutrition = { calories: 25, protein: 1.5, carbs: 5, fat: 0.3, fiber: 2.5, sugar: 2.5, sodium: 30 };
-          } else if (lowerName.includes('fruit') || lowerName.includes('apple') || lowerName.includes('banana')) {
-            estimatedNutrition = { calories: 52, protein: 0.3, carbs: 14, fat: 0.2, fiber: 2.4, sugar: 10, sodium: 1 };
-          } else if (lowerName.includes('milk') || lowerName.includes('cheese') || lowerName.includes('yogurt')) {
-            estimatedNutrition = { calories: 42, protein: 3.4, carbs: 5, fat: 1, fiber: 0, sugar: 5, sodium: 44 };
-          } else if (lowerName.includes('egg')) {
-            estimatedNutrition = { calories: 155, protein: 13, carbs: 1.1, fat: 11, fiber: 0, sugar: 1.1, sodium: 124 };
-          } else if (lowerName.includes('salt') || lowerName.includes('pepper') || lowerName.includes('spice')) {
-            estimatedNutrition = { calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0, sugar: 0, sodium: 1000 };
-          } else if (lowerName.includes('water') || lowerName.includes('broth') || lowerName.includes('stock')) {
-            estimatedNutrition = { calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0, sugar: 0, sodium: 50 };
-          } else if (lowerName.includes('vinegar') || lowerName.includes('lemon') || lowerName.includes('lime')) {
-            estimatedNutrition = { calories: 3, protein: 0, carbs: 0.5, fat: 0, fiber: 0, sugar: 0.5, sodium: 1 };
-          } else if (lowerName.includes('herb') || lowerName.includes('basil') || lowerName.includes('oregano')) {
-            estimatedNutrition = { calories: 1, protein: 0.1, carbs: 0.2, fat: 0, fiber: 0.1, sugar: 0, sodium: 1 };
-          } else if (lowerName.includes('garlic') || lowerName.includes('onion')) {
-            estimatedNutrition = { calories: 4, protein: 0.2, carbs: 1, fat: 0, fiber: 0.1, sugar: 0.3, sodium: 1 };
-          }
-
-          foundIngredient = await prisma.ingredient.create({
-            data: {
-              name: ingredientName,
-              description: `AI-generated ingredient: ${ingredientName}`,
-              servingSize: '100g',
-              calories: estimatedNutrition.calories,
-              protein: estimatedNutrition.protein,
-              carbs: estimatedNutrition.carbs,
-              fat: estimatedNutrition.fat,
-              fiber: estimatedNutrition.fiber,
-              sugar: estimatedNutrition.sugar,
-              sodium: estimatedNutrition.sodium,
-              category: 'Other',
-              aisle: 'Other',
-              isActive: true
-            }
-          });
         }
 
         // Calculate nutrition based on actual ingredient amount and serving size
@@ -346,7 +302,7 @@ export async function POST(request: NextRequest) {
           sodium: Math.round((foundIngredient.sodium || 0) * servingRatio)
         };
 
-        console.log(`Resolved ingredient: ${ingredientName} -> ${foundIngredient.name} (${ing.amount}${ing.unit} = ${ingredientNutrition.calories} cal)`);
+        console.log(`✅ Resolved ingredient: ${ingredientName} -> ${foundIngredient.name} (${ing.amount}${ing.unit} = ${ingredientNutrition.calories} cal)`);
 
         return {
           ingredientId: foundIngredient.id,
@@ -354,13 +310,25 @@ export async function POST(request: NextRequest) {
           unit: ing.unit,
           notes: ing.name,
           isOptional: false,
-          nutrition: ingredientNutrition
+          nutrition: ingredientNutrition,
+          unavailable: false
         };
       })
     );
 
-    // Calculate total nutrition for the recipe
-    const totalNutrition = resolvedIngredients.reduce((total, ing) => ({
+    // Filter out unavailable ingredients and calculate total nutrition
+    const availableIngredients = resolvedIngredients.filter(ing => !ing.unavailable);
+    const unavailableIngredients = resolvedIngredients.filter(ing => ing.unavailable);
+
+    if (unavailableIngredients.length > 0) {
+      console.log(`⚠️  ${unavailableIngredients.length} ingredients not found in database:`);
+      unavailableIngredients.forEach(ing => {
+        console.log(`  - ${ing.notes}`);
+      });
+    }
+
+    // Calculate total nutrition for available ingredients only
+    const totalNutrition = availableIngredients.reduce((total, ing) => ({
       calories: total.calories + ing.nutrition.calories,
       protein: total.protein + ing.nutrition.protein,
       carbs: total.carbs + ing.nutrition.carbs,
@@ -399,33 +367,41 @@ export async function POST(request: NextRequest) {
       // Calculate scaling factor to reach target calories
       const scalingFactor = targetCalories / perServingNutrition.calories;
       
-      // Scale up all ingredient amounts
-      finalResolvedIngredients = resolvedIngredients.map(ing => ({
-        ...ing,
-        amount: Math.round(ing.amount * scalingFactor * 10) / 10, // Round to 1 decimal place
-        nutrition: {
-          calories: Math.round(ing.nutrition.calories * scalingFactor),
-          protein: Math.round(ing.nutrition.protein * scalingFactor * 10) / 10,
-          carbs: Math.round(ing.nutrition.carbs * scalingFactor * 10) / 10,
-          fat: Math.round(ing.nutrition.fat * scalingFactor * 10) / 10,
-          fiber: Math.round(ing.nutrition.fiber * scalingFactor * 10) / 10,
-          sugar: Math.round(ing.nutrition.sugar * scalingFactor * 10) / 10,
-          sodium: Math.round(ing.nutrition.sodium * scalingFactor)
+      // Scale up all ingredient amounts (only available ingredients)
+      finalResolvedIngredients = resolvedIngredients.map(ing => {
+        if (ing.unavailable) {
+          return ing; // Keep unavailable ingredients as-is
         }
-      }));
+        
+        return {
+          ...ing,
+          amount: Math.round(ing.amount * scalingFactor * 10) / 10, // Round to 1 decimal place
+          nutrition: {
+            calories: Math.round(ing.nutrition.calories * scalingFactor),
+            protein: Math.round(ing.nutrition.protein * scalingFactor * 10) / 10,
+            carbs: Math.round(ing.nutrition.carbs * scalingFactor * 10) / 10,
+            fat: Math.round(ing.nutrition.fat * scalingFactor * 10) / 10,
+            fiber: Math.round(ing.nutrition.fiber * scalingFactor * 10) / 10,
+            sugar: Math.round(ing.nutrition.sugar * scalingFactor * 10) / 10,
+            sodium: Math.round(ing.nutrition.sodium * scalingFactor)
+          }
+        };
+      });
 
       // Recalculate total nutrition
-      const scaledTotalNutrition = finalResolvedIngredients.reduce((total, ing) => ({
-        calories: total.calories + ing.nutrition.calories,
-        protein: total.protein + ing.nutrition.protein,
-        carbs: total.carbs + ing.nutrition.carbs,
-        fat: total.fat + ing.nutrition.fat,
-        fiber: total.fiber + ing.nutrition.fiber,
-        sugar: total.sugar + ing.nutrition.sugar,
-        sodium: total.sodium + ing.nutrition.sodium
-      }), {
-        calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0, sugar: 0, sodium: 0
-      });
+      const scaledTotalNutrition = finalResolvedIngredients
+        .filter(ing => !ing.unavailable)
+        .reduce((total, ing) => ({
+          calories: total.calories + ing.nutrition.calories,
+          protein: total.protein + ing.nutrition.protein,
+          carbs: total.carbs + ing.nutrition.carbs,
+          fat: total.fat + ing.nutrition.fat,
+          fiber: total.fiber + ing.nutrition.fiber,
+          sugar: total.sugar + ing.nutrition.sugar,
+          sodium: total.sodium + ing.nutrition.sodium
+        }), {
+          calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0, sugar: 0, sodium: 0
+        });
 
       // Recalculate per-serving nutrition
       finalPerServingNutrition = {
@@ -441,7 +417,7 @@ export async function POST(request: NextRequest) {
       console.log(`Scaled recipe to ${finalPerServingNutrition.calories} calories per serving (target: ${targetCalories})`);
     }
 
-    // Save recipe to main database
+    // Save recipe to main database (only include available ingredients)
     const recipeService = new RecipeService();
     const recipe = await recipeService.createRecipe({
       userId: user.userId,
@@ -460,18 +436,21 @@ export async function POST(request: NextRequest) {
       tags: finalRecipeData.tags,
       aiGenerated: true,
       originalQuery: keywords,
-      ingredients: finalResolvedIngredients.map(ing => ({
-        ingredientId: ing.ingredientId,
-        amount: ing.amount,
-        unit: ing.unit,
-        notes: ing.notes,
-        isOptional: ing.isOptional
-      }))
+      ingredients: finalResolvedIngredients
+        .filter(ing => !ing.unavailable) // Only include available ingredients
+        .map(ing => ({
+          ingredientId: ing.ingredientId,
+          amount: ing.amount,
+          unit: ing.unit,
+          notes: ing.notes,
+          isOptional: ing.isOptional
+        }))
     });
 
     return NextResponse.json({ 
       recipe,
       nutrition: finalPerServingNutrition,
+      unavailableIngredients: unavailableIngredients.map(ing => ing.notes),
       mcpResponse: {
         ...step2Response.data || step2Response.componentJson,
         props: {
@@ -497,7 +476,8 @@ export async function POST(request: NextRequest) {
             fat: ing.nutrition.fat,
             fiber: ing.nutrition.fiber,
             sugar: ing.nutrition.sugar,
-            sodium: ing.nutrition.sodium
+            sodium: ing.nutrition.sodium,
+            unavailable: ing.unavailable
           })),
           instructions: Array.isArray(recipe.instructions) 
             ? recipe.instructions 

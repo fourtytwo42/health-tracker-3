@@ -97,6 +97,7 @@ interface Ingredient {
   fiber?: number;
   sugar?: number;
   sodium?: number;
+  unavailable?: boolean;
 }
 
 interface RecipeCardProps {
@@ -346,8 +347,23 @@ export default function RecipeCard({
                       primary={
                         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                           <Box>
-                            <Typography variant="body2">
+                            <Typography 
+                              variant="body2" 
+                              sx={{ 
+                                color: ingredient.unavailable ? 'text.disabled' : 'text.primary',
+                                fontStyle: ingredient.unavailable ? 'italic' : 'normal'
+                              }}
+                            >
                               {ingredient.amount} {ingredient.unit} {ingredient.name}
+                              {ingredient.unavailable && (
+                                <Chip 
+                                  label="No nutrition data" 
+                                  size="small" 
+                                  color="warning" 
+                                  variant="outlined"
+                                  sx={{ ml: 1 }}
+                                />
+                              )}
                             </Typography>
                             {convertToCups(ingredient.amount, ingredient.unit) && (
                               <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
@@ -355,18 +371,20 @@ export default function RecipeCard({
                               </Typography>
                             )}
                           </Box>
-                          <Button
-                            size="small"
-                            startIcon={<SwapIcon />}
-                            onClick={() => handleAlternativeClick(ingredient)}
-                            sx={{ minWidth: 'auto', p: 0.5 }}
-                          >
-                            Alternative
-                          </Button>
+                          {!ingredient.unavailable && (
+                            <Button
+                              size="small"
+                              startIcon={<SwapIcon />}
+                              onClick={() => handleAlternativeClick(ingredient)}
+                              sx={{ minWidth: 'auto', p: 0.5 }}
+                            >
+                              Alternative
+                            </Button>
+                          )}
                         </Box>
                       }
                       secondary={
-                        (ingredient.calories || ingredient.protein || ingredient.carbs || ingredient.fat) && (
+                        !ingredient.unavailable && (ingredient.calories || ingredient.protein || ingredient.carbs || ingredient.fat) && (
                           <Box sx={{ mt: 0.5 }}>
                             <Grid container spacing={1}>
                               {ingredient.calories && (
