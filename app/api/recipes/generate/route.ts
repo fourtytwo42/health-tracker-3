@@ -216,7 +216,8 @@ export async function POST(request: NextRequest) {
           'chicken breast': 'chicken, broiler or fryers, breast, skinless, boneless, meat only, cooked, braised',
           'fajita seasoning': 'spices, poultry seasoning',
           'whole wheat tortillas': 'tortillas, ready-to-bake or -fry, corn, without added salt',
-          'tortillas': 'tortillas, ready-to-bake or -fry, corn, without added salt'
+          'tortillas': 'tortillas, ready-to-bake or -fry, corn, without added salt',
+          'flour': 'flour, wheat, all-purpose, enriched, bleached'
         };
         
         // Check if we have a hardcoded mapping (case-insensitive)
