@@ -1,63 +1,49 @@
 const { PrismaClient } = require('@prisma/client');
+const prisma = new PrismaClient();
 
-async function checkPepperIngredients() {
-  const prisma = new PrismaClient();
-  
+async function checkPepper() {
   try {
-    console.log('🔍 Searching for ingredients with "pepper" in the name...\n');
-    
-    const pepperIngredients = await prisma.ingredient.findMany({
-      where: {
-        name: {
-          contains: 'pepper'
-        }
-      },
-      select: {
-        id: true,
-        name: true,
-        category: true,
-        aisle: true
-      },
-      take: 20
-    });
-    
-    console.log(`Found ${pepperIngredients.length} ingredients with "pepper":\n`);
-    
-    pepperIngredients.forEach((ingredient, index) => {
-      console.log(`${index + 1}. ID: ${ingredient.id}`);
-      console.log(`   Name: ${ingredient.name}`);
-      console.log(`   Category: ${ingredient.category || 'Unknown'}`);
-      console.log(`   Aisle: ${ingredient.aisle || 'Unknown'}`);
-      console.log('');
-    });
-    
-    // Also check for "spices" ingredients
-    console.log('🔍 Searching for ingredients with "spices" in the name...\n');
-    
-    const spicesIngredients = await prisma.ingredient.findMany({
+    const spices = await prisma.ingredient.findMany({
       where: {
         name: {
           contains: 'spices'
         }
       },
       select: {
-        id: true,
-        name: true,
-        category: true,
-        aisle: true
+        name: true
+      }
+    });
+    
+    console.log('Spices ingredients found:');
+    spices.forEach(s => console.log(`- ${s.name}`));
+    
+    const pepper = await prisma.ingredient.findMany({
+      where: {
+        name: {
+          contains: 'pepper'
+        }
       },
-      take: 10
+      select: {
+        name: true
+      }
     });
     
-    console.log(`Found ${spicesIngredients.length} ingredients with "spices":\n`);
+    console.log('\nPepper ingredients found:');
+    pepper.forEach(p => console.log(`- ${p.name}`));
     
-    spicesIngredients.forEach((ingredient, index) => {
-      console.log(`${index + 1}. ID: ${ingredient.id}`);
-      console.log(`   Name: ${ingredient.name}`);
-      console.log(`   Category: ${ingredient.category || 'Unknown'}`);
-      console.log(`   Aisle: ${ingredient.aisle || 'Unknown'}`);
-      console.log('');
+    const black = await prisma.ingredient.findMany({
+      where: {
+        name: {
+          contains: 'black'
+        }
+      },
+      select: {
+        name: true
+      }
     });
+    
+    console.log('\nBlack ingredients found:');
+    black.forEach(b => console.log(`- ${b.name}`));
     
   } catch (error) {
     console.error('Error:', error);
@@ -66,4 +52,4 @@ async function checkPepperIngredients() {
   }
 }
 
-checkPepperIngredients(); 
+checkPepper(); 
