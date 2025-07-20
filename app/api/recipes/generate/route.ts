@@ -201,7 +201,7 @@ export async function POST(request: NextRequest) {
         const ingredientName = ing.name;
         console.log(`Searching for ingredient: ${ingredientName}`);
         
-        // Check hardcoded mappings first
+        // Check hardcoded mappings first (case-insensitive)
         const hardcodedMappings: Record<string, string> = {
           'salt': 'salt, table, iodized',
           'table salt': 'salt, table, iodized',
@@ -237,7 +237,14 @@ export async function POST(request: NextRequest) {
           'salmon fillets': 'fish, salmon, raw',
           'quinoa': 'quinoa, cooked',
           'milk': 'milk, whole, 3.25% milkfat',
-          'dill': 'spices, dill weed, dried'
+          'dill': 'spices, dill weed, dried',
+          'bacon': 'pork, cured, bacon, cooked, restaurant',
+          'cheddar cheese': 'cheese, cheddar',
+          'cheese': 'cheese, cheddar',
+          'whole wheat bread': 'bread, whole-wheat, commercially prepared',
+          'bread': 'bread, whole-wheat, commercially prepared',
+          'white bread': 'bread, white, commercially prepared',
+          'sourdough bread': 'bread, white, commercially prepared'
         };
         
         // Check if we have a hardcoded mapping (case-insensitive)
