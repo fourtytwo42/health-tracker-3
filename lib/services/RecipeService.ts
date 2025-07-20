@@ -1,11 +1,12 @@
 import { prisma } from '@/lib/prisma';
 
 export interface RecipeIngredientInput {
-  ingredientId: string;
+  ingredientId?: string; // Optional for unavailable ingredients
   amount: number;
   unit: string;
   notes?: string;
   isOptional?: boolean;
+  unavailable?: boolean; // New field for unavailable ingredients
 }
 
 export interface CreateRecipeInput {
@@ -27,6 +28,7 @@ export interface CreateRecipeInput {
   aiGenerated?: boolean;
   originalQuery?: string;
   ingredients: RecipeIngredientInput[];
+  unavailableIngredients?: string[]; // Store names of unavailable ingredients
 }
 
 export interface RecipeWithNutrition {
@@ -70,6 +72,12 @@ export interface RecipeWithNutrition {
       sugar: number;
     };
   }>;
+  unavailableIngredients?: Array<{
+    name: string;
+    amount: number;
+    unit: string;
+    notes?: string;
+  }>;
   nutrition: {
     totalCalories: number;
     totalProtein: number;
@@ -88,15 +96,28 @@ export interface RecipeWithNutrition {
 
 export class RecipeService {
   async createRecipe(input: CreateRecipeInput): Promise<RecipeWithNutrition> {
-    const { ingredients, ...recipeData } = input;
+    const { ingredients, unavailableIngredients, ...recipeData } = input;
+
+    // Separate available and unavailable ingredients
+    const availableIngredients = ingredients.filter(ing => !ing.unavailable);
+    const unavailableIngredientData = ingredients.filter(ing => ing.unavailable).map(ing => ({
+      name: ing.notes || 'Unknown ingredient',
+      amount: ing.amount,
+      unit: ing.unit,
+      notes: ing.notes
+    }));
 
     const recipe = await prisma.Recipe.create({
       data: {
         ...recipeData,
         tags: recipeData.tags ? JSON.stringify(recipeData.tags) : null,
+        // Store unavailable ingredients in the description or create a separate field
+        description: recipeData.description + (unavailableIngredientData.length > 0 
+          ? `\n\nUnavailable ingredients (no nutrition data): ${unavailableIngredientData.map(ing => `${ing.amount}${ing.unit} ${ing.name}`).join(', ')}`
+          : ''),
         ingredients: {
-          create: ingredients.map((ing, index) => ({
-            ingredientId: ing.ingredientId,
+          create: availableIngredients.map((ing, index) => ({
+            ingredientId: ing.ingredientId!,
             amount: ing.amount,
             unit: ing.unit,
             notes: ing.notes,
@@ -117,7 +138,11 @@ export class RecipeService {
       }
     });
 
-    return this.calculateNutrition(recipe);
+    // Add unavailable ingredients to the returned recipe
+    const recipeWithNutrition = this.calculateNutrition(recipe);
+    recipeWithNutrition.unavailableIngredients = unavailableIngredientData;
+
+    return recipeWithNutrition;
   }
 
   async getRecipeById(id: string): Promise<RecipeWithNutrition | null> {
@@ -135,7 +160,47 @@ export class RecipeService {
       }
     });
 
-    return recipe ? this.calculateNutrition(recipe) : null;
+    if (!recipe) return null;
+
+    const recipeWithNutrition = this.calculateNutrition(recipe);
+    
+    // Parse unavailable ingredients from description if they exist
+    if (recipe.description && recipe.description.includes('Unavailable ingredients (no nutrition data):')) {
+      const lines = recipe.description.split('\n');
+      const unavailableLine = lines.find(line => line.includes('Unavailable ingredients (no nutrition data):'));
+      
+      if (unavailableLine) {
+        const ingredientsPart = unavailableLine.replace('Unavailable ingredients (no nutrition data):', '').trim();
+        const ingredientStrings = ingredientsPart.split(', ');
+        
+        recipeWithNutrition.unavailableIngredients = ingredientStrings.map(ingStr => {
+          // Parse "100g ingredient name" format
+          const match = ingStr.match(/^(\d+(?:\.\d+)?)([a-zA-Z]+)\s+(.+)$/);
+          if (match) {
+            return {
+              amount: parseFloat(match[1]),
+              unit: match[2],
+              name: match[3],
+              notes: match[3]
+            };
+          }
+          return {
+            amount: 0,
+            unit: 'g',
+            name: ingStr,
+            notes: ingStr
+          };
+        });
+        
+        // Remove the unavailable ingredients line from description
+        recipeWithNutrition.description = lines
+          .filter(line => !line.includes('Unavailable ingredients (no nutrition data):'))
+          .join('\n')
+          .trim();
+      }
+    }
+
+    return recipeWithNutrition;
   }
 
   async getUserRecipes(
@@ -200,11 +265,14 @@ export class RecipeService {
   }
 
   async updateRecipe(id: string, input: Partial<CreateRecipeInput>): Promise<RecipeWithNutrition | null> {
-    const { ingredients, ...recipeData } = input;
+    const { ingredients, unavailableIngredients, ...recipeData } = input;
 
     const updateData: any = { ...recipeData };
     if (recipeData.tags) {
       updateData.tags = JSON.stringify(recipeData.tags);
+    }
+    if (unavailableIngredients) {
+      updateData.unavailableIngredients = JSON.stringify(unavailableIngredients);
     }
 
     const recipe = await prisma.Recipe.update({
@@ -379,6 +447,7 @@ export class RecipeService {
     return {
       ...recipe,
       tags: recipe.tags ? JSON.parse(recipe.tags) : [],
+      unavailableIngredients: recipe.unavailableIngredients ? JSON.parse(recipe.unavailableIngredients) : [],
       nutrition: {
         totalCalories: Math.round(totalCalories),
         totalProtein: Math.round(totalProtein * 10) / 10,

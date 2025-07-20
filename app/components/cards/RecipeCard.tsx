@@ -111,6 +111,12 @@ interface RecipeCardProps {
   netCarbs?: number;
   fat?: number;
   ingredients?: Ingredient[];
+  unavailableIngredients?: Array<{
+    name: string;
+    amount: number;
+    unit: string;
+    notes?: string;
+  }>;
   instructions?: string[];
   prepTime?: number;
   cookTime?: number;
@@ -135,6 +141,7 @@ export default function RecipeCard({
   netCarbs,
   fat,
   ingredients = [],
+  unavailableIngredients = [],
   instructions = [],
   prepTime,
   cookTime,
@@ -410,6 +417,52 @@ export default function RecipeCard({
                             </Grid>
                           </Box>
                         )
+                      }
+                    />
+                  </ListItem>
+                ))}
+              </List>
+            </Box>
+          )}
+
+          {/* Unavailable Ingredients */}
+          {unavailableIngredients.length > 0 && (
+            <Box sx={{ mt: 2 }}>
+              <Typography variant="subtitle2" gutterBottom>
+                Unavailable Ingredients
+              </Typography>
+              <List dense>
+                {unavailableIngredients.map((ingredient, index) => (
+                  <ListItem key={index} sx={{ py: 0.5 }}>
+                    <ListItemText 
+                      primary={
+                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <Box>
+                            <Typography 
+                              variant="body2" 
+                              sx={{ 
+                                color: 'text.disabled',
+                                fontStyle: 'italic'
+                              }}
+                            >
+                              {ingredient.amount} {ingredient.unit} {ingredient.name}
+                              {ingredient.notes && (
+                                <Chip 
+                                  label={`(${ingredient.notes})`} 
+                                  size="small" 
+                                  color="warning" 
+                                  variant="outlined"
+                                  sx={{ ml: 1 }}
+                                />
+                              )}
+                            </Typography>
+                            {convertToCups(ingredient.amount, ingredient.unit) && (
+                              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                                ({convertToCups(ingredient.amount, ingredient.unit)})
+                              </Typography>
+                            )}
+                          </Box>
+                        </Box>
                       }
                     />
                   </ListItem>

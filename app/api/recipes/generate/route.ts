@@ -417,7 +417,7 @@ export async function POST(request: NextRequest) {
       console.log(`Scaled recipe to ${finalPerServingNutrition.calories} calories per serving (target: ${targetCalories})`);
     }
 
-    // Save recipe to main database (only include available ingredients)
+    // Save recipe to main database (include all ingredients for display, but only save available ones to recipe_ingredients)
     const recipeService = new RecipeService();
     const recipe = await recipeService.createRecipe({
       userId: user.userId,
@@ -436,15 +436,15 @@ export async function POST(request: NextRequest) {
       tags: finalRecipeData.tags,
       aiGenerated: true,
       originalQuery: keywords,
-      ingredients: finalResolvedIngredients
-        .filter(ing => !ing.unavailable) // Only include available ingredients
-        .map(ing => ({
-          ingredientId: ing.ingredientId,
-          amount: ing.amount,
-          unit: ing.unit,
-          notes: ing.notes,
-          isOptional: ing.isOptional
-        }))
+      ingredients: finalResolvedIngredients.map(ing => ({
+        ingredientId: ing.ingredientId,
+        amount: ing.amount,
+        unit: ing.unit,
+        notes: ing.notes,
+        isOptional: ing.isOptional,
+        unavailable: ing.unavailable
+      })),
+      unavailableIngredients: unavailableIngredients.map(ing => ing.notes)
     });
 
     return NextResponse.json({ 
@@ -466,18 +466,26 @@ export async function POST(request: NextRequest) {
           difficulty: recipe.difficulty,
           cuisine: recipe.cuisine,
           tags: recipe.tags,
-          ingredients: finalResolvedIngredients.map(ing => ({
+          ingredients: finalResolvedIngredients
+            .filter(ing => !ing.unavailable) // Only include available ingredients in the main ingredients list
+            .map(ing => ({
+              name: ing.notes,
+              amount: ing.amount,
+              unit: ing.unit,
+              calories: ing.nutrition.calories,
+              protein: ing.nutrition.protein,
+              carbs: ing.nutrition.carbs,
+              fat: ing.nutrition.fat,
+              fiber: ing.nutrition.fiber,
+              sugar: ing.nutrition.sugar,
+              sodium: ing.nutrition.sodium,
+              unavailable: false
+            })),
+          unavailableIngredients: unavailableIngredients.map(ing => ({
             name: ing.notes,
             amount: ing.amount,
             unit: ing.unit,
-            calories: ing.nutrition.calories,
-            protein: ing.nutrition.protein,
-            carbs: ing.nutrition.carbs,
-            fat: ing.nutrition.fat,
-            fiber: ing.nutrition.fiber,
-            sugar: ing.nutrition.sugar,
-            sodium: ing.nutrition.sodium,
-            unavailable: ing.unavailable
+            notes: ing.notes
           })),
           instructions: Array.isArray(recipe.instructions) 
             ? recipe.instructions 
