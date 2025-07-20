@@ -194,263 +194,324 @@ export async function POST(request: NextRequest) {
         const ingredientName = ing.name;
         console.log(`Searching for ingredient: ${ingredientName}`);
         
-        try {
-          // Use MCP AI ingredient search tool directly
-          const aiSearchResponse = await mcpHandler.handleToolCall({
-            tool: 'ai_search_ingredients',
-            args: {
-              search_term: ingredientName,
-              category: ing.category, // Use category from recipe if available
-              aisle: undefined,
-              description: ing.description // Use description from recipe if available
+        // Check hardcoded mappings first
+        const hardcodedMappings: Record<string, string> = {
+          'salt': 'salt, table, iodized',
+          'table salt': 'salt, table, iodized',
+          'pepper': 'spices, pepper, black',
+          'black pepper': 'spices, pepper, black',
+          'red bell pepper': 'peppers, sweet, red, raw',
+          'bell pepper': 'peppers, sweet, green, raw',
+          'yellow onion': 'onions, yellow, raw',
+          'onion': 'onions, raw',
+          'zucchini': 'squash, summer, green, zucchini, includes skin, raw',
+          'tahini': 'tahini',
+          'greek yogurt': 'yogurt, greek, plain, nonfat',
+          'olive oil': 'olive oil',
+          'garlic': 'garlic, raw',
+          'lemon juice': 'lemon juice, 100%, ns as to form'
+        };
+        
+        // Check if we have a hardcoded mapping
+        const hardcodedMatch = hardcodedMappings[ingredientName.toLowerCase()];
+        let ingredientFound = false;
+        
+        if (hardcodedMatch) {
+          console.log(`✅ Using hardcoded mapping: ${ingredientName} → ${hardcodedMatch}`);
+          
+          const foundIngredient = await prisma.ingredient.findFirst({
+            where: {
+              name: hardcodedMatch,
+              isActive: true
             }
-          }, {
-            userId: user.userId,
-            username: user.username,
-            role: user.role
           });
-
-          if (aiSearchResponse.success && aiSearchResponse.data?.bestMatch) {
-            const bestMatch = aiSearchResponse.data.bestMatch;
-            console.log(`✅ AI found best match for "${ingredientName}": ${bestMatch.name}`);
+          
+          if (foundIngredient) {
+            const nutrition = calculateIngredientNutrition(foundIngredient, ing.amount || 0, ing.unit || 'g');
             
-            // Get the full ingredient data
-            const foundIngredient = await prisma.ingredient.findFirst({
-              where: {
-                name: bestMatch.name,
-                isActive: true
+            resolvedIngredients.push({
+              ...ing,
+              resolvedIngredient: foundIngredient,
+              nutrition,
+              originalName: ingredientName
+            });
+            
+            ingredientSearchResults.push({
+              original_name: ingredientName,
+              search_results: [{
+                name: foundIngredient.name,
+                calories: foundIngredient.calories,
+                protein: foundIngredient.protein,
+                carbs: foundIngredient.carbs,
+                fat: foundIngredient.fat,
+                servingSize: foundIngredient.servingSize
+              }]
+            });
+            
+            ingredientFound = true;
+          }
+        }
+        
+        // Only proceed with AI search if hardcoded mapping didn't work
+        if (!ingredientFound) {
+          try {
+            // Use MCP AI ingredient search tool directly
+            const aiSearchResponse = await mcpHandler.handleToolCall({
+              tool: 'ai_search_ingredients',
+              args: {
+                search_term: ingredientName,
+                category: ing.category, // Use category from recipe if available
+                aisle: undefined,
+                description: ing.description // Use description from recipe if available
               }
+            }, {
+              userId: user.userId,
+              username: user.username,
+              role: user.role
             });
 
-            if (foundIngredient) {
-              // Calculate nutrition based on serving size
-              const nutrition = calculateIngredientNutrition(foundIngredient, ing.amount || 0, ing.unit || 'g');
+            if (aiSearchResponse.success && aiSearchResponse.data?.bestMatch) {
+              const bestMatch = aiSearchResponse.data.bestMatch;
+              console.log(`✅ AI found best match for "${ingredientName}": ${bestMatch.name}`);
               
-              resolvedIngredients.push({
-                ...ing,
-                resolvedIngredient: foundIngredient,
-                nutrition,
-                originalName: ingredientName // Preserve the original AI ingredient name
-              });
-
-              ingredientSearchResults.push({
-                original_name: ingredientName,
-                search_results: [{
-                  name: foundIngredient.name,
-                  calories: foundIngredient.calories,
-                  protein: foundIngredient.protein,
-                  carbs: foundIngredient.carbs,
-                  fat: foundIngredient.fat,
-                  servingSize: foundIngredient.servingSize
-                }]
-              });
-            } else {
-              console.log(`⚠️  AI suggested ingredient not found in database: ${bestMatch.name}`);
-              unresolvedIngredients.push(ing);
-            }
-          } else {
-            console.log(`⚠️  AI search failed for "${ingredientName}", using fallback search...`);
-            
-            // Fallback search with better filtering
-            const ingredientService = new IngredientService();
-            const fallbackResults = await ingredientService.getIngredientsPaginated(
-              1, 100, false, ingredientName, ing.category, undefined
-            );
-
-            // Filter out processed foods and prefer basic ingredients
-            const filteredResults = fallbackResults.ingredients.filter((ingredient: any) => {
-              const name = ingredient.name.toLowerCase();
-              const searchTerm = ingredientName.toLowerCase();
-
-              // Avoid processed foods and complex recipes
-              if (name.includes('with salt added') ||
-                  name.includes('with added') ||
-                  name.includes('dry roasted') ||
-                  name.includes('bottled') ||
-                  name.includes('frozen') ||
-                  name.includes('cooked') ||
-                  name.includes('processed') ||
-                  name.includes('canned') ||
-                  name.includes('sweetened') ||
-                  name.includes('drained') ||
-                  name.includes('frankfurter') ||
-                  name.includes('bologna') ||
-                  name.includes('cake') ||
-                  name.includes('cupcake') ||
-                  name.includes('gingerbread') ||
-                  name.includes('with eggs') ||
-                  name.includes('with onion') ||
-                  name.includes('chopped, with') ||
-                  name.includes('cured') ||
-                  name.includes('smoked') ||
-                  name.includes('dehydrated') ||
-                  name.includes('flakes') ||
-                  name.includes('extra light') ||
-                  name.includes('arrowroot') ||
-                  name.includes('shiitake') ||
-                  name.includes('jujube') ||
-                  name.includes('chinese') ||
-                  name.includes('pasteurized')) {
-                return false;
-              }
-
-              // Prefer exact matches or close matches
-              if (name === searchTerm) return true;
-              if (name.startsWith(searchTerm + ' ')) return true;
-              if (name.includes(searchTerm + ',')) return true;
-              
-              // For specific ingredients, be very strict
-              if (searchTerm === 'salt' && !name.includes('salt')) return false;
-              if (searchTerm === 'pepper' && !name.includes('pepper')) return false;
-              if (searchTerm === 'beef' && !name.includes('beef')) return false;
-              if (searchTerm === 'garlic' && !name.includes('garlic')) return false;
-              if (searchTerm === 'ginger' && !name.includes('ginger')) return false;
-              if (searchTerm === 'olive oil' && !name.includes('olive')) return false;
-              if (searchTerm === 'soy sauce' && !name.includes('soy')) return false;
-              if (searchTerm === 'bell peppers' && !name.includes('pepper')) return false;
-              if (searchTerm === 'broccoli' && !name.includes('broccoli')) return false;
-              if (searchTerm === 'parsley' && !name.includes('parsley')) return false;
-              if (searchTerm === 'chopped fresh parsley' && !name.includes('parsley')) return false;
-              if (searchTerm === 'egg noodles' && !name.includes('noodle')) return false;
-              if (searchTerm === 'mushrooms' && !name.includes('mushroom')) return false;
-              if (searchTerm === 'onions' && !name.includes('onion')) return false;
-              if (searchTerm === 'sour cream' && !name.includes('cream')) return false;
-              if (searchTerm === 'flour' && !name.includes('flour')) return false;
-              if (searchTerm === 'all-purpose flour' && !name.includes('flour')) return false;
-              if (searchTerm === 'beef broth' && !name.includes('broth')) return false;
-
-              return true;
-            });
-
-            // Sort by relevance (exact matches first, then simple names)
-            const sortedResults = filteredResults.sort((a, b) => {
-              const aName = a.name.toLowerCase();
-              const bName = b.name.toLowerCase();
-              const searchTerm = ingredientName.toLowerCase();
-              
-              // Exact match gets highest priority
-              if (aName === searchTerm && bName !== searchTerm) return -1;
-              if (bName === searchTerm && aName !== searchTerm) return 1;
-              
-              // Simple names get priority over complex ones
-              const aComplexity = aName.split(',').length + aName.split(' ').length;
-              const bComplexity = bName.split(',').length + bName.split(' ').length;
-              
-              if (aComplexity !== bComplexity) return aComplexity - bComplexity;
-              
-              // Alphabetical as tiebreaker
-              return aName.localeCompare(bName);
-            });
-
-            console.log(`Fallback search results for "${ingredientName}": ${sortedResults.length} matches`);
-            
-            if (sortedResults.length > 0) {
-              const bestMatch = sortedResults[0];
-              console.log(`✅ Found ingredient with fallback search: ${bestMatch.name}`);
-              
-              // Calculate nutrition based on serving size
-              const nutrition = calculateIngredientNutrition(bestMatch, ing.amount || 0, ing.unit || 'g');
-              
-              resolvedIngredients.push({
-                ...ing,
-                resolvedIngredient: bestMatch,
-                nutrition,
-                originalName: ingredientName // Preserve the original AI ingredient name
-              });
-
-              ingredientSearchResults.push({
-                original_name: ingredientName,
-                search_results: [{
+              // Get the full ingredient data
+              const foundIngredient = await prisma.ingredient.findFirst({
+                where: {
                   name: bestMatch.name,
-                  calories: bestMatch.calories,
-                  protein: bestMatch.protein,
-                  carbs: bestMatch.carbs,
-                  fat: bestMatch.fat,
-                  servingSize: bestMatch.servingSize
-                }]
-              });
-            } else {
-              // Try common substitutions if ingredient not found
-              const substitutions: Record<string, string[]> = {
-                'pork chops': ['pork', 'pork loin', 'pork tenderloin'],
-                'salt': ['salt, table, iodized'],
-                'table salt': ['salt, table, iodized'],
-                'pepper': ['spices, pepper, black'],
-                'black pepper': ['spices, pepper, black'],
-                'milk': ['milk, lowfat, fluid, 1% milkfat', 'milk, reduced fat, fluid, 2% milkfat'],
-                'butter': ['butter, stick, unsalted', 'butter, stick, salted'],
-                'garlic': ['garlic, raw'],
-                'ginger': ['ginger root, raw'],
-                'potatoes': ['potato, russet, without skin, raw'],
-                'broccoli': ['broccoli, raw', 'broccoli, cooked, boiled, drained, with salt'],
-                'carrots': ['carrots, raw', 'carrots, cooked, boiled, drained, without salt'],
-                'onions': ['onions, raw', 'onions, cooked, boiled, drained, without salt'],
-                'bell peppers': ['peppers, sweet, green, raw', 'peppers, sweet, red, raw'],
-                'olive oil': ['olive oil'],
-                'soy sauce': ['soy sauce made from soy and wheat (shoyu)'],
-                'flour': ['wheat flour, white, all-purpose, enriched, bleached'],
-                'all-purpose flour': ['wheat flour, white, all-purpose, enriched, bleached'],
-                'beef broth': ['beef broth, bouillon and consomme, canned, condensed'],
-                'sour cream': ['sour cream, reduced fat'],
-                'parsley': ['parsley, fresh'],
-                'chopped fresh parsley': ['parsley, fresh'],
-                'egg noodles': ['noodles, egg, cooked, enriched, with added salt'],
-                'mushrooms': ['mushrooms, white, raw'],
-                'brussels sprouts': ['brussels sprouts, raw'],
-                'vinegar': ['vinegar, balsamic'],
-                'balsamic vinegar': ['vinegar, balsamic']
-              };
-
-              let foundWithSubstitution = false;
-              for (const [original, substitutes] of Object.entries(substitutions)) {
-                if (ingredientName.toLowerCase().includes(original.toLowerCase())) {
-                  for (const substitute of substitutes) {
-                    const subResults = await ingredientService.getIngredientsPaginated(
-                      1, 10, false, substitute, undefined, undefined
-                    );
-                    
-                    if (subResults.ingredients.length > 0) {
-                      const bestMatch = subResults.ingredients[0];
-                      console.log(`✅ Found ingredient with substitution: ${ingredientName} → ${bestMatch.name}`);
-                      
-                      const nutrition = calculateIngredientNutrition(bestMatch, ing.amount || 0, ing.unit || 'g');
-                      
-                      resolvedIngredients.push({
-                        ...ing,
-                        resolvedIngredient: bestMatch,
-                        nutrition,
-                        originalName: ingredientName // Preserve the original AI ingredient name
-                      });
-
-                      ingredientSearchResults.push({
-                        original_name: ingredientName,
-                        search_results: [{
-                          name: bestMatch.name,
-                          calories: bestMatch.calories,
-                          protein: bestMatch.protein,
-                          carbs: bestMatch.carbs,
-                          fat: bestMatch.fat,
-                          servingSize: bestMatch.servingSize
-                        }]
-                      });
-                      
-                      foundWithSubstitution = true;
-                      break;
-                    }
-                  }
-                  if (foundWithSubstitution) break;
+                  isActive: true
                 }
-              }
+              });
 
-              if (!foundWithSubstitution) {
-                console.log(`❌ No ingredient found for "${ingredientName}" even with substitutions`);
+              if (foundIngredient) {
+                // Calculate nutrition based on serving size
+                const nutrition = calculateIngredientNutrition(foundIngredient, ing.amount || 0, ing.unit || 'g');
+                
+                resolvedIngredients.push({
+                  ...ing,
+                  resolvedIngredient: foundIngredient,
+                  nutrition,
+                  originalName: ingredientName // Preserve the original AI ingredient name
+                });
+
+                ingredientSearchResults.push({
+                  original_name: ingredientName,
+                  search_results: [{
+                    name: foundIngredient.name,
+                    calories: foundIngredient.calories,
+                    protein: foundIngredient.protein,
+                    carbs: foundIngredient.carbs,
+                    fat: foundIngredient.fat,
+                    servingSize: foundIngredient.servingSize
+                  }]
+                });
+              } else {
+                console.log(`⚠️  AI suggested ingredient not found in database: ${bestMatch.name}`);
                 unresolvedIngredients.push(ing);
               }
+            } else {
+              console.log(`⚠️  AI search failed for "${ingredientName}", using fallback search...`);
+              
+              // Fallback search with better filtering
+              const ingredientService = new IngredientService();
+              const fallbackResults = await ingredientService.getIngredientsPaginated(
+                1, 100, false, ingredientName, ing.category, undefined
+              );
+
+              // Filter out processed foods and prefer basic ingredients
+              const filteredResults = fallbackResults.ingredients.filter((ingredient: any) => {
+                const name = ingredient.name.toLowerCase();
+                const searchTerm = ingredientName.toLowerCase();
+
+                // Avoid processed foods and complex recipes
+                if (name.includes('with salt added') ||
+                    name.includes('with added') ||
+                    name.includes('dry roasted') ||
+                    name.includes('bottled') ||
+                    name.includes('frozen') ||
+                    name.includes('cooked') ||
+                    name.includes('processed') ||
+                    name.includes('canned') ||
+                    name.includes('sweetened') ||
+                    name.includes('drained') ||
+                    name.includes('frankfurter') ||
+                    name.includes('bologna') ||
+                    name.includes('cake') ||
+                    name.includes('cupcake') ||
+                    name.includes('gingerbread') ||
+                    name.includes('with eggs') ||
+                    name.includes('with onion') ||
+                    name.includes('chopped, with') ||
+                    name.includes('cured') ||
+                    name.includes('smoked') ||
+                    name.includes('dehydrated') ||
+                    name.includes('flakes') ||
+                    name.includes('extra light') ||
+                    name.includes('arrowroot') ||
+                    name.includes('shiitake') ||
+                    name.includes('jujube') ||
+                    name.includes('chinese') ||
+                    name.includes('pasteurized')) {
+                  return false;
+                }
+
+                // Prefer exact matches or close matches
+                if (name === searchTerm) return true;
+                if (name.startsWith(searchTerm + ' ')) return true;
+                if (name.includes(searchTerm + ',')) return true;
+                
+                // For specific ingredients, be very strict
+                if (searchTerm === 'salt' && !name.includes('salt')) return false;
+                if (searchTerm === 'pepper' && !name.includes('pepper')) return false;
+                if (searchTerm === 'beef' && !name.includes('beef')) return false;
+                if (searchTerm === 'garlic' && !name.includes('garlic')) return false;
+                if (searchTerm === 'ginger' && !name.includes('ginger')) return false;
+                if (searchTerm === 'olive oil' && !name.includes('olive')) return false;
+                if (searchTerm === 'soy sauce' && !name.includes('soy')) return false;
+                if (searchTerm === 'bell peppers' && !name.includes('pepper')) return false;
+                if (searchTerm === 'broccoli' && !name.includes('broccoli')) return false;
+                if (searchTerm === 'parsley' && !name.includes('parsley')) return false;
+                if (searchTerm === 'chopped fresh parsley' && !name.includes('parsley')) return false;
+                if (searchTerm === 'egg noodles' && !name.includes('noodle')) return false;
+                if (searchTerm === 'mushrooms' && !name.includes('mushroom')) return false;
+                if (searchTerm === 'onions' && !name.includes('onion')) return false;
+                if (searchTerm === 'sour cream' && !name.includes('cream')) return false;
+                if (searchTerm === 'flour' && !name.includes('flour')) return false;
+                if (searchTerm === 'all-purpose flour' && !name.includes('flour')) return false;
+                if (searchTerm === 'beef broth' && !name.includes('broth')) return false;
+
+                return true;
+              });
+
+              // Sort by relevance (exact matches first, then simple names)
+              const sortedResults = filteredResults.sort((a, b) => {
+                const aName = a.name.toLowerCase();
+                const bName = b.name.toLowerCase();
+                const searchTerm = ingredientName.toLowerCase();
+                
+                // Exact match gets highest priority
+                if (aName === searchTerm && bName !== searchTerm) return -1;
+                if (bName === searchTerm && aName !== searchTerm) return 1;
+                
+                // Simple names get priority over complex ones
+                const aComplexity = aName.split(',').length + aName.split(' ').length;
+                const bComplexity = bName.split(',').length + bName.split(' ').length;
+                
+                if (aComplexity !== bComplexity) return aComplexity - bComplexity;
+                
+                // Alphabetical as tiebreaker
+                return aName.localeCompare(bName);
+              });
+
+              console.log(`Fallback search results for "${ingredientName}": ${sortedResults.length} matches`);
+              
+              if (sortedResults.length > 0) {
+                const bestMatch = sortedResults[0];
+                console.log(`✅ Found ingredient with fallback search: ${bestMatch.name}`);
+                
+                // Calculate nutrition based on serving size
+                const nutrition = calculateIngredientNutrition(bestMatch, ing.amount || 0, ing.unit || 'g');
+                
+                resolvedIngredients.push({
+                  ...ing,
+                  resolvedIngredient: bestMatch,
+                  nutrition,
+                  originalName: ingredientName // Preserve the original AI ingredient name
+                });
+
+                ingredientSearchResults.push({
+                  original_name: ingredientName,
+                  search_results: [{
+                    name: bestMatch.name,
+                    calories: bestMatch.calories,
+                    protein: bestMatch.protein,
+                    carbs: bestMatch.carbs,
+                    fat: bestMatch.fat,
+                    servingSize: bestMatch.servingSize
+                  }]
+                });
+              } else {
+                // Try common substitutions if ingredient not found
+                const substitutions: Record<string, string[]> = {
+                  'pork chops': ['pork', 'pork loin', 'pork tenderloin'],
+                  'salt': ['salt, table, iodized'],
+                  'table salt': ['salt, table, iodized'],
+                  'pepper': ['spices, pepper, black'],
+                  'black pepper': ['spices, pepper, black'],
+                  'milk': ['milk, lowfat, fluid, 1% milkfat', 'milk, reduced fat, fluid, 2% milkfat'],
+                  'butter': ['butter, stick, unsalted', 'butter, stick, salted'],
+                  'garlic': ['garlic, raw'],
+                  'ginger': ['ginger root, raw'],
+                  'potatoes': ['potato, russet, without skin, raw'],
+                  'broccoli': ['broccoli, raw', 'broccoli, cooked, boiled, drained, with salt'],
+                  'carrots': ['carrots, raw', 'carrots, cooked, boiled, drained, without salt'],
+                  'onions': ['onions, raw', 'onions, cooked, boiled, drained, without salt'],
+                  'bell peppers': ['peppers, sweet, green, raw', 'peppers, sweet, red, raw'],
+                  'olive oil': ['olive oil'],
+                  'soy sauce': ['soy sauce made from soy and wheat (shoyu)'],
+                  'flour': ['wheat flour, white, all-purpose, enriched, bleached'],
+                  'all-purpose flour': ['wheat flour, white, all-purpose, enriched, bleached'],
+                  'beef broth': ['beef broth, bouillon and consomme, canned, condensed'],
+                  'sour cream': ['sour cream, reduced fat'],
+                  'parsley': ['parsley, fresh'],
+                  'chopped fresh parsley': ['parsley, fresh'],
+                  'egg noodles': ['noodles, egg, cooked, enriched, with added salt'],
+                  'mushrooms': ['mushrooms, white, raw'],
+                  'brussels sprouts': ['brussels sprouts, raw'],
+                  'vinegar': ['vinegar, balsamic'],
+                  'balsamic vinegar': ['vinegar, balsamic']
+                };
+
+                let foundWithSubstitution = false;
+                for (const [original, substitutes] of Object.entries(substitutions)) {
+                  if (ingredientName.toLowerCase().includes(original.toLowerCase())) {
+                    for (const substitute of substitutes) {
+                      const subResults = await ingredientService.getIngredientsPaginated(
+                        1, 10, false, substitute, undefined, undefined
+                      );
+                      
+                      if (subResults.ingredients.length > 0) {
+                        const bestMatch = subResults.ingredients[0];
+                        console.log(`✅ Found ingredient with substitution: ${ingredientName} → ${bestMatch.name}`);
+                        
+                        const nutrition = calculateIngredientNutrition(bestMatch, ing.amount || 0, ing.unit || 'g');
+                        
+                        resolvedIngredients.push({
+                          ...ing,
+                          resolvedIngredient: bestMatch,
+                          nutrition,
+                          originalName: ingredientName // Preserve the original AI ingredient name
+                        });
+
+                        ingredientSearchResults.push({
+                          original_name: ingredientName,
+                          search_results: [{
+                            name: bestMatch.name,
+                            calories: bestMatch.calories,
+                            protein: bestMatch.protein,
+                            carbs: bestMatch.carbs,
+                            fat: bestMatch.fat,
+                            servingSize: bestMatch.servingSize
+                          }]
+                        });
+                        
+                        foundWithSubstitution = true;
+                        break;
+                      }
+                    }
+                    if (foundWithSubstitution) break;
+                  }
+                }
+
+                if (!foundWithSubstitution) {
+                  console.log(`❌ No ingredient found for "${ingredientName}" even with substitutions`);
+                  unresolvedIngredients.push(ing);
+                }
+              }
             }
+          } catch (error) {
+            console.error(`Error searching for ingredient "${ingredientName}":`, error);
+            unresolvedIngredients.push(ing);
           }
-        } catch (error) {
-          console.error(`Error searching for ingredient "${ingredientName}":`, error);
-          unresolvedIngredients.push(ing);
         }
       })
     );

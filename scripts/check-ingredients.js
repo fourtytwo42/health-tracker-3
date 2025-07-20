@@ -1,51 +1,93 @@
 const { PrismaClient } = require('@prisma/client');
-
 const prisma = new PrismaClient();
 
 async function checkIngredients() {
-  console.log('Checking ingredient nutrition data...\n');
-
-  // Check potatoes
-  const potatoes = await prisma.ingredient.findMany({
-    where: { name: { contains: 'potato' } },
-    take: 3
-  });
-  console.log('Potatoes found:', potatoes.length);
-  potatoes.forEach(p => {
-    console.log(`- ${p.name}: ${p.calories} cal, ${p.protein}g protein, ${p.carbs}g carbs, ${p.fat}g fat`);
-  });
-
-  // Check brussels sprouts
-  const brussels = await prisma.ingredient.findMany({
-    where: { name: { contains: 'brussels' } },
-    take: 3
-  });
-  console.log('\nBrussels sprouts found:', brussels.length);
-  brussels.forEach(b => {
-    console.log(`- ${b.name}: ${b.calories} cal, ${b.protein}g protein, ${b.carbs}g carbs, ${b.fat}g fat`);
-  });
-
-  // Check chicken
-  const chicken = await prisma.ingredient.findMany({
-    where: { name: { contains: 'chicken' } },
-    take: 3
-  });
-  console.log('\nChicken found:', chicken.length);
-  chicken.forEach(c => {
-    console.log(`- ${c.name}: ${c.calories} cal, ${c.protein}g protein, ${c.carbs}g carbs, ${c.fat}g fat`);
-  });
-
-  // Check some ingredients with 0 calories
-  const zeroCal = await prisma.ingredient.findMany({
-    where: { calories: 0 },
-    take: 5
-  });
-  console.log('\nIngredients with 0 calories (first 5):');
-  zeroCal.forEach(z => {
-    console.log(`- ${z.name}: ${z.calories} cal`);
-  });
-
-  await prisma.$disconnect();
+  try {
+    // Check bell peppers
+    const bellPeppers = await prisma.ingredient.findMany({
+      where: {
+        name: {
+          contains: 'peppers, sweet'
+        }
+      },
+      select: {
+        name: true,
+        category: true
+      }
+    });
+    
+    console.log('Bell peppers found:');
+    bellPeppers.forEach(p => console.log(`- ${p.name} (${p.category})`));
+    
+    // Check onions
+    const onions = await prisma.ingredient.findMany({
+      where: {
+        name: {
+          contains: 'onions'
+        }
+      },
+      select: {
+        name: true,
+        category: true
+      }
+    });
+    
+    console.log('\nOnions found:');
+    onions.forEach(o => console.log(`- ${o.name} (${o.category})`));
+    
+    // Check zucchini
+    const zucchini = await prisma.ingredient.findMany({
+      where: {
+        name: {
+          contains: 'zucchini'
+        }
+      },
+      select: {
+        name: true,
+        category: true
+      }
+    });
+    
+    console.log('\nZucchini found:');
+    zucchini.forEach(z => console.log(`- ${z.name} (${z.category})`));
+    
+    // Check tahini
+    const tahini = await prisma.ingredient.findMany({
+      where: {
+        name: {
+          contains: 'tahini'
+        }
+      },
+      select: {
+        name: true,
+        category: true
+      }
+    });
+    
+    console.log('\nTahini found:');
+    tahini.forEach(t => console.log(`- ${t.name} (${t.category})`));
+    
+    // Check greek yogurt
+    const greekYogurt = await prisma.ingredient.findMany({
+      where: {
+        name: {
+          contains: 'yogurt, greek'
+        }
+      },
+      select: {
+        name: true,
+        category: true
+      }
+    });
+    
+    console.log('\nGreek yogurt found:');
+    greekYogurt.forEach(y => console.log(`- ${y.name} (${y.category})`));
+    
+  } catch (error) {
+    console.error('Error:', error);
+  } finally {
+    await prisma.$disconnect();
+  }
 }
 
-checkIngredients().catch(console.error); 
+checkIngredients(); 
