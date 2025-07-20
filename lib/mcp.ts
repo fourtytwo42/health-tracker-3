@@ -572,11 +572,18 @@ ${categories.join(', ')}
 
 IMPORTANT REQUIREMENTS:
 1. Meal type must be exactly one of: BREAKFAST, LUNCH, DINNER, SNACK, DESSERT
-2. Use common, recognizable ingredient names (e.g., "chicken breast", "olive oil", "tomatoes")
+2. Use SIMPLE, COMMON ingredient names that are likely to be found in a database
 3. Provide amounts in grams (g) or milliliters (ml) for precise measurement
 4. Include detailed step-by-step instructions
-5. Keep ingredient names simple and recognizable
-6. For each ingredient, specify the most appropriate category from the available list above
+5. For each ingredient, specify the most appropriate category from the available list above
+
+INGREDIENT NAMING GUIDELINES:
+- Use basic, common names (e.g., "beef", "chicken breast", "tomatoes")
+- Avoid overly specific names (e.g., "beef striploin" → use "beef" or "beef steak")
+- Keep names to 1-3 words maximum
+- Use generic terms when possible (e.g., "cheese" instead of "cheddar cheese")
+- Examples of good names: "beef", "chicken", "tomatoes", "onions", "garlic", "olive oil"
+- Examples of bad names: "beef striploin", "organic cherry tomatoes", "extra virgin olive oil"
 
 Generate a complete recipe in the following JSON format (ensure valid JSON with proper quotes, commas, and structure):
 
@@ -605,7 +612,7 @@ Generate a complete recipe in the following JSON format (ensure valid JSON with 
   ]
 }
 
-IMPORTANT: For each ingredient, choose the most appropriate category from the available categories listed above. This will help with accurate ingredient matching and nutrition calculation.
+IMPORTANT: For each ingredient, choose the most appropriate category from the available categories listed above. Use simple, common ingredient names that are likely to be found in a database.
 
 Timestamp: ${Date.now()}`;
 
@@ -1026,6 +1033,20 @@ Please analyze the search term and return the best matching ingredient. Consider
 - Common variations and synonyms
 - Category relevance
 - Description relevance
+- PREFER basic, unprocessed ingredients over processed/specific varieties
+- AVOID selecting processed foods when basic ingredients are available
+
+SELECTION PRIORITY:
+1. Basic, unprocessed ingredients (e.g., "onion" over "onion rings")
+2. Generic names over specific varieties (e.g., "salt" over "sea salt")
+3. Raw/fresh over processed (e.g., "garlic" over "garlic bread")
+4. Simple names over complex descriptions
+
+EXAMPLES:
+- Search "onion" → Choose "onion" not "onion rings"
+- Search "salt" → Choose "salt" not "nuts with salt"
+- Search "garlic" → Choose "garlic" not "garlic bread"
+- Search "beef" → Choose "beef" not "beef sandwich"
 
 Return your response as JSON with this exact format:
 {

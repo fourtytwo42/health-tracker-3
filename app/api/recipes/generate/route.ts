@@ -233,9 +233,27 @@ export async function POST(request: NextRequest) {
                 })),
                 isActive: true
               },
-              take: 3 // Limit to top 3 matches
+              take: 10 // Get more results to filter
             });
-            searchResults.push(...keywordResults);
+            
+            // Filter and prioritize basic ingredients
+            const filteredResults = keywordResults
+              .filter(result => {
+                const name = result.name.toLowerCase();
+                // Avoid processed foods when basic ingredients are available
+                const isProcessed = name.includes('rings') || 
+                                  name.includes('breaded') || 
+                                  name.includes('fried') || 
+                                  name.includes('prepared') ||
+                                  name.includes('sandwich') ||
+                                  name.includes('bread') ||
+                                  name.includes('with salt') ||
+                                  name.includes('dry roasted');
+                return !isProcessed;
+              })
+              .slice(0, 3); // Take top 3 after filtering
+            
+            searchResults.push(...filteredResults);
           }
         }
 
@@ -324,6 +342,70 @@ export async function POST(request: NextRequest) {
               isActive: true
             }
           });
+        }
+
+        // If ingredient not found, try with simplified name
+        if (!foundIngredient) {
+          console.log(`⚠️  Ingredient not found: ${ingredientName}, trying simplified name...`);
+          
+          // Simplify the ingredient name by taking first 1-2 words
+          const words = ingredientName.toLowerCase().split(' ');
+          const simplifiedNames = [];
+          
+          // Try first word only
+          if (words.length > 1) {
+            simplifiedNames.push(words[0]);
+          }
+          
+          // Try first two words
+          if (words.length > 2) {
+            simplifiedNames.push(words.slice(0, 2).join(' '));
+          }
+          
+          // Try common substitutions
+          const substitutions: { [key: string]: string } = {
+            'beef striploin': 'beef',
+            'beef tenderloin': 'beef',
+            'chicken breast': 'chicken',
+            'boneless chicken': 'chicken',
+            'extra virgin olive oil': 'olive oil',
+            'cherry tomatoes': 'tomatoes',
+            'roma tomatoes': 'tomatoes',
+            'yellow onions': 'onions',
+            'red onions': 'onions',
+            'white onions': 'onions',
+            'fresh garlic': 'garlic',
+            'minced garlic': 'garlic',
+            'dried thyme': 'thyme',
+            'fresh thyme': 'thyme',
+            'ground black pepper': 'pepper',
+            'black pepper': 'pepper',
+            'sea salt': 'salt',
+            'kosher salt': 'salt',
+            'table salt': 'salt'
+          };
+          
+          const substitution = substitutions[ingredientName.toLowerCase()];
+          if (substitution) {
+            simplifiedNames.push(substitution);
+          }
+          
+          // Try each simplified name
+          for (const simplifiedName of simplifiedNames) {
+            foundIngredient = await prisma.ingredient.findFirst({
+              where: {
+                name: {
+                  contains: simplifiedName
+                },
+                isActive: true
+              }
+            });
+            
+            if (foundIngredient) {
+              console.log(`✅ Found ingredient with simplified name: ${simplifiedName} -> ${foundIngredient.name}`);
+              break;
+            }
+          }
         }
 
         // If ingredient not found, skip it and log warning
