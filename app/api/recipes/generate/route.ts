@@ -225,14 +225,17 @@ export async function POST(request: NextRequest) {
           'whole wheat tortillas': 'tortillas, ready-to-bake or -fry, corn, without added salt',
           'tortillas': 'tortillas, ready-to-bake or -fry, corn, without added salt',
           'flour': 'flour, wheat, all-purpose, enriched, bleached',
-          'beef': 'beef, flank, steak, boneless, choice, raw',
-          'beef steak': 'beef, flank, steak, boneless, choice, raw',
+          'beef': 'beef, raw',
+          'beef steak': 'beef, raw',
           'mushrooms': 'mushrooms, white button',
           'button mushrooms': 'mushrooms, white button',
           'cream cheese': 'cheese, cream',
           'butter': 'butter, salted',
           'egg noodles': 'noodles, egg, cooked, enriched, with added salt',
-          'noodles': 'noodles, egg, cooked, enriched, with added salt'
+          'noodles': 'noodles, egg, cooked, enriched, with added salt',
+          'salmon': 'fish, salmon, raw',
+          'salmon fillets': 'fish, salmon, raw',
+          'quinoa': 'quinoa, cooked'
         };
         
         // Check if we have a hardcoded mapping (case-insensitive)
@@ -762,7 +765,7 @@ export async function POST(request: NextRequest) {
     let scalingApplied = false;
 
     // If calories are outside the acceptable range, scale the ingredients
-    if (calorieDifference > calorieThreshold) {
+    if (calorieDifference > calorieThreshold && totalNutrition.calories > 0) {
       console.log(`Recipe calories (${perServingNutrition.calories}) outside target range (${targetCalories} ± ${calorieThreshold}). Scaling ingredients...`);
       
       // Calculate scaling factor to reach target calories
@@ -774,21 +777,42 @@ export async function POST(request: NextRequest) {
           return ing; // Keep unavailable ingredients as-is
         }
         
-        const scaledAmount = Math.round(ing.amount * scalingFactor * 10) / 10; // Round to 1 decimal place
+        // Don't scale spices, salt, and other ingredients that should remain small
+        const ingredientName = ing.originalName?.toLowerCase() || '';
+        const isSpiceOrSeasoning = ingredientName.includes('salt') || 
+                                  ingredientName.includes('pepper') || 
+                                  ingredientName.includes('spices') ||
+                                  ingredientName.includes('seasoning') ||
+                                  ingredientName.includes('herbs') ||
+                                  ingredientName.includes('garlic') ||
+                                  ingredientName.includes('onion') ||
+                                  ingredientName.includes('lemon juice') ||
+                                  ingredientName.includes('vinegar');
+        
+        let scalingFactorToUse = scalingFactor;
+        
+        // Limit scaling for spices and seasonings to prevent excessive amounts
+        if (isSpiceOrSeasoning) {
+          // Cap scaling at 2x for spices and seasonings
+          scalingFactorToUse = Math.min(scalingFactor, 2.0);
+          console.log(`Limited scaling for ${ingredientName} to ${scalingFactorToUse}x (was ${scalingFactor}x)`);
+        }
+        
+        const scaledAmount = Math.round(ing.amount * scalingFactorToUse * 10) / 10; // Round to 1 decimal place
         
         return {
           ...ing,
           amount: scaledAmount,
           originalAmount: ing.amount, // Keep original for reference
-          scalingFactor: scalingFactor,
+          scalingFactor: scalingFactorToUse,
           nutrition: {
-            calories: Math.round(ing.nutrition.calories * scalingFactor),
-            protein: Math.round(ing.nutrition.protein * scalingFactor * 10) / 10,
-            carbs: Math.round(ing.nutrition.carbs * scalingFactor * 10) / 10,
-            fat: Math.round(ing.nutrition.fat * scalingFactor * 10) / 10,
-            fiber: Math.round(ing.nutrition.fiber * scalingFactor * 10) / 10,
-            sugar: Math.round(ing.nutrition.sugar * scalingFactor * 10) / 10,
-            sodium: Math.round(ing.nutrition.sodium * scalingFactor)
+            calories: Math.round(ing.nutrition.calories * scalingFactorToUse),
+            protein: Math.round(ing.nutrition.protein * scalingFactorToUse * 10) / 10,
+            carbs: Math.round(ing.nutrition.carbs * scalingFactorToUse * 10) / 10,
+            fat: Math.round(ing.nutrition.fat * scalingFactorToUse * 10) / 10,
+            fiber: Math.round(ing.nutrition.fiber * scalingFactorToUse * 10) / 10,
+            sugar: Math.round(ing.nutrition.sugar * scalingFactorToUse * 10) / 10,
+            sodium: Math.round(ing.nutrition.sodium * scalingFactorToUse)
           }
         };
       });
