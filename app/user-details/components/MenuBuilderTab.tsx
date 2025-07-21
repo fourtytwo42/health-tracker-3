@@ -800,7 +800,7 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                           top: 0,
                           bottom: 0,
                           display: 'flex',
-                          flexDirection: 'column',
+                          flexDirection: 'row',
                           zIndex: 10
                         }}
                       >
@@ -809,7 +809,7 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                           <Box
                             sx={{
                               width: '40px',
-                              height: '33.33%',
+                              height: '100%',
                               background: 'rgba(0, 0, 0, 0.7)',
                               display: 'flex',
                               alignItems: 'center',
@@ -826,10 +826,10 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                               variant="caption"
                               sx={{
                                 color: 'white',
-                                transform: 'rotate(-90deg)',
                                 whiteSpace: 'nowrap',
                                 fontWeight: 'bold',
-                                fontSize: '0.7rem'
+                                fontSize: '0.7rem',
+                                transform: 'rotate(-90deg)'
                               }}
                             >
                               Instructions
@@ -842,7 +842,7 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                           <Box
                             sx={{
                               width: '40px',
-                              height: '33.33%',
+                              height: '100%',
                               background: 'rgba(0, 0, 0, 0.7)',
                               display: 'flex',
                               alignItems: 'center',
@@ -859,10 +859,10 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                               variant="caption"
                               sx={{
                                 color: 'white',
-                                transform: 'rotate(-90deg)',
                                 whiteSpace: 'nowrap',
                                 fontWeight: 'bold',
-                                fontSize: '0.7rem'
+                                fontSize: '0.7rem',
+                                transform: 'rotate(-90deg)'
                               }}
                             >
                               Ingredients
@@ -875,7 +875,7 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                           <Box
                             sx={{
                               width: '40px',
-                              height: '33.33%',
+                              height: '100%',
                               background: 'rgba(0, 0, 0, 0.7)',
                               display: 'flex',
                               alignItems: 'center',
@@ -892,10 +892,10 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                               variant="caption"
                               sx={{
                                 color: 'white',
-                                transform: 'rotate(-90deg)',
                                 whiteSpace: 'nowrap',
                                 fontWeight: 'bold',
-                                fontSize: '0.7rem'
+                                fontSize: '0.7rem',
+                                transform: 'rotate(-90deg)'
                               }}
                             >
                               Nutrition
@@ -913,7 +913,7 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                             top: 0,
                             bottom: 0,
                             display: 'flex',
-                            flexDirection: 'column',
+                            flexDirection: 'row',
                             zIndex: 10
                           }}
                         >
@@ -922,7 +922,7 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                             <Box
                               sx={{
                                 width: '40px',
-                                height: '33.33%',
+                                height: '100%',
                                 background: expandedInstructions[recipe.id] ? 'rgba(0, 0, 0, 0.8)' : 'rgba(0, 0, 0, 0.7)',
                                 display: 'flex',
                                 alignItems: 'center',
@@ -939,10 +939,10 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                                 variant="caption"
                                 sx={{
                                   color: 'white',
-                                  transform: 'rotate(-90deg)',
                                   whiteSpace: 'nowrap',
                                   fontWeight: 'bold',
-                                  fontSize: '0.7rem'
+                                  fontSize: '0.7rem',
+                                  transform: 'rotate(-90deg)'
                                 }}
                               >
                                 Instructions
@@ -955,7 +955,7 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                             <Box
                               sx={{
                                 width: '40px',
-                                height: '33.33%',
+                                height: '100%',
                                 background: expandedIngredients[recipe.id] ? 'rgba(0, 0, 0, 0.8)' : 'rgba(0, 0, 0, 0.7)',
                                 display: 'flex',
                                 alignItems: 'center',
@@ -972,10 +972,10 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                                 variant="caption"
                                 sx={{
                                   color: 'white',
-                                  transform: 'rotate(-90deg)',
                                   whiteSpace: 'nowrap',
                                   fontWeight: 'bold',
-                                  fontSize: '0.7rem'
+                                  fontSize: '0.7rem',
+                                  transform: 'rotate(-90deg)'
                                 }}
                               >
                                 Ingredients
@@ -988,7 +988,7 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                             <Box
                               sx={{
                                 width: '40px',
-                                height: '33.33%',
+                                height: '100%',
                                 background: 'rgba(0, 0, 0, 0.8)',
                                 display: 'flex',
                                 alignItems: 'center',
@@ -1005,10 +1005,10 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                                 variant="caption"
                                 sx={{
                                   color: 'white',
-                                  transform: 'rotate(-90deg)',
                                   whiteSpace: 'nowrap',
                                   fontWeight: 'bold',
-                                  fontSize: '0.7rem'
+                                  fontSize: '0.7rem',
+                                  transform: 'rotate(-90deg)'
                                 }}
                               >
                                 Nutrition
@@ -1503,7 +1503,7 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                       top: 0,
                       bottom: 0,
                       display: 'flex',
-                      flexDirection: 'column',
+                      flexDirection: 'row',
                       zIndex: 10
                     }}
                   >
@@ -1512,7 +1512,7 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                       <Box
                         sx={{
                           width: '40px',
-                          height: '33.33%',
+                          height: '100%',
                           background: 'rgba(0, 0, 0, 0.7)',
                           display: 'flex',
                           alignItems: 'center',
@@ -1529,10 +1529,10 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                           variant="caption"
                           sx={{
                             color: 'white',
-                            transform: 'rotate(-90deg)',
                             whiteSpace: 'nowrap',
                             fontWeight: 'bold',
-                            fontSize: '0.7rem'
+                            fontSize: '0.7rem',
+                            transform: 'rotate(-90deg)'
                           }}
                         >
                           Instructions
@@ -1545,7 +1545,7 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                       <Box
                         sx={{
                           width: '40px',
-                          height: '33.33%',
+                          height: '100%',
                           background: 'rgba(0, 0, 0, 0.7)',
                           display: 'flex',
                           alignItems: 'center',
@@ -1562,10 +1562,10 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                           variant="caption"
                           sx={{
                             color: 'white',
-                            transform: 'rotate(-90deg)',
                             whiteSpace: 'nowrap',
                             fontWeight: 'bold',
-                            fontSize: '0.7rem'
+                            fontSize: '0.7rem',
+                            transform: 'rotate(-90deg)'
                           }}
                         >
                           Ingredients
@@ -1578,7 +1578,7 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                       <Box
                         sx={{
                           width: '40px',
-                          height: '33.33%',
+                          height: '100%',
                           background: 'rgba(0, 0, 0, 0.7)',
                           display: 'flex',
                           alignItems: 'center',
@@ -1595,10 +1595,10 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                           variant="caption"
                           sx={{
                             color: 'white',
-                            transform: 'rotate(-90deg)',
                             whiteSpace: 'nowrap',
                             fontWeight: 'bold',
-                            fontSize: '0.7rem'
+                            fontSize: '0.7rem',
+                            transform: 'rotate(-90deg)'
                           }}
                         >
                           Nutrition
@@ -1616,7 +1616,7 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                         top: 0,
                         bottom: 0,
                         display: 'flex',
-                        flexDirection: 'column',
+                        flexDirection: 'row',
                         zIndex: 10
                       }}
                     >
@@ -1625,7 +1625,7 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                         <Box
                           sx={{
                             width: '40px',
-                            height: '33.33%',
+                            height: '100%',
                             background: expandedInstructions[selectedRecipe.id] ? 'rgba(0, 0, 0, 0.8)' : 'rgba(0, 0, 0, 0.7)',
                             display: 'flex',
                             alignItems: 'center',
@@ -1642,10 +1642,10 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                             variant="caption"
                             sx={{
                               color: 'white',
-                              transform: 'rotate(-90deg)',
                               whiteSpace: 'nowrap',
                               fontWeight: 'bold',
-                              fontSize: '0.7rem'
+                              fontSize: '0.7rem',
+                              transform: 'rotate(-90deg)'
                             }}
                           >
                             Instructions
@@ -1658,7 +1658,7 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                         <Box
                           sx={{
                             width: '40px',
-                            height: '33.33%',
+                            height: '100%',
                             background: expandedIngredients[selectedRecipe.id] ? 'rgba(0, 0, 0, 0.8)' : 'rgba(0, 0, 0, 0.7)',
                             display: 'flex',
                             alignItems: 'center',
@@ -1675,10 +1675,10 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                             variant="caption"
                             sx={{
                               color: 'white',
-                              transform: 'rotate(-90deg)',
                               whiteSpace: 'nowrap',
                               fontWeight: 'bold',
-                              fontSize: '0.7rem'
+                              fontSize: '0.7rem',
+                              transform: 'rotate(-90deg)'
                             }}
                           >
                             Ingredients
@@ -1691,7 +1691,7 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                         <Box
                           sx={{
                             width: '40px',
-                            height: '33.33%',
+                            height: '100%',
                             background: 'rgba(0, 0, 0, 0.8)',
                             display: 'flex',
                             alignItems: 'center',
@@ -1708,10 +1708,10 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                             variant="caption"
                             sx={{
                               color: 'white',
-                              transform: 'rotate(-90deg)',
                               whiteSpace: 'nowrap',
                               fontWeight: 'bold',
-                              fontSize: '0.7rem'
+                              fontSize: '0.7rem',
+                              transform: 'rotate(-90deg)'
                             }}
                           >
                             Nutrition
