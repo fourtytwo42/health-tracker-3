@@ -194,6 +194,8 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
   const [targetCalories, setTargetCalories] = useState(0);
   const [generateImage, setGenerateImage] = useState(false);
   const [expandedNutrition, setExpandedNutrition] = useState<Record<string, boolean>>({});
+  const [expandedIngredients, setExpandedIngredients] = useState<Record<string, boolean>>({});
+  const [expandedInstructions, setExpandedInstructions] = useState<Record<string, boolean>>({});
 
   const mealTypes = [
     { value: 'breakfast', label: 'Breakfast' },
@@ -506,6 +508,42 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
     }));
   };
 
+  const toggleIngredientsExpansion = (recipeId: string) => {
+    setExpandedIngredients(prev => ({
+      ...prev,
+      [recipeId]: !prev[recipeId]
+    }));
+  };
+
+  const toggleInstructionsExpansion = (recipeId: string) => {
+    setExpandedInstructions(prev => ({
+      ...prev,
+      [recipeId]: !prev[recipeId]
+    }));
+  };
+
+  const handleIngredientPreference = async (ingredientId: string, preference: 'like' | 'dislike' | 'allergy' | 'intolerance') => {
+    try {
+      const response = await fetch(`/api/food-preferences/${ingredientId}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ preference }),
+      });
+
+      if (response.ok) {
+        // If it's dislike, allergy, or intolerance, also trigger substitution
+        if (preference !== 'like') {
+          // This will trigger the existing substitution dialog
+          // We'll need to implement this integration
+        }
+      }
+    } catch (error) {
+      console.error('Error updating food preference:', error);
+    }
+  };
+
   const NutritionCard = ({ nutrition, servings }: { nutrition: any; servings: number }) => (
     <Box sx={{ mb: 2, display: 'flex', justifyContent: 'center' }}>
       <NutritionLabel
@@ -779,6 +817,76 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                           {expandedNutrition[recipe.id] ? 'Hide' : 'Show'} Nutrition
                         </Typography>
                       </Box>
+
+                      {/* Collapsible Ingredients Handle */}
+                      <Box
+                        sx={{
+                          position: 'absolute',
+                          left: expandedIngredients[recipe.id] ? 'auto' : 0,
+                          right: expandedIngredients[recipe.id] ? 0 : 'auto',
+                          top: expandedNutrition[recipe.id] ? '60px' : 0,
+                          bottom: expandedNutrition[recipe.id] ? '120px' : 0,
+                          width: '60px',
+                          background: 'rgba(0, 0, 0, 0.7)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          cursor: 'pointer',
+                          transition: 'all 0.3s ease',
+                          zIndex: 10,
+                          '&:hover': {
+                            background: 'rgba(0, 0, 0, 0.8)'
+                          }
+                        }}
+                        onClick={() => toggleIngredientsExpansion(recipe.id)}
+                      >
+                        <Typography
+                          variant="caption"
+                          sx={{
+                            color: 'white',
+                            transform: 'rotate(-90deg)',
+                            whiteSpace: 'nowrap',
+                            fontWeight: 'bold'
+                          }}
+                        >
+                          {expandedIngredients[recipe.id] ? 'Hide' : 'Show'} Ingredients
+                        </Typography>
+                      </Box>
+
+                      {/* Collapsible Instructions Handle */}
+                      <Box
+                        sx={{
+                          position: 'absolute',
+                          left: expandedInstructions[recipe.id] ? 'auto' : 0,
+                          right: expandedInstructions[recipe.id] ? 0 : 'auto',
+                          top: (expandedNutrition[recipe.id] ? 60 : 0) + (expandedIngredients[recipe.id] ? 60 : 0),
+                          bottom: (expandedNutrition[recipe.id] ? 120 : 0) + (expandedIngredients[recipe.id] ? 120 : 0),
+                          width: '60px',
+                          background: 'rgba(0, 0, 0, 0.7)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          cursor: 'pointer',
+                          transition: 'all 0.3s ease',
+                          zIndex: 10,
+                          '&:hover': {
+                            background: 'rgba(0, 0, 0, 0.8)'
+                          }
+                        }}
+                        onClick={() => toggleInstructionsExpansion(recipe.id)}
+                      >
+                        <Typography
+                          variant="caption"
+                          sx={{
+                            color: 'white',
+                            transform: 'rotate(-90deg)',
+                            whiteSpace: 'nowrap',
+                            fontWeight: 'bold'
+                          }}
+                        >
+                          {expandedInstructions[recipe.id] ? 'Hide' : 'Show'} Instructions
+                        </Typography>
+                      </Box>
                       
                       {/* Image Shading Overlay */}
                       <Box
@@ -788,7 +896,7 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                           left: 0,
                           right: 0,
                           bottom: 0,
-                          background: expandedNutrition[recipe.id] ? 'rgba(0, 0, 0, 0.4)' : 'transparent',
+                          background: (expandedNutrition[recipe.id] || expandedIngredients[recipe.id] || expandedInstructions[recipe.id]) ? 'rgba(0, 0, 0, 0.4)' : 'transparent',
                           transition: 'background 0.3s ease',
                           borderRadius: '8px',
                           zIndex: 2
@@ -950,6 +1058,216 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                                   {Math.round(recipe.nutrition.sugarPerServing)}g
                                 </Typography>
                               </Box>
+                            </Box>
+                          </Box>
+                        </Box>
+                      </Box>
+
+                      {/* Ingredients Overlay */}
+                      <Box
+                        sx={{
+                          position: 'absolute',
+                          top: 0,
+                          left: expandedIngredients[recipe.id] ? 0 : '-100%',
+                          right: 0,
+                          bottom: 0,
+                          display: expandedIngredients[recipe.id] ? 'flex' : 'none',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          borderRadius: '8px',
+                          padding: 2,
+                          transition: 'left 0.3s ease',
+                          zIndex: 5
+                        }}
+                      >
+                        <Box sx={{ 
+                          width: '100%',
+                          height: '100%',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          justifyContent: 'center',
+                          alignItems: 'center',
+                          padding: 2
+                        }}>
+                          {/* Ingredients Display */}
+                          <Box sx={{
+                            width: '100%',
+                            maxWidth: '600px',
+                            padding: 2
+                          }}>
+                            <Typography variant="h6" sx={{ 
+                              fontWeight: 'bold', 
+                              textAlign: 'center', 
+                              mb: 2,
+                              color: 'white',
+                              textShadow: '2px 2px 4px rgba(0,0,0,0.8)'
+                            }}>
+                              Ingredients
+                            </Typography>
+                            
+                            <Box sx={{
+                              display: 'grid',
+                              gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+                              gap: 2,
+                              maxHeight: '350px',
+                              overflowY: 'auto'
+                            }}>
+                              {recipe.ingredients.map((ri, index) => (
+                                <Box key={ri.id} sx={{
+                                  background: 'rgba(255, 255, 255, 0.9)',
+                                  borderRadius: '8px',
+                                  padding: 2,
+                                  border: '1px solid rgba(255, 255, 255, 0.3)'
+                                }}>
+                                  {/* Ingredient Name */}
+                                  <Typography variant="body2" sx={{ 
+                                    fontWeight: 'bold', 
+                                    mb: 1,
+                                    color: '#2c3e50'
+                                  }}>
+                                    {ri.notes || ri.ingredient.name}
+                                  </Typography>
+                                  
+                                  {/* Amount and Database Name */}
+                                  <Typography variant="caption" sx={{ 
+                                    color: '#666',
+                                    display: 'block',
+                                    mb: 1
+                                  }}>
+                                    {formatEggDisplay(ri.amount, ri.unit, recipe.scalingFactor || 1, ri.ingredient.name, ri.ingredient.servingSize, ri.notes)} • {ri.ingredient.name}
+                                  </Typography>
+                                  
+                                  {/* Nutrition Facts */}
+                                  <Box sx={{ mb: 1 }}>
+                                    <Typography variant="caption" sx={{ 
+                                      color: '#666',
+                                      display: 'block'
+                                    }}>
+                                      {Math.round(ri.amount * ri.ingredient.calories)} cal • {Math.round(ri.amount * ri.ingredient.protein)}g protein • {Math.round(ri.amount * ri.ingredient.carbs)}g carbs • {Math.round(ri.amount * ri.ingredient.fat)}g fat
+                                    </Typography>
+                                  </Box>
+                                  
+                                  {/* Action Buttons */}
+                                  <Box sx={{ 
+                                    display: 'flex', 
+                                    gap: 0.5,
+                                    mt: 1
+                                  }}>
+                                    <Button
+                                      size="small"
+                                      variant="outlined"
+                                      onClick={() => replaceIngredient(recipe.id, ri.id, '')}
+                                      sx={{ 
+                                        fontSize: '0.7rem',
+                                        minWidth: 'auto',
+                                        padding: '2px 6px'
+                                      }}
+                                    >
+                                      Substitute
+                                    </Button>
+                                    <Button
+                                      size="small"
+                                      variant="outlined"
+                                      onClick={() => handleIngredientPreference(ri.ingredient.id, 'like')}
+                                      sx={{ 
+                                        fontSize: '0.7rem',
+                                        minWidth: 'auto',
+                                        padding: '2px 6px',
+                                        color: 'green'
+                                      }}
+                                    >
+                                      Like
+                                    </Button>
+                                    <Button
+                                      size="small"
+                                      variant="outlined"
+                                      onClick={() => handleIngredientPreference(ri.ingredient.id, 'dislike')}
+                                      sx={{ 
+                                        fontSize: '0.7rem',
+                                        minWidth: 'auto',
+                                        padding: '2px 6px',
+                                        color: 'orange'
+                                      }}
+                                    >
+                                      Dislike
+                                    </Button>
+                                    <Button
+                                      size="small"
+                                      variant="outlined"
+                                      onClick={() => handleIngredientPreference(ri.ingredient.id, 'allergy')}
+                                      sx={{ 
+                                        fontSize: '0.7rem',
+                                        minWidth: 'auto',
+                                        padding: '2px 6px',
+                                        color: 'red'
+                                      }}
+                                    >
+                                      Allergy
+                                    </Button>
+                                  </Box>
+                                </Box>
+                              ))}
+                            </Box>
+                          </Box>
+                        </Box>
+                      </Box>
+
+                      {/* Instructions Overlay */}
+                      <Box
+                        sx={{
+                          position: 'absolute',
+                          top: 0,
+                          left: expandedInstructions[recipe.id] ? 0 : '-100%',
+                          right: 0,
+                          bottom: 0,
+                          display: expandedInstructions[recipe.id] ? 'flex' : 'none',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          borderRadius: '8px',
+                          padding: 2,
+                          transition: 'left 0.3s ease',
+                          zIndex: 5
+                        }}
+                      >
+                        <Box sx={{ 
+                          width: '100%',
+                          height: '100%',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          justifyContent: 'center',
+                          alignItems: 'center',
+                          padding: 2
+                        }}>
+                          {/* Instructions Display */}
+                          <Box sx={{
+                            width: '100%',
+                            maxWidth: '500px',
+                            padding: 2
+                          }}>
+                            <Typography variant="h6" sx={{ 
+                              fontWeight: 'bold', 
+                              textAlign: 'center', 
+                              mb: 2,
+                              color: 'white',
+                              textShadow: '2px 2px 4px rgba(0,0,0,0.8)'
+                            }}>
+                              Instructions
+                            </Typography>
+                            
+                            <Box sx={{
+                              background: 'rgba(255, 255, 255, 0.9)',
+                              borderRadius: '8px',
+                              padding: 3,
+                              maxHeight: '350px',
+                              overflowY: 'auto'
+                            }}>
+                              <Typography variant="body2" sx={{ 
+                                color: '#2c3e50',
+                                lineHeight: 1.6,
+                                whiteSpace: 'pre-wrap'
+                              }}>
+                                {recipe.instructions}
+                              </Typography>
                             </Box>
                           </Box>
                         </Box>
