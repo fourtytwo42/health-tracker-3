@@ -162,7 +162,8 @@ export async function POST(request: NextRequest) {
       healthMetrics,
       difficulty,
       cuisine,
-      calorieGoal
+      calorieGoal,
+      generateImage
     } = body;
 
     if (!keywords || !mealType || !servings) {
@@ -1125,6 +1126,42 @@ export async function POST(request: NextRequest) {
         }),
       unavailableIngredients: unavailableIngredients.map(ing => ing.originalName || ing.notes || 'Unknown ingredient')
     });
+
+    // Generate image if requested
+    let photoUrl = null;
+    if (generateImage) {
+      try {
+        console.log('Generating image for recipe...');
+        
+        // Create a comprehensive prompt for image generation
+        const imagePrompt = `A beautiful, appetizing photo of ${finalRecipeData.title || finalRecipeData.name}. ${finalRecipeData.description || ''} The dish should be presented on a clean plate with good lighting, showing the final cooked result ready to eat.`;
+        
+        // Import the image generation function directly
+        const { generateImage } = await import('@/lib/services/ImageGenerationService');
+        
+        const imageResult = await generateImage({
+          prompt: imagePrompt,
+          textModel: 'gpt-4o-mini',
+          quality: 'low',
+          size: '1024x1024',
+          background: 'opaque',
+          format: 'jpeg',
+          outputCompression: 80
+        });
+
+        if (imageResult.success) {
+          photoUrl = imageResult.imageUrl;
+          
+          // Update the recipe with the generated image URL
+          await recipeService.updateRecipe(recipe.id, { photoUrl });
+          console.log('Image generated and saved to recipe');
+        } else {
+          console.error('Failed to generate image:', imageResult.error);
+        }
+      } catch (error) {
+        console.error('Error generating image:', error);
+      }
+    }
 
     return NextResponse.json({ 
       recipe,

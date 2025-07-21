@@ -30,7 +30,9 @@ import {
   ListItem,
   ListItemText,
   Divider,
-  Tooltip
+  Tooltip,
+  FormControlLabel,
+  Checkbox
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -45,7 +47,8 @@ import {
   LocalDining as LocalDiningIcon,
   SwapHoriz as SwapIcon,
   TrendingUp as TrendingUpIcon,
-  Delete as DeleteIcon
+  Delete as DeleteIcon,
+  Image as ImageIcon
 } from '@mui/icons-material';
 import { formatEggDisplay } from '@/lib/utils/unitConversion';
 import NutritionLabel from '../../components/cards/NutritionLabel';
@@ -189,6 +192,8 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
   const [selectedIngredient, setSelectedIngredient] = useState<any>(null);
   const [showNutritionDialog, setShowNutritionDialog] = useState(false);
   const [targetCalories, setTargetCalories] = useState(0);
+  const [generateImage, setGenerateImage] = useState(false);
+  const [expandedNutrition, setExpandedNutrition] = useState<Record<string, boolean>>({});
 
   const mealTypes = [
     { value: 'breakfast', label: 'Breakfast' },
@@ -315,7 +320,8 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
           servings,
           calorieGoal,
           preferences: foodPreferences,
-          healthMetrics: userProfile
+          healthMetrics: userProfile,
+          generateImage
         })
       });
 
@@ -492,6 +498,13 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
     }
   };
 
+  const toggleNutritionExpansion = (recipeId: string) => {
+    setExpandedNutrition(prev => ({
+      ...prev,
+      [recipeId]: !prev[recipeId]
+    }));
+  };
+
   const NutritionCard = ({ nutrition, servings }: { nutrition: any; servings: number }) => (
     <Box sx={{ mb: 2, display: 'flex', justifyContent: 'center' }}>
       <NutritionLabel
@@ -566,6 +579,19 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                 value={calorieGoal}
                 onChange={(e) => setCalorieGoal(parseInt(e.target.value) || 500)}
                 inputProps={{ min: 100, max: 2000 }}
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={generateImage}
+                    onChange={(e) => setGenerateImage(e.target.checked)}
+                    icon={<ImageIcon />}
+                    checkedIcon={<ImageIcon />}
+                  />
+                }
+                label="Generate image for recipe"
               />
             </Grid>
             <Grid item xs={12}>
@@ -704,7 +730,77 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                   </Typography>
                 )}
 
-                <NutritionCard nutrition={recipe.nutrition} servings={recipe.servings} />
+                {/* Image and Nutrition Section */}
+                <Box sx={{ position: 'relative', mb: 2 }}>
+                  {recipe.photoUrl ? (
+                    <Box sx={{ position: 'relative' }}>
+                      <img
+                        src={recipe.photoUrl}
+                        alt={recipe.name}
+                        style={{
+                          width: '100%',
+                          height: '200px',
+                          objectFit: 'cover',
+                          borderRadius: '8px'
+                        }}
+                      />
+                      {/* Collapsible Nutrition Handle */}
+                      <Box
+                        sx={{
+                          position: 'absolute',
+                          left: 0,
+                          top: 0,
+                          bottom: 0,
+                          width: '60px',
+                          background: 'rgba(0, 0, 0, 0.7)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          cursor: 'pointer',
+                          transition: 'all 0.3s ease',
+                          '&:hover': {
+                            background: 'rgba(0, 0, 0, 0.8)'
+                          }
+                        }}
+                        onClick={() => toggleNutritionExpansion(recipe.id)}
+                      >
+                        <Typography
+                          variant="caption"
+                          sx={{
+                            color: 'white',
+                            transform: 'rotate(-90deg)',
+                            whiteSpace: 'nowrap',
+                            fontWeight: 'bold'
+                          }}
+                        >
+                          {expandedNutrition[recipe.id] ? 'Hide' : 'Show'} Nutrition
+                        </Typography>
+                      </Box>
+                      
+                      {/* Expanded Nutrition Overlay */}
+                      {expandedNutrition[recipe.id] && (
+                        <Box
+                          sx={{
+                            position: 'absolute',
+                            top: 0,
+                            left: 0,
+                            right: 0,
+                            bottom: 0,
+                            background: 'rgba(255, 255, 255, 0.95)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            borderRadius: '8px'
+                          }}
+                        >
+                          <NutritionCard nutrition={recipe.nutrition} servings={recipe.servings} />
+                        </Box>
+                      )}
+                    </Box>
+                  ) : (
+                    <NutritionCard nutrition={recipe.nutrition} servings={recipe.servings} />
+                  )}
+                </Box>
 
                 {/* Show adjustment indicator if recipe has been adjusted */}
                 {recipe.scalingFactor && recipe.scalingFactor !== 1 && (
@@ -776,6 +872,74 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
         <DialogContent>
           {selectedRecipe && (
             <Box>
+              {/* Image and Nutrition Section */}
+              {selectedRecipe.photoUrl && (
+                <Box sx={{ position: 'relative', mb: 3 }}>
+                  <img
+                    src={selectedRecipe.photoUrl}
+                    alt={selectedRecipe.name}
+                    style={{
+                      width: '100%',
+                      height: '300px',
+                      objectFit: 'cover',
+                      borderRadius: '8px'
+                    }}
+                  />
+                  {/* Collapsible Nutrition Handle */}
+                  <Box
+                    sx={{
+                      position: 'absolute',
+                      left: 0,
+                      top: 0,
+                      bottom: 0,
+                      width: '60px',
+                      background: 'rgba(0, 0, 0, 0.7)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      cursor: 'pointer',
+                      transition: 'all 0.3s ease',
+                      '&:hover': {
+                        background: 'rgba(0, 0, 0, 0.8)'
+                      }
+                    }}
+                    onClick={() => toggleNutritionExpansion(selectedRecipe.id)}
+                  >
+                    <Typography
+                      variant="caption"
+                      sx={{
+                        color: 'white',
+                        transform: 'rotate(-90deg)',
+                        whiteSpace: 'nowrap',
+                        fontWeight: 'bold'
+                      }}
+                    >
+                      {expandedNutrition[selectedRecipe.id] ? 'Hide' : 'Show'} Nutrition
+                    </Typography>
+                  </Box>
+                  
+                  {/* Expanded Nutrition Overlay */}
+                  {expandedNutrition[selectedRecipe.id] && (
+                    <Box
+                      sx={{
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        background: 'rgba(255, 255, 255, 0.95)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        borderRadius: '8px'
+                      }}
+                    >
+                      <NutritionCard nutrition={selectedRecipe.nutrition} servings={selectedRecipe.servings} />
+                    </Box>
+                  )}
+                </Box>
+              )}
+
               <Typography variant="body1" sx={{ mb: 2 }}>
                 {selectedRecipe.description}
               </Typography>
