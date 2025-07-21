@@ -749,7 +749,8 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                       <Box
                         sx={{
                           position: 'absolute',
-                          left: 0,
+                          left: expandedNutrition[recipe.id] ? 'auto' : 0,
+                          right: expandedNutrition[recipe.id] ? 0 : 'auto',
                           top: 0,
                           bottom: 0,
                           width: '60px',
@@ -759,6 +760,7 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                           justifyContent: 'center',
                           cursor: 'pointer',
                           transition: 'all 0.3s ease',
+                          zIndex: 10,
                           '&:hover': {
                             background: 'rgba(0, 0, 0, 0.8)'
                           }
@@ -779,35 +781,164 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                       </Box>
                       
                       {/* Expanded Nutrition Overlay */}
-                      {expandedNutrition[recipe.id] && (
-                        <Box
-                          sx={{
-                            position: 'absolute',
-                            top: 0,
-                            left: 0,
-                            right: 0,
-                            bottom: 0,
-                            background: 'rgba(255, 255, 255, 0.85)',
-                            backdropFilter: 'blur(2px)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            borderRadius: '8px',
-                            padding: 2
-                          }}
-                        >
-                          <Box sx={{ 
-                            background: 'rgba(255, 255, 255, 0.95)', 
-                            borderRadius: '8px', 
-                            padding: 2,
-                            maxWidth: '90%',
-                            maxHeight: '90%',
-                            overflow: 'auto'
+                      <Box
+                        sx={{
+                          position: 'absolute',
+                          top: 0,
+                          left: expandedNutrition[recipe.id] ? 0 : '-100%',
+                          right: 0,
+                          bottom: 0,
+                          background: 'rgba(255, 255, 255, 0.9)',
+                          backdropFilter: 'blur(3px)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          borderRadius: '8px',
+                          padding: 3,
+                          transition: 'left 0.3s ease',
+                          zIndex: 5
+                        }}
+                      >
+                        <Box sx={{ 
+                          width: '100%',
+                          height: '100%',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          justifyContent: 'center',
+                          alignItems: 'center',
+                          padding: 2
+                        }}>
+                          {/* Custom Nutrition Display */}
+                          <Box sx={{
+                            background: 'rgba(255, 255, 255, 0.95)',
+                            borderRadius: '12px',
+                            padding: 3,
+                            width: '100%',
+                            maxWidth: '400px',
+                            boxShadow: '0 4px 20px rgba(0,0,0,0.1)'
                           }}>
-                            <NutritionCard nutrition={recipe.nutrition} servings={recipe.servings} />
+                            <Typography variant="h6" sx={{ 
+                              fontWeight: 'bold', 
+                              textAlign: 'center', 
+                              mb: 2,
+                              color: '#2c3e50'
+                            }}>
+                              Nutrition Facts
+                            </Typography>
+                            
+                            <Box sx={{ mb: 2 }}>
+                              <Typography variant="body2" sx={{ 
+                                fontWeight: 'bold', 
+                                borderBottom: '2px solid #000',
+                                pb: 0.5,
+                                mb: 1
+                              }}>
+                                Serving Size: {recipe.servings} serving{recipe.servings > 1 ? 's' : ''}
+                              </Typography>
+                            </Box>
+                            
+                            <Box sx={{ mb: 2 }}>
+                              <Typography variant="body2" sx={{ 
+                                fontWeight: 'bold', 
+                                fontSize: '1.1rem',
+                                mb: 1
+                              }}>
+                                Amount Per Serving
+                              </Typography>
+                            </Box>
+                            
+                            <Box sx={{ mb: 2 }}>
+                              <Box sx={{ 
+                                display: 'flex', 
+                                justifyContent: 'space-between',
+                                borderBottom: '1px solid #ddd',
+                                pb: 0.5,
+                                mb: 0.5
+                              }}>
+                                <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
+                                  Calories
+                                </Typography>
+                                <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
+                                  {Math.round(recipe.nutrition.caloriesPerServing)}
+                                </Typography>
+                              </Box>
+                              
+                              <Box sx={{ 
+                                display: 'flex', 
+                                justifyContent: 'space-between',
+                                borderBottom: '1px solid #ddd',
+                                pb: 0.5,
+                                mb: 0.5
+                              }}>
+                                <Typography variant="body2">
+                                  Total Fat
+                                </Typography>
+                                <Typography variant="body2">
+                                  {Math.round(recipe.nutrition.fatPerServing)}g
+                                </Typography>
+                              </Box>
+                              
+                              <Box sx={{ 
+                                display: 'flex', 
+                                justifyContent: 'space-between',
+                                borderBottom: '1px solid #ddd',
+                                pb: 0.5,
+                                mb: 0.5
+                              }}>
+                                <Typography variant="body2">
+                                  Total Carbohydrates
+                                </Typography>
+                                <Typography variant="body2">
+                                  {Math.round(recipe.nutrition.carbsPerServing)}g
+                                </Typography>
+                              </Box>
+                              
+                              <Box sx={{ 
+                                display: 'flex', 
+                                justifyContent: 'space-between',
+                                borderBottom: '1px solid #ddd',
+                                pb: 0.5,
+                                mb: 0.5
+                              }}>
+                                <Typography variant="body2">
+                                  Protein
+                                </Typography>
+                                <Typography variant="body2">
+                                  {Math.round(recipe.nutrition.proteinPerServing)}g
+                                </Typography>
+                              </Box>
+                              
+                              <Box sx={{ 
+                                display: 'flex', 
+                                justifyContent: 'space-between',
+                                borderBottom: '1px solid #ddd',
+                                pb: 0.5,
+                                mb: 0.5
+                              }}>
+                                <Typography variant="body2">
+                                  Fiber
+                                </Typography>
+                                <Typography variant="body2">
+                                  {Math.round(recipe.nutrition.fiberPerServing)}g
+                                </Typography>
+                              </Box>
+                              
+                              <Box sx={{ 
+                                display: 'flex', 
+                                justifyContent: 'space-between',
+                                pb: 0.5
+                              }}>
+                                <Typography variant="body2">
+                                  Sugar
+                                </Typography>
+                                <Typography variant="body2">
+                                  {Math.round(recipe.nutrition.sugarPerServing)}g
+                                </Typography>
+                              </Box>
+                            </Box>
                           </Box>
                         </Box>
-                      )}
+                      </Box>
                     </Box>
                   ) : (
                     <NutritionCard nutrition={recipe.nutrition} servings={recipe.servings} />
@@ -903,7 +1034,8 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                   <Box
                     sx={{
                       position: 'absolute',
-                      left: 0,
+                      left: expandedNutrition[selectedRecipe.id] ? 'auto' : 0,
+                      right: expandedNutrition[selectedRecipe.id] ? 0 : 'auto',
                       top: 0,
                       bottom: 0,
                       width: '60px',
@@ -913,6 +1045,7 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                       justifyContent: 'center',
                       cursor: 'pointer',
                       transition: 'all 0.3s ease',
+                      zIndex: 10,
                       '&:hover': {
                         background: 'rgba(0, 0, 0, 0.8)'
                       }
@@ -933,35 +1066,164 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                   </Box>
                   
                   {/* Expanded Nutrition Overlay */}
-                  {expandedNutrition[selectedRecipe.id] && (
-                    <Box
-                      sx={{
-                        position: 'absolute',
-                        top: 0,
-                        left: 0,
-                        right: 0,
-                        bottom: 0,
-                        background: 'rgba(255, 255, 255, 0.85)',
-                        backdropFilter: 'blur(2px)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        borderRadius: '8px',
-                        padding: 3
-                      }}
-                    >
-                      <Box sx={{ 
-                        background: 'rgba(255, 255, 255, 0.95)', 
-                        borderRadius: '8px', 
+                  <Box
+                    sx={{
+                      position: 'absolute',
+                      top: 0,
+                      left: expandedNutrition[selectedRecipe.id] ? 0 : '-100%',
+                      right: 0,
+                      bottom: 0,
+                      background: 'rgba(255, 255, 255, 0.9)',
+                      backdropFilter: 'blur(3px)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      borderRadius: '8px',
+                      padding: 3,
+                      transition: 'left 0.3s ease',
+                      zIndex: 5
+                    }}
+                  >
+                    <Box sx={{ 
+                      width: '100%',
+                      height: '100%',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      justifyContent: 'center',
+                      alignItems: 'center',
+                      padding: 2
+                    }}>
+                      {/* Custom Nutrition Display */}
+                      <Box sx={{
+                        background: 'rgba(255, 255, 255, 0.95)',
+                        borderRadius: '12px',
                         padding: 3,
-                        maxWidth: '90%',
-                        maxHeight: '90%',
-                        overflow: 'auto'
+                        width: '100%',
+                        maxWidth: '500px',
+                        boxShadow: '0 4px 20px rgba(0,0,0,0.1)'
                       }}>
-                        <NutritionCard nutrition={selectedRecipe.nutrition} servings={selectedRecipe.servings} />
+                        <Typography variant="h6" sx={{ 
+                          fontWeight: 'bold', 
+                          textAlign: 'center', 
+                          mb: 2,
+                          color: '#2c3e50'
+                        }}>
+                          Nutrition Facts
+                        </Typography>
+                        
+                        <Box sx={{ mb: 2 }}>
+                          <Typography variant="body2" sx={{ 
+                            fontWeight: 'bold', 
+                            borderBottom: '2px solid #000',
+                            pb: 0.5,
+                            mb: 1
+                          }}>
+                            Serving Size: {selectedRecipe.servings} serving{selectedRecipe.servings > 1 ? 's' : ''}
+                          </Typography>
+                        </Box>
+                        
+                        <Box sx={{ mb: 2 }}>
+                          <Typography variant="body2" sx={{ 
+                            fontWeight: 'bold', 
+                            fontSize: '1.1rem',
+                            mb: 1
+                          }}>
+                            Amount Per Serving
+                          </Typography>
+                        </Box>
+                        
+                        <Box sx={{ mb: 2 }}>
+                          <Box sx={{ 
+                            display: 'flex', 
+                            justifyContent: 'space-between',
+                            borderBottom: '1px solid #ddd',
+                            pb: 0.5,
+                            mb: 0.5
+                          }}>
+                            <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
+                              Calories
+                            </Typography>
+                            <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
+                              {Math.round(selectedRecipe.nutrition.caloriesPerServing)}
+                            </Typography>
+                          </Box>
+                          
+                          <Box sx={{ 
+                            display: 'flex', 
+                            justifyContent: 'space-between',
+                            borderBottom: '1px solid #ddd',
+                            pb: 0.5,
+                            mb: 0.5
+                          }}>
+                            <Typography variant="body2">
+                              Total Fat
+                            </Typography>
+                            <Typography variant="body2">
+                              {Math.round(selectedRecipe.nutrition.fatPerServing)}g
+                            </Typography>
+                          </Box>
+                          
+                          <Box sx={{ 
+                            display: 'flex', 
+                            justifyContent: 'space-between',
+                            borderBottom: '1px solid #ddd',
+                            pb: 0.5,
+                            mb: 0.5
+                          }}>
+                            <Typography variant="body2">
+                              Total Carbohydrates
+                            </Typography>
+                            <Typography variant="body2">
+                              {Math.round(selectedRecipe.nutrition.carbsPerServing)}g
+                            </Typography>
+                          </Box>
+                          
+                          <Box sx={{ 
+                            display: 'flex', 
+                            justifyContent: 'space-between',
+                            borderBottom: '1px solid #ddd',
+                            pb: 0.5,
+                            mb: 0.5
+                          }}>
+                            <Typography variant="body2">
+                              Protein
+                            </Typography>
+                            <Typography variant="body2">
+                              {Math.round(selectedRecipe.nutrition.proteinPerServing)}g
+                            </Typography>
+                          </Box>
+                          
+                          <Box sx={{ 
+                            display: 'flex', 
+                            justifyContent: 'space-between',
+                            borderBottom: '1px solid #ddd',
+                            pb: 0.5,
+                            mb: 0.5
+                          }}>
+                            <Typography variant="body2">
+                              Fiber
+                            </Typography>
+                            <Typography variant="body2">
+                              {Math.round(selectedRecipe.nutrition.fiberPerServing)}g
+                            </Typography>
+                          </Box>
+                          
+                          <Box sx={{ 
+                            display: 'flex', 
+                            justifyContent: 'space-between',
+                            pb: 0.5
+                          }}>
+                            <Typography variant="body2">
+                              Sugar
+                            </Typography>
+                            <Typography variant="body2">
+                              {Math.round(selectedRecipe.nutrition.sugarPerServing)}g
+                            </Typography>
+                          </Box>
+                        </Box>
                       </Box>
                     </Box>
-                  )}
+                  </Box>
                 </Box>
               )}
 
