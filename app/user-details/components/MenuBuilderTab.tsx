@@ -327,7 +327,8 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
 
       if (response.ok) {
         const data = await response.json();
-        setRecipes(prev => [applyAdjustmentToRecipe(data.recipe), ...prev]);
+        // Reload recipes to get the updated recipe with image
+        await loadRecipes();
         setKeywords('');
         alert('Recipe generated successfully!');
       } else {
@@ -739,7 +740,7 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                         alt={recipe.name}
                         style={{
                           width: '100%',
-                          height: '200px',
+                          height: '280px',
                           objectFit: 'cover',
                           borderRadius: '8px'
                         }}
@@ -786,14 +787,25 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                             left: 0,
                             right: 0,
                             bottom: 0,
-                            background: 'rgba(255, 255, 255, 0.95)',
+                            background: 'rgba(255, 255, 255, 0.85)',
+                            backdropFilter: 'blur(2px)',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
-                            borderRadius: '8px'
+                            borderRadius: '8px',
+                            padding: 2
                           }}
                         >
-                          <NutritionCard nutrition={recipe.nutrition} servings={recipe.servings} />
+                          <Box sx={{ 
+                            background: 'rgba(255, 255, 255, 0.95)', 
+                            borderRadius: '8px', 
+                            padding: 2,
+                            maxWidth: '90%',
+                            maxHeight: '90%',
+                            overflow: 'auto'
+                          }}>
+                            <NutritionCard nutrition={recipe.nutrition} servings={recipe.servings} />
+                          </Box>
                         </Box>
                       )}
                     </Box>
@@ -860,10 +872,12 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
         fullWidth
       >
         <DialogTitle>
-          {selectedRecipe?.name}
+          <Typography variant="h3" component="h1" sx={{ fontWeight: 'bold', mb: 1 }}>
+            {selectedRecipe?.name}
+          </Typography>
           <IconButton
             onClick={() => selectedRecipe && toggleFavorite(selectedRecipe.id)}
-            sx={{ float: 'right' }}
+            sx={{ position: 'absolute', top: 16, right: 16 }}
             color={selectedRecipe?.isFavorite ? 'primary' : 'default'}
           >
             {selectedRecipe?.isFavorite ? <FavoriteIcon /> : <FavoriteBorderIcon />}
@@ -880,7 +894,7 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                     alt={selectedRecipe.name}
                     style={{
                       width: '100%',
-                      height: '300px',
+                      height: '420px',
                       objectFit: 'cover',
                       borderRadius: '8px'
                     }}
@@ -927,14 +941,25 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                         left: 0,
                         right: 0,
                         bottom: 0,
-                        background: 'rgba(255, 255, 255, 0.95)',
+                        background: 'rgba(255, 255, 255, 0.85)',
+                        backdropFilter: 'blur(2px)',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        borderRadius: '8px'
+                        borderRadius: '8px',
+                        padding: 3
                       }}
                     >
-                      <NutritionCard nutrition={selectedRecipe.nutrition} servings={selectedRecipe.servings} />
+                      <Box sx={{ 
+                        background: 'rgba(255, 255, 255, 0.95)', 
+                        borderRadius: '8px', 
+                        padding: 3,
+                        maxWidth: '90%',
+                        maxHeight: '90%',
+                        overflow: 'auto'
+                      }}>
+                        <NutritionCard nutrition={selectedRecipe.nutrition} servings={selectedRecipe.servings} />
+                      </Box>
                     </Box>
                   )}
                 </Box>
@@ -1052,23 +1077,11 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                   </Typography>
                 </AccordionDetails>
               </Accordion>
-
-              <NutritionCard nutrition={selectedRecipe.nutrition} servings={selectedRecipe.servings} />
             </Box>
           )}
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setShowRecipeDialog(false)}>Close</Button>
-          <Button
-            variant="contained"
-            onClick={() => {
-              setShowRecipeDialog(false);
-              selectedRecipe && regenerateRecipe(selectedRecipe.id);
-            }}
-            disabled={isGenerating}
-          >
-            Regenerate
-          </Button>
         </DialogActions>
       </Dialog>
 
