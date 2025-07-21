@@ -740,7 +740,7 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                         alt={recipe.name}
                         style={{
                           width: '100%',
-                          height: '280px',
+                          height: '420px',
                           objectFit: 'cover',
                           borderRadius: '8px'
                         }}
@@ -803,7 +803,7 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                           left: expandedNutrition[recipe.id] ? 0 : '-100%',
                           right: 0,
                           bottom: 0,
-                          display: 'flex',
+                          display: expandedNutrition[recipe.id] ? 'flex' : 'none',
                           alignItems: 'center',
                           justifyContent: 'center',
                           borderRadius: '8px',
@@ -1103,7 +1103,7 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                       left: expandedNutrition[selectedRecipe.id] ? 0 : '-100%',
                       right: 0,
                       bottom: 0,
-                      display: 'flex',
+                      display: expandedNutrition[selectedRecipe.id] ? 'flex' : 'none',
                       alignItems: 'center',
                       justifyContent: 'center',
                       borderRadius: '8px',
