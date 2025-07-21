@@ -1142,7 +1142,7 @@ export async function POST(request: NextRequest) {
         const imageResult = await generateImage({
           prompt: imagePrompt,
           textModel: 'gpt-4o-mini',
-          quality: 'low',
+          quality: 'standard',
           size: '1024x1024',
           background: 'opaque',
           format: 'jpeg',

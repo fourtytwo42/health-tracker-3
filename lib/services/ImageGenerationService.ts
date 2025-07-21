@@ -4,7 +4,7 @@ import { prisma } from '@/lib/prisma';
 interface ImageGenerationConfig {
   prompt: string;
   textModel: string;
-  quality: 'low' | 'medium' | 'high' | 'auto';
+  quality: 'standard' | 'hd';
   size: '1024x1024' | '1536x1024' | '1024x1536' | 'auto';
   background: 'opaque' | 'transparent';
   format: 'png' | 'jpeg' | 'webp';
