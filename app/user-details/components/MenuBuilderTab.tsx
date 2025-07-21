@@ -792,113 +792,231 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                           borderRadius: '8px'
                         }}
                       />
-                      {/* Collapsible Nutrition Handle */}
+                      {/* Book-style Navigation - Left Side */}
                       <Box
                         sx={{
                           position: 'absolute',
-                          left: expandedNutrition[recipe.id] ? 'auto' : 0,
-                          right: expandedNutrition[recipe.id] ? 0 : 'auto',
+                          left: 0,
                           top: 0,
                           bottom: 0,
-                          width: '40px',
-                          background: 'rgba(0, 0, 0, 0.7)',
                           display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          cursor: 'pointer',
-                          transition: 'all 0.3s ease',
-                          zIndex: 10,
-                          '&:hover': {
-                            background: 'rgba(0, 0, 0, 0.8)'
-                          }
+                          flexDirection: 'column',
+                          zIndex: 10
                         }}
-                        onClick={() => toggleNutritionExpansion(recipe.id)}
                       >
-                        <Typography
-                          variant="caption"
-                          sx={{
-                            color: 'white',
-                            transform: 'rotate(-90deg)',
-                            whiteSpace: 'nowrap',
-                            fontWeight: 'bold',
-                            fontSize: '0.7rem'
-                          }}
-                        >
-                          {expandedNutrition[recipe.id] ? 'Hide' : 'Show'} Nutrition
-                        </Typography>
+                        {/* Instructions - Always on left unless active */}
+                        {!expandedInstructions[recipe.id] && (
+                          <Box
+                            sx={{
+                              width: '40px',
+                              height: '33.33%',
+                              background: 'rgba(0, 0, 0, 0.7)',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              cursor: 'pointer',
+                              transition: 'all 0.3s ease',
+                              '&:hover': {
+                                background: 'rgba(0, 0, 0, 0.8)'
+                              }
+                            }}
+                            onClick={() => toggleInstructionsExpansion(recipe.id)}
+                          >
+                            <Typography
+                              variant="caption"
+                              sx={{
+                                color: 'white',
+                                transform: 'rotate(-90deg)',
+                                whiteSpace: 'nowrap',
+                                fontWeight: 'bold',
+                                fontSize: '0.7rem'
+                              }}
+                            >
+                              Instructions
+                            </Typography>
+                          </Box>
+                        )}
+
+                        {/* Ingredients - On left unless active or instructions is active */}
+                        {!expandedIngredients[recipe.id] && !expandedInstructions[recipe.id] && (
+                          <Box
+                            sx={{
+                              width: '40px',
+                              height: '33.33%',
+                              background: 'rgba(0, 0, 0, 0.7)',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              cursor: 'pointer',
+                              transition: 'all 0.3s ease',
+                              '&:hover': {
+                                background: 'rgba(0, 0, 0, 0.8)'
+                              }
+                            }}
+                            onClick={() => toggleIngredientsExpansion(recipe.id)}
+                          >
+                            <Typography
+                              variant="caption"
+                              sx={{
+                                color: 'white',
+                                transform: 'rotate(-90deg)',
+                                whiteSpace: 'nowrap',
+                                fontWeight: 'bold',
+                                fontSize: '0.7rem'
+                              }}
+                            >
+                              Ingredients
+                            </Typography>
+                          </Box>
+                        )}
+
+                        {/* Nutrition - On left unless any previous is active */}
+                        {!expandedNutrition[recipe.id] && !expandedInstructions[recipe.id] && !expandedIngredients[recipe.id] && (
+                          <Box
+                            sx={{
+                              width: '40px',
+                              height: '33.33%',
+                              background: 'rgba(0, 0, 0, 0.7)',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              cursor: 'pointer',
+                              transition: 'all 0.3s ease',
+                              '&:hover': {
+                                background: 'rgba(0, 0, 0, 0.8)'
+                              }
+                            }}
+                            onClick={() => toggleNutritionExpansion(recipe.id)}
+                          >
+                            <Typography
+                              variant="caption"
+                              sx={{
+                                color: 'white',
+                                transform: 'rotate(-90deg)',
+                                whiteSpace: 'nowrap',
+                                fontWeight: 'bold',
+                                fontSize: '0.7rem'
+                              }}
+                            >
+                              Nutrition
+                            </Typography>
+                          </Box>
+                        )}
                       </Box>
 
-                      {/* Collapsible Ingredients Handle */}
-                      <Box
-                        sx={{
-                          position: 'absolute',
-                          left: expandedIngredients[recipe.id] ? 'auto' : 0,
-                          right: expandedIngredients[recipe.id] ? 0 : 'auto',
-                          top: 0,
-                          bottom: 0,
-                          width: '40px',
-                          background: 'rgba(0, 0, 0, 0.7)',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          cursor: 'pointer',
-                          transition: 'all 0.3s ease',
-                          zIndex: 10,
-                          '&:hover': {
-                            background: 'rgba(0, 0, 0, 0.8)'
-                          }
-                        }}
-                        onClick={() => toggleIngredientsExpansion(recipe.id)}
-                      >
-                        <Typography
-                          variant="caption"
+                      {/* Book-style Navigation - Right Side */}
+                      {(expandedNutrition[recipe.id] || expandedIngredients[recipe.id] || expandedInstructions[recipe.id]) && (
+                        <Box
                           sx={{
-                            color: 'white',
-                            transform: 'rotate(-90deg)',
-                            whiteSpace: 'nowrap',
-                            fontWeight: 'bold',
-                            fontSize: '0.7rem'
+                            position: 'absolute',
+                            right: 0,
+                            top: 0,
+                            bottom: 0,
+                            display: 'flex',
+                            flexDirection: 'column',
+                            zIndex: 10
                           }}
                         >
-                          {expandedIngredients[recipe.id] ? 'Hide' : 'Show'} Ingredients
-                        </Typography>
-                      </Box>
+                          {/* Instructions - On right if active or if ingredients/nutrition is active */}
+                          {(expandedInstructions[recipe.id] || expandedIngredients[recipe.id] || expandedNutrition[recipe.id]) && (
+                            <Box
+                              sx={{
+                                width: '40px',
+                                height: '33.33%',
+                                background: expandedInstructions[recipe.id] ? 'rgba(0, 0, 0, 0.8)' : 'rgba(0, 0, 0, 0.7)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                cursor: 'pointer',
+                                transition: 'all 0.3s ease',
+                                '&:hover': {
+                                  background: 'rgba(0, 0, 0, 0.8)'
+                                }
+                              }}
+                              onClick={() => toggleInstructionsExpansion(recipe.id)}
+                            >
+                              <Typography
+                                variant="caption"
+                                sx={{
+                                  color: 'white',
+                                  transform: 'rotate(-90deg)',
+                                  whiteSpace: 'nowrap',
+                                  fontWeight: 'bold',
+                                  fontSize: '0.7rem'
+                                }}
+                              >
+                                Instructions
+                              </Typography>
+                            </Box>
+                          )}
 
-                      {/* Collapsible Instructions Handle */}
-                      <Box
-                        sx={{
-                          position: 'absolute',
-                          left: expandedInstructions[recipe.id] ? 'auto' : 0,
-                          right: expandedInstructions[recipe.id] ? 0 : 'auto',
-                          top: 0,
-                          bottom: 0,
-                          width: '40px',
-                          background: 'rgba(0, 0, 0, 0.7)',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          cursor: 'pointer',
-                          transition: 'all 0.3s ease',
-                          zIndex: 10,
-                          '&:hover': {
-                            background: 'rgba(0, 0, 0, 0.8)'
-                          }
-                        }}
-                        onClick={() => toggleInstructionsExpansion(recipe.id)}
-                      >
-                        <Typography
-                          variant="caption"
-                          sx={{
-                            color: 'white',
-                            transform: 'rotate(-90deg)',
-                            whiteSpace: 'nowrap',
-                            fontWeight: 'bold',
-                            fontSize: '0.7rem'
-                          }}
-                        >
-                          {expandedInstructions[recipe.id] ? 'Hide' : 'Show'} Instructions
-                        </Typography>
-                      </Box>
+                          {/* Ingredients - On right if active or if nutrition is active */}
+                          {(expandedIngredients[recipe.id] || expandedNutrition[recipe.id]) && (
+                            <Box
+                              sx={{
+                                width: '40px',
+                                height: '33.33%',
+                                background: expandedIngredients[recipe.id] ? 'rgba(0, 0, 0, 0.8)' : 'rgba(0, 0, 0, 0.7)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                cursor: 'pointer',
+                                transition: 'all 0.3s ease',
+                                '&:hover': {
+                                  background: 'rgba(0, 0, 0, 0.8)'
+                                }
+                              }}
+                              onClick={() => toggleIngredientsExpansion(recipe.id)}
+                            >
+                              <Typography
+                                variant="caption"
+                                sx={{
+                                  color: 'white',
+                                  transform: 'rotate(-90deg)',
+                                  whiteSpace: 'nowrap',
+                                  fontWeight: 'bold',
+                                  fontSize: '0.7rem'
+                                }}
+                              >
+                                Ingredients
+                              </Typography>
+                            </Box>
+                          )}
+
+                          {/* Nutrition - On right if active */}
+                          {expandedNutrition[recipe.id] && (
+                            <Box
+                              sx={{
+                                width: '40px',
+                                height: '33.33%',
+                                background: 'rgba(0, 0, 0, 0.8)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                cursor: 'pointer',
+                                transition: 'all 0.3s ease',
+                                '&:hover': {
+                                  background: 'rgba(0, 0, 0, 0.8)'
+                                }
+                              }}
+                              onClick={() => toggleNutritionExpansion(recipe.id)}
+                            >
+                              <Typography
+                                variant="caption"
+                                sx={{
+                                  color: 'white',
+                                  transform: 'rotate(-90deg)',
+                                  whiteSpace: 'nowrap',
+                                  fontWeight: 'bold',
+                                  fontSize: '0.7rem'
+                                }}
+                              >
+                                Nutrition
+                              </Typography>
+                            </Box>
+                          )}
+                        </Box>
+                      )}
                       
                       {/* Image Shading Overlay */}
                       <Box
@@ -1377,40 +1495,231 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                       borderRadius: '8px'
                     }}
                   />
-                  {/* Collapsible Nutrition Handle */}
+                  {/* Book-style Navigation - Left Side */}
                   <Box
                     sx={{
                       position: 'absolute',
-                      left: expandedNutrition[selectedRecipe.id] ? 'auto' : 0,
-                      right: expandedNutrition[selectedRecipe.id] ? 0 : 'auto',
+                      left: 0,
                       top: 0,
                       bottom: 0,
-                      width: '60px',
-                      background: 'rgba(0, 0, 0, 0.7)',
                       display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      cursor: 'pointer',
-                      transition: 'all 0.3s ease',
-                      zIndex: 10,
-                      '&:hover': {
-                        background: 'rgba(0, 0, 0, 0.8)'
-                      }
+                      flexDirection: 'column',
+                      zIndex: 10
                     }}
-                    onClick={() => toggleNutritionExpansion(selectedRecipe.id)}
                   >
-                    <Typography
-                      variant="caption"
+                    {/* Instructions - Always on left unless active */}
+                    {!expandedInstructions[selectedRecipe.id] && (
+                      <Box
+                        sx={{
+                          width: '40px',
+                          height: '33.33%',
+                          background: 'rgba(0, 0, 0, 0.7)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          cursor: 'pointer',
+                          transition: 'all 0.3s ease',
+                          '&:hover': {
+                            background: 'rgba(0, 0, 0, 0.8)'
+                          }
+                        }}
+                        onClick={() => toggleInstructionsExpansion(selectedRecipe.id)}
+                      >
+                        <Typography
+                          variant="caption"
+                          sx={{
+                            color: 'white',
+                            transform: 'rotate(-90deg)',
+                            whiteSpace: 'nowrap',
+                            fontWeight: 'bold',
+                            fontSize: '0.7rem'
+                          }}
+                        >
+                          Instructions
+                        </Typography>
+                      </Box>
+                    )}
+
+                    {/* Ingredients - On left unless active or instructions is active */}
+                    {!expandedIngredients[selectedRecipe.id] && !expandedInstructions[selectedRecipe.id] && (
+                      <Box
+                        sx={{
+                          width: '40px',
+                          height: '33.33%',
+                          background: 'rgba(0, 0, 0, 0.7)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          cursor: 'pointer',
+                          transition: 'all 0.3s ease',
+                          '&:hover': {
+                            background: 'rgba(0, 0, 0, 0.8)'
+                          }
+                        }}
+                        onClick={() => toggleIngredientsExpansion(selectedRecipe.id)}
+                      >
+                        <Typography
+                          variant="caption"
+                          sx={{
+                            color: 'white',
+                            transform: 'rotate(-90deg)',
+                            whiteSpace: 'nowrap',
+                            fontWeight: 'bold',
+                            fontSize: '0.7rem'
+                          }}
+                        >
+                          Ingredients
+                        </Typography>
+                      </Box>
+                    )}
+
+                    {/* Nutrition - On left unless any previous is active */}
+                    {!expandedNutrition[selectedRecipe.id] && !expandedInstructions[selectedRecipe.id] && !expandedIngredients[selectedRecipe.id] && (
+                      <Box
+                        sx={{
+                          width: '40px',
+                          height: '33.33%',
+                          background: 'rgba(0, 0, 0, 0.7)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          cursor: 'pointer',
+                          transition: 'all 0.3s ease',
+                          '&:hover': {
+                            background: 'rgba(0, 0, 0, 0.8)'
+                          }
+                        }}
+                        onClick={() => toggleNutritionExpansion(selectedRecipe.id)}
+                      >
+                        <Typography
+                          variant="caption"
+                          sx={{
+                            color: 'white',
+                            transform: 'rotate(-90deg)',
+                            whiteSpace: 'nowrap',
+                            fontWeight: 'bold',
+                            fontSize: '0.7rem'
+                          }}
+                        >
+                          Nutrition
+                        </Typography>
+                      </Box>
+                    )}
+                  </Box>
+
+                  {/* Book-style Navigation - Right Side */}
+                  {(expandedNutrition[selectedRecipe.id] || expandedIngredients[selectedRecipe.id] || expandedInstructions[selectedRecipe.id]) && (
+                    <Box
                       sx={{
-                        color: 'white',
-                        transform: 'rotate(-90deg)',
-                        whiteSpace: 'nowrap',
-                        fontWeight: 'bold'
+                        position: 'absolute',
+                        right: 0,
+                        top: 0,
+                        bottom: 0,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        zIndex: 10
                       }}
                     >
-                      {expandedNutrition[selectedRecipe.id] ? 'Hide' : 'Show'} Nutrition
-                    </Typography>
-                  </Box>
+                      {/* Instructions - On right if active or if ingredients/nutrition is active */}
+                      {(expandedInstructions[selectedRecipe.id] || expandedIngredients[selectedRecipe.id] || expandedNutrition[selectedRecipe.id]) && (
+                        <Box
+                          sx={{
+                            width: '40px',
+                            height: '33.33%',
+                            background: expandedInstructions[selectedRecipe.id] ? 'rgba(0, 0, 0, 0.8)' : 'rgba(0, 0, 0, 0.7)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            cursor: 'pointer',
+                            transition: 'all 0.3s ease',
+                            '&:hover': {
+                              background: 'rgba(0, 0, 0, 0.8)'
+                            }
+                          }}
+                          onClick={() => toggleInstructionsExpansion(selectedRecipe.id)}
+                        >
+                          <Typography
+                            variant="caption"
+                            sx={{
+                              color: 'white',
+                              transform: 'rotate(-90deg)',
+                              whiteSpace: 'nowrap',
+                              fontWeight: 'bold',
+                              fontSize: '0.7rem'
+                            }}
+                          >
+                            Instructions
+                          </Typography>
+                        </Box>
+                      )}
+
+                      {/* Ingredients - On right if active or if nutrition is active */}
+                      {(expandedIngredients[selectedRecipe.id] || expandedNutrition[selectedRecipe.id]) && (
+                        <Box
+                          sx={{
+                            width: '40px',
+                            height: '33.33%',
+                            background: expandedIngredients[selectedRecipe.id] ? 'rgba(0, 0, 0, 0.8)' : 'rgba(0, 0, 0, 0.7)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            cursor: 'pointer',
+                            transition: 'all 0.3s ease',
+                            '&:hover': {
+                              background: 'rgba(0, 0, 0, 0.8)'
+                            }
+                          }}
+                          onClick={() => toggleIngredientsExpansion(selectedRecipe.id)}
+                        >
+                          <Typography
+                            variant="caption"
+                            sx={{
+                              color: 'white',
+                              transform: 'rotate(-90deg)',
+                              whiteSpace: 'nowrap',
+                              fontWeight: 'bold',
+                              fontSize: '0.7rem'
+                            }}
+                          >
+                            Ingredients
+                          </Typography>
+                        </Box>
+                      )}
+
+                      {/* Nutrition - On right if active */}
+                      {expandedNutrition[selectedRecipe.id] && (
+                        <Box
+                          sx={{
+                            width: '40px',
+                            height: '33.33%',
+                            background: 'rgba(0, 0, 0, 0.8)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            cursor: 'pointer',
+                            transition: 'all 0.3s ease',
+                            '&:hover': {
+                              background: 'rgba(0, 0, 0, 0.8)'
+                            }
+                          }}
+                          onClick={() => toggleNutritionExpansion(selectedRecipe.id)}
+                        >
+                          <Typography
+                            variant="caption"
+                            sx={{
+                              color: 'white',
+                              transform: 'rotate(-90deg)',
+                              whiteSpace: 'nowrap',
+                              fontWeight: 'bold',
+                              fontSize: '0.7rem'
+                            }}
+                          >
+                            Nutrition
+                          </Typography>
+                        </Box>
+                      )}
+                    </Box>
+                  )}
                   
                   {/* Image Shading Overlay */}
                   <Box
@@ -1420,7 +1729,7 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                       left: 0,
                       right: 0,
                       bottom: 0,
-                      background: expandedNutrition[selectedRecipe.id] ? 'rgba(0, 0, 0, 0.4)' : 'transparent',
+                      background: (expandedNutrition[selectedRecipe.id] || expandedIngredients[selectedRecipe.id] || expandedInstructions[selectedRecipe.id]) ? 'rgba(0, 0, 0, 0.4)' : 'transparent',
                       transition: 'background 0.3s ease',
                       borderRadius: '8px',
                       zIndex: 2
