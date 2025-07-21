@@ -780,7 +780,22 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                         </Typography>
                       </Box>
                       
-                      {/* Expanded Nutrition Overlay */}
+                      {/* Image Shading Overlay */}
+                      <Box
+                        sx={{
+                          position: 'absolute',
+                          top: 0,
+                          left: 0,
+                          right: 0,
+                          bottom: 0,
+                          background: expandedNutrition[recipe.id] ? 'rgba(0, 0, 0, 0.4)' : 'transparent',
+                          transition: 'background 0.3s ease',
+                          borderRadius: '8px',
+                          zIndex: 2
+                        }}
+                      />
+                      
+                      {/* Nutrition Facts Overlay */}
                       <Box
                         sx={{
                           position: 'absolute',
@@ -788,13 +803,11 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                           left: expandedNutrition[recipe.id] ? 0 : '-100%',
                           right: 0,
                           bottom: 0,
-                          background: 'rgba(255, 255, 255, 0.9)',
-                          backdropFilter: 'blur(3px)',
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
                           borderRadius: '8px',
-                          padding: 3,
+                          padding: 2,
                           transition: 'left 0.3s ease',
                           zIndex: 5
                         }}
@@ -808,20 +821,18 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                           alignItems: 'center',
                           padding: 2
                         }}>
-                          {/* Custom Nutrition Display */}
+                          {/* Nutrition Facts Display */}
                           <Box sx={{
-                            background: 'rgba(255, 255, 255, 0.95)',
-                            borderRadius: '12px',
-                            padding: 3,
                             width: '100%',
-                            maxWidth: '400px',
-                            boxShadow: '0 4px 20px rgba(0,0,0,0.1)'
+                            maxWidth: '350px',
+                            padding: 2
                           }}>
                             <Typography variant="h6" sx={{ 
                               fontWeight: 'bold', 
                               textAlign: 'center', 
                               mb: 2,
-                              color: '#2c3e50'
+                              color: 'white',
+                              textShadow: '2px 2px 4px rgba(0,0,0,0.8)'
                             }}>
                               Nutrition Facts
                             </Typography>
@@ -829,9 +840,11 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                             <Box sx={{ mb: 2 }}>
                               <Typography variant="body2" sx={{ 
                                 fontWeight: 'bold', 
-                                borderBottom: '2px solid #000',
+                                borderBottom: '2px solid white',
                                 pb: 0.5,
-                                mb: 1
+                                mb: 1,
+                                color: 'white',
+                                textShadow: '1px 1px 2px rgba(0,0,0,0.8)'
                               }}>
                                 Serving Size: {recipe.servings} serving{recipe.servings > 1 ? 's' : ''}
                               </Typography>
@@ -841,7 +854,9 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                               <Typography variant="body2" sx={{ 
                                 fontWeight: 'bold', 
                                 fontSize: '1.1rem',
-                                mb: 1
+                                mb: 1,
+                                color: 'white',
+                                textShadow: '1px 1px 2px rgba(0,0,0,0.8)'
                               }}>
                                 Amount Per Serving
                               </Typography>
@@ -851,14 +866,14 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                               <Box sx={{ 
                                 display: 'flex', 
                                 justifyContent: 'space-between',
-                                borderBottom: '1px solid #ddd',
+                                borderBottom: '1px solid rgba(255,255,255,0.7)',
                                 pb: 0.5,
                                 mb: 0.5
                               }}>
-                                <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
+                                <Typography variant="body2" sx={{ fontWeight: 'bold', color: 'white', textShadow: '1px 1px 2px rgba(0,0,0,0.8)' }}>
                                   Calories
                                 </Typography>
-                                <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
+                                <Typography variant="body2" sx={{ fontWeight: 'bold', color: 'white', textShadow: '1px 1px 2px rgba(0,0,0,0.8)' }}>
                                   {Math.round(recipe.nutrition.caloriesPerServing)}
                                 </Typography>
                               </Box>
@@ -866,14 +881,14 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                               <Box sx={{ 
                                 display: 'flex', 
                                 justifyContent: 'space-between',
-                                borderBottom: '1px solid #ddd',
+                                borderBottom: '1px solid rgba(255,255,255,0.7)',
                                 pb: 0.5,
                                 mb: 0.5
                               }}>
-                                <Typography variant="body2">
+                                <Typography variant="body2" sx={{ color: 'white', textShadow: '1px 1px 2px rgba(0,0,0,0.8)' }}>
                                   Total Fat
                                 </Typography>
-                                <Typography variant="body2">
+                                <Typography variant="body2" sx={{ color: 'white', textShadow: '1px 1px 2px rgba(0,0,0,0.8)' }}>
                                   {Math.round(recipe.nutrition.fatPerServing)}g
                                 </Typography>
                               </Box>
@@ -881,14 +896,14 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                               <Box sx={{ 
                                 display: 'flex', 
                                 justifyContent: 'space-between',
-                                borderBottom: '1px solid #ddd',
+                                borderBottom: '1px solid rgba(255,255,255,0.7)',
                                 pb: 0.5,
                                 mb: 0.5
                               }}>
-                                <Typography variant="body2">
+                                <Typography variant="body2" sx={{ color: 'white', textShadow: '1px 1px 2px rgba(0,0,0,0.8)' }}>
                                   Total Carbohydrates
                                 </Typography>
-                                <Typography variant="body2">
+                                <Typography variant="body2" sx={{ color: 'white', textShadow: '1px 1px 2px rgba(0,0,0,0.8)' }}>
                                   {Math.round(recipe.nutrition.carbsPerServing)}g
                                 </Typography>
                               </Box>
@@ -896,14 +911,14 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                               <Box sx={{ 
                                 display: 'flex', 
                                 justifyContent: 'space-between',
-                                borderBottom: '1px solid #ddd',
+                                borderBottom: '1px solid rgba(255,255,255,0.7)',
                                 pb: 0.5,
                                 mb: 0.5
                               }}>
-                                <Typography variant="body2">
+                                <Typography variant="body2" sx={{ color: 'white', textShadow: '1px 1px 2px rgba(0,0,0,0.8)' }}>
                                   Protein
                                 </Typography>
-                                <Typography variant="body2">
+                                <Typography variant="body2" sx={{ color: 'white', textShadow: '1px 1px 2px rgba(0,0,0,0.8)' }}>
                                   {Math.round(recipe.nutrition.proteinPerServing)}g
                                 </Typography>
                               </Box>
@@ -911,14 +926,14 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                               <Box sx={{ 
                                 display: 'flex', 
                                 justifyContent: 'space-between',
-                                borderBottom: '1px solid #ddd',
+                                borderBottom: '1px solid rgba(255,255,255,0.7)',
                                 pb: 0.5,
                                 mb: 0.5
                               }}>
-                                <Typography variant="body2">
+                                <Typography variant="body2" sx={{ color: 'white', textShadow: '1px 1px 2px rgba(0,0,0,0.8)' }}>
                                   Fiber
                                 </Typography>
-                                <Typography variant="body2">
+                                <Typography variant="body2" sx={{ color: 'white', textShadow: '1px 1px 2px rgba(0,0,0,0.8)' }}>
                                   {Math.round(recipe.nutrition.fiberPerServing)}g
                                 </Typography>
                               </Box>
@@ -928,10 +943,10 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                                 justifyContent: 'space-between',
                                 pb: 0.5
                               }}>
-                                <Typography variant="body2">
+                                <Typography variant="body2" sx={{ color: 'white', textShadow: '1px 1px 2px rgba(0,0,0,0.8)' }}>
                                   Sugar
                                 </Typography>
-                                <Typography variant="body2">
+                                <Typography variant="body2" sx={{ color: 'white', textShadow: '1px 1px 2px rgba(0,0,0,0.8)' }}>
                                   {Math.round(recipe.nutrition.sugarPerServing)}g
                                 </Typography>
                               </Box>
@@ -1065,7 +1080,22 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                     </Typography>
                   </Box>
                   
-                  {/* Expanded Nutrition Overlay */}
+                  {/* Image Shading Overlay */}
+                  <Box
+                    sx={{
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      background: expandedNutrition[selectedRecipe.id] ? 'rgba(0, 0, 0, 0.4)' : 'transparent',
+                      transition: 'background 0.3s ease',
+                      borderRadius: '8px',
+                      zIndex: 2
+                    }}
+                  />
+                  
+                  {/* Nutrition Facts Overlay */}
                   <Box
                     sx={{
                       position: 'absolute',
@@ -1073,13 +1103,11 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                       left: expandedNutrition[selectedRecipe.id] ? 0 : '-100%',
                       right: 0,
                       bottom: 0,
-                      background: 'rgba(255, 255, 255, 0.9)',
-                      backdropFilter: 'blur(3px)',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
                       borderRadius: '8px',
-                      padding: 3,
+                      padding: 2,
                       transition: 'left 0.3s ease',
                       zIndex: 5
                     }}
@@ -1093,20 +1121,18 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                       alignItems: 'center',
                       padding: 2
                     }}>
-                      {/* Custom Nutrition Display */}
+                      {/* Nutrition Facts Display */}
                       <Box sx={{
-                        background: 'rgba(255, 255, 255, 0.95)',
-                        borderRadius: '12px',
-                        padding: 3,
                         width: '100%',
-                        maxWidth: '500px',
-                        boxShadow: '0 4px 20px rgba(0,0,0,0.1)'
+                        maxWidth: '450px',
+                        padding: 2
                       }}>
                         <Typography variant="h6" sx={{ 
                           fontWeight: 'bold', 
                           textAlign: 'center', 
                           mb: 2,
-                          color: '#2c3e50'
+                          color: 'white',
+                          textShadow: '2px 2px 4px rgba(0,0,0,0.8)'
                         }}>
                           Nutrition Facts
                         </Typography>
@@ -1114,9 +1140,11 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                         <Box sx={{ mb: 2 }}>
                           <Typography variant="body2" sx={{ 
                             fontWeight: 'bold', 
-                            borderBottom: '2px solid #000',
+                            borderBottom: '2px solid white',
                             pb: 0.5,
-                            mb: 1
+                            mb: 1,
+                            color: 'white',
+                            textShadow: '1px 1px 2px rgba(0,0,0,0.8)'
                           }}>
                             Serving Size: {selectedRecipe.servings} serving{selectedRecipe.servings > 1 ? 's' : ''}
                           </Typography>
@@ -1126,7 +1154,9 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                           <Typography variant="body2" sx={{ 
                             fontWeight: 'bold', 
                             fontSize: '1.1rem',
-                            mb: 1
+                            mb: 1,
+                            color: 'white',
+                            textShadow: '1px 1px 2px rgba(0,0,0,0.8)'
                           }}>
                             Amount Per Serving
                           </Typography>
@@ -1136,14 +1166,14 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                           <Box sx={{ 
                             display: 'flex', 
                             justifyContent: 'space-between',
-                            borderBottom: '1px solid #ddd',
+                            borderBottom: '1px solid rgba(255,255,255,0.7)',
                             pb: 0.5,
                             mb: 0.5
                           }}>
-                            <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
+                            <Typography variant="body2" sx={{ fontWeight: 'bold', color: 'white', textShadow: '1px 1px 2px rgba(0,0,0,0.8)' }}>
                               Calories
                             </Typography>
-                            <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
+                            <Typography variant="body2" sx={{ fontWeight: 'bold', color: 'white', textShadow: '1px 1px 2px rgba(0,0,0,0.8)' }}>
                               {Math.round(selectedRecipe.nutrition.caloriesPerServing)}
                             </Typography>
                           </Box>
@@ -1151,14 +1181,14 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                           <Box sx={{ 
                             display: 'flex', 
                             justifyContent: 'space-between',
-                            borderBottom: '1px solid #ddd',
+                            borderBottom: '1px solid rgba(255,255,255,0.7)',
                             pb: 0.5,
                             mb: 0.5
                           }}>
-                            <Typography variant="body2">
+                            <Typography variant="body2" sx={{ color: 'white', textShadow: '1px 1px 2px rgba(0,0,0,0.8)' }}>
                               Total Fat
                             </Typography>
-                            <Typography variant="body2">
+                            <Typography variant="body2" sx={{ color: 'white', textShadow: '1px 1px 2px rgba(0,0,0,0.8)' }}>
                               {Math.round(selectedRecipe.nutrition.fatPerServing)}g
                             </Typography>
                           </Box>
@@ -1166,14 +1196,14 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                           <Box sx={{ 
                             display: 'flex', 
                             justifyContent: 'space-between',
-                            borderBottom: '1px solid #ddd',
+                            borderBottom: '1px solid rgba(255,255,255,0.7)',
                             pb: 0.5,
                             mb: 0.5
                           }}>
-                            <Typography variant="body2">
+                            <Typography variant="body2" sx={{ color: 'white', textShadow: '1px 1px 2px rgba(0,0,0,0.8)' }}>
                               Total Carbohydrates
                             </Typography>
-                            <Typography variant="body2">
+                            <Typography variant="body2" sx={{ color: 'white', textShadow: '1px 1px 2px rgba(0,0,0,0.8)' }}>
                               {Math.round(selectedRecipe.nutrition.carbsPerServing)}g
                             </Typography>
                           </Box>
@@ -1181,14 +1211,14 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                           <Box sx={{ 
                             display: 'flex', 
                             justifyContent: 'space-between',
-                            borderBottom: '1px solid #ddd',
+                            borderBottom: '1px solid rgba(255,255,255,0.7)',
                             pb: 0.5,
                             mb: 0.5
                           }}>
-                            <Typography variant="body2">
+                            <Typography variant="body2" sx={{ color: 'white', textShadow: '1px 1px 2px rgba(0,0,0,0.8)' }}>
                               Protein
                             </Typography>
-                            <Typography variant="body2">
+                            <Typography variant="body2" sx={{ color: 'white', textShadow: '1px 1px 2px rgba(0,0,0,0.8)' }}>
                               {Math.round(selectedRecipe.nutrition.proteinPerServing)}g
                             </Typography>
                           </Box>
@@ -1196,14 +1226,14 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                           <Box sx={{ 
                             display: 'flex', 
                             justifyContent: 'space-between',
-                            borderBottom: '1px solid #ddd',
+                            borderBottom: '1px solid rgba(255,255,255,0.7)',
                             pb: 0.5,
                             mb: 0.5
                           }}>
-                            <Typography variant="body2">
+                            <Typography variant="body2" sx={{ color: 'white', textShadow: '1px 1px 2px rgba(0,0,0,0.8)' }}>
                               Fiber
                             </Typography>
-                            <Typography variant="body2">
+                            <Typography variant="body2" sx={{ color: 'white', textShadow: '1px 1px 2px rgba(0,0,0,0.8)' }}>
                               {Math.round(selectedRecipe.nutrition.fiberPerServing)}g
                             </Typography>
                           </Box>
@@ -1213,10 +1243,10 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                             justifyContent: 'space-between',
                             pb: 0.5
                           }}>
-                            <Typography variant="body2">
+                            <Typography variant="body2" sx={{ color: 'white', textShadow: '1px 1px 2px rgba(0,0,0,0.8)' }}>
                               Sugar
                             </Typography>
-                            <Typography variant="body2">
+                            <Typography variant="body2" sx={{ color: 'white', textShadow: '1px 1px 2px rgba(0,0,0,0.8)' }}>
                               {Math.round(selectedRecipe.nutrition.sugarPerServing)}g
                             </Typography>
                           </Box>
