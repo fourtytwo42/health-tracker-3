@@ -804,8 +804,8 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                           zIndex: 10
                         }}
                       >
-                        {/* Instructions - Always on left unless active */}
-                        {!expandedInstructions[recipe.id] && (
+                        {/* Instructions - On left only when no overlays are active */}
+                        {!expandedInstructions[recipe.id] && !expandedIngredients[recipe.id] && !expandedNutrition[recipe.id] && (
                           <Box
                             sx={{
                               width: '40px',
@@ -837,8 +837,8 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                           </Box>
                         )}
 
-                        {/* Ingredients - On left unless active or instructions is active */}
-                        {!expandedIngredients[recipe.id] && !expandedInstructions[recipe.id] && (
+                        {/* Ingredients - On left only when no overlays are active */}
+                        {!expandedInstructions[recipe.id] && !expandedIngredients[recipe.id] && !expandedNutrition[recipe.id] && (
                           <Box
                             sx={{
                               width: '40px',
@@ -870,8 +870,8 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                           </Box>
                         )}
 
-                        {/* Nutrition - On left unless any previous is active */}
-                        {!expandedNutrition[recipe.id] && !expandedInstructions[recipe.id] && !expandedIngredients[recipe.id] && (
+                        {/* Nutrition - On left only when no overlays are active */}
+                        {!expandedInstructions[recipe.id] && !expandedIngredients[recipe.id] && !expandedNutrition[recipe.id] && (
                           <Box
                             sx={{
                               width: '40px',
@@ -917,41 +917,39 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                             zIndex: 10
                           }}
                         >
-                          {/* Instructions - On right if active or if ingredients/nutrition is active */}
-                          {(expandedInstructions[recipe.id] || expandedIngredients[recipe.id] || expandedNutrition[recipe.id]) && (
-                            <Box
+                          {/* Instructions - Always on right when any overlay is active */}
+                          <Box
+                            sx={{
+                              width: '40px',
+                              height: '100%',
+                              background: expandedInstructions[recipe.id] ? 'rgba(0, 0, 0, 0.8)' : 'rgba(0, 0, 0, 0.7)',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              cursor: 'pointer',
+                              transition: 'all 0.3s ease',
+                              '&:hover': {
+                                background: 'rgba(0, 0, 0, 0.8)'
+                              }
+                            }}
+                            onClick={() => toggleInstructionsExpansion(recipe.id)}
+                          >
+                            <Typography
+                              variant="caption"
                               sx={{
-                                width: '40px',
-                                height: '100%',
-                                background: expandedInstructions[recipe.id] ? 'rgba(0, 0, 0, 0.8)' : 'rgba(0, 0, 0, 0.7)',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                cursor: 'pointer',
-                                transition: 'all 0.3s ease',
-                                '&:hover': {
-                                  background: 'rgba(0, 0, 0, 0.8)'
-                                }
+                                color: 'white',
+                                whiteSpace: 'nowrap',
+                                fontWeight: 'bold',
+                                fontSize: '0.7rem',
+                                transform: 'rotate(-90deg)'
                               }}
-                              onClick={() => toggleInstructionsExpansion(recipe.id)}
                             >
-                              <Typography
-                                variant="caption"
-                                sx={{
-                                  color: 'white',
-                                  whiteSpace: 'nowrap',
-                                  fontWeight: 'bold',
-                                  fontSize: '0.7rem',
-                                  transform: 'rotate(-90deg)'
-                                }}
-                              >
-                                Instructions
-                              </Typography>
-                            </Box>
-                          )}
+                              Instructions
+                            </Typography>
+                          </Box>
 
-                          {/* Ingredients - On right if active or if nutrition is active */}
-                          {(expandedIngredients[recipe.id] || expandedNutrition[recipe.id]) && (
+                          {/* Ingredients - On right if instructions or ingredients or nutrition is active */}
+                          {(expandedInstructions[recipe.id] || expandedIngredients[recipe.id] || expandedNutrition[recipe.id]) && (
                             <Box
                               sx={{
                                 width: '40px',
@@ -983,13 +981,13 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                             </Box>
                           )}
 
-                          {/* Nutrition - On right if active */}
-                          {expandedNutrition[recipe.id] && (
+                          {/* Nutrition - On right if instructions or ingredients or nutrition is active */}
+                          {(expandedInstructions[recipe.id] || expandedIngredients[recipe.id] || expandedNutrition[recipe.id]) && (
                             <Box
                               sx={{
                                 width: '40px',
                                 height: '100%',
-                                background: 'rgba(0, 0, 0, 0.8)',
+                                background: expandedNutrition[recipe.id] ? 'rgba(0, 0, 0, 0.8)' : 'rgba(0, 0, 0, 0.7)',
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
@@ -1507,8 +1505,8 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                       zIndex: 10
                     }}
                   >
-                    {/* Instructions - Always on left unless active */}
-                    {!expandedInstructions[selectedRecipe.id] && (
+                    {/* Instructions - On left only when no overlays are active */}
+                    {!expandedInstructions[selectedRecipe.id] && !expandedIngredients[selectedRecipe.id] && !expandedNutrition[selectedRecipe.id] && (
                       <Box
                         sx={{
                           width: '40px',
@@ -1540,8 +1538,8 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                       </Box>
                     )}
 
-                    {/* Ingredients - On left unless active or instructions is active */}
-                    {!expandedIngredients[selectedRecipe.id] && !expandedInstructions[selectedRecipe.id] && (
+                    {/* Ingredients - On left only when no overlays are active */}
+                    {!expandedInstructions[selectedRecipe.id] && !expandedIngredients[selectedRecipe.id] && !expandedNutrition[selectedRecipe.id] && (
                       <Box
                         sx={{
                           width: '40px',
@@ -1573,8 +1571,8 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                       </Box>
                     )}
 
-                    {/* Nutrition - On left unless any previous is active */}
-                    {!expandedNutrition[selectedRecipe.id] && !expandedInstructions[selectedRecipe.id] && !expandedIngredients[selectedRecipe.id] && (
+                    {/* Nutrition - On left only when no overlays are active */}
+                    {!expandedInstructions[selectedRecipe.id] && !expandedIngredients[selectedRecipe.id] && !expandedNutrition[selectedRecipe.id] && (
                       <Box
                         sx={{
                           width: '40px',
@@ -1620,41 +1618,39 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                         zIndex: 10
                       }}
                     >
-                      {/* Instructions - On right if active or if ingredients/nutrition is active */}
-                      {(expandedInstructions[selectedRecipe.id] || expandedIngredients[selectedRecipe.id] || expandedNutrition[selectedRecipe.id]) && (
-                        <Box
+                      {/* Instructions - Always on right when any overlay is active */}
+                      <Box
+                        sx={{
+                          width: '40px',
+                          height: '100%',
+                          background: expandedInstructions[selectedRecipe.id] ? 'rgba(0, 0, 0, 0.8)' : 'rgba(0, 0, 0, 0.7)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          cursor: 'pointer',
+                          transition: 'all 0.3s ease',
+                          '&:hover': {
+                            background: 'rgba(0, 0, 0, 0.8)'
+                          }
+                        }}
+                        onClick={() => toggleInstructionsExpansion(selectedRecipe.id)}
+                      >
+                        <Typography
+                          variant="caption"
                           sx={{
-                            width: '40px',
-                            height: '100%',
-                            background: expandedInstructions[selectedRecipe.id] ? 'rgba(0, 0, 0, 0.8)' : 'rgba(0, 0, 0, 0.7)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            cursor: 'pointer',
-                            transition: 'all 0.3s ease',
-                            '&:hover': {
-                              background: 'rgba(0, 0, 0, 0.8)'
-                            }
+                            color: 'white',
+                            whiteSpace: 'nowrap',
+                            fontWeight: 'bold',
+                            fontSize: '0.7rem',
+                            transform: 'rotate(-90deg)'
                           }}
-                          onClick={() => toggleInstructionsExpansion(selectedRecipe.id)}
                         >
-                          <Typography
-                            variant="caption"
-                            sx={{
-                              color: 'white',
-                              whiteSpace: 'nowrap',
-                              fontWeight: 'bold',
-                              fontSize: '0.7rem',
-                              transform: 'rotate(-90deg)'
-                            }}
-                          >
-                            Instructions
-                          </Typography>
-                        </Box>
-                      )}
+                          Instructions
+                        </Typography>
+                      </Box>
 
-                      {/* Ingredients - On right if active or if nutrition is active */}
-                      {(expandedIngredients[selectedRecipe.id] || expandedNutrition[selectedRecipe.id]) && (
+                      {/* Ingredients - On right if instructions or ingredients or nutrition is active */}
+                      {(expandedInstructions[selectedRecipe.id] || expandedIngredients[selectedRecipe.id] || expandedNutrition[selectedRecipe.id]) && (
                         <Box
                           sx={{
                             width: '40px',
@@ -1686,13 +1682,13 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                         </Box>
                       )}
 
-                      {/* Nutrition - On right if active */}
-                      {expandedNutrition[selectedRecipe.id] && (
+                      {/* Nutrition - On right if instructions or ingredients or nutrition is active */}
+                      {(expandedInstructions[selectedRecipe.id] || expandedIngredients[selectedRecipe.id] || expandedNutrition[selectedRecipe.id]) && (
                         <Box
                           sx={{
                             width: '40px',
                             height: '100%',
-                            background: 'rgba(0, 0, 0, 0.8)',
+                            background: expandedNutrition[selectedRecipe.id] ? 'rgba(0, 0, 0, 0.8)' : 'rgba(0, 0, 0, 0.7)',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
