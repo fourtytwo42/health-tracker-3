@@ -572,11 +572,12 @@ ${categories.join(', ')}
 
 IMPORTANT REQUIREMENTS:
 1. Meal type must be exactly one of: BREAKFAST, LUNCH, DINNER, SNACK, DESSERT
-2. Use SIMPLE, COMMON ingredient names that are likely to be found in a database
-3. Provide amounts in grams (g) or milliliters (ml) for precise measurement
-4. Include detailed step-by-step instructions
-5. For each ingredient, specify the most appropriate category from the available list above
-6. For each ingredient, provide a brief description explaining what it is and its culinary use
+2. Servings must be EXACTLY ${args.servings} - do not change this number under any circumstances
+3. Use SIMPLE, COMMON ingredient names that are likely to be found in a database
+4. Provide amounts in grams (g) or milliliters (ml) for precise measurement
+5. Include detailed step-by-step instructions
+6. For each ingredient, specify the most appropriate category from the available list above
+7. For each ingredient, provide a brief description explaining what it is and its culinary use
 
 CATEGORY USAGE EXAMPLES:
 - "salt" → category: "Spices and Herbs"
@@ -619,6 +620,8 @@ Generate a complete recipe in the following JSON format (ensure valid JSON with 
     "Step 2: Detailed instruction"
   ]
 }
+
+CRITICAL: The "servings" field MUST be exactly ${args.servings}. Do not change this number.
 
 IMPORTANT: For each ingredient, choose the most appropriate category from the available categories listed above. Use simple, common ingredient names that are likely to be found in a database. Provide helpful descriptions that explain what the ingredient is and its culinary purpose.
 
@@ -1034,88 +1037,143 @@ Format the response as a JSON object with alternatives array.`;
           // Limit to top 20 results for AI analysis to reduce context size
           const topResults = searchResults.ingredients.slice(0, 20);
 
-          // Use LLM to find the best match with minimal context
-          const aiPrompt = `You are an expert at matching ingredient names. Given the search term "${args.search_term}" and the following list of ingredients, find the single best match.
+          // Use the same high-quality prompt as the admin panel AI search
+          const aiPrompt = `You are an expert at matching ingredient search terms to the most appropriate ingredient from a database.
+
+SEARCH TERM: "${args.search_term}"
 
 ${args.description ? `INGREDIENT DESCRIPTION: "${args.description}"` : ''}
 
-Available ingredients (top 20 results):
-${topResults.map((ing, i) => `${i + 1}. ${ing.name} (${ing.category}) - ${ing.calories} cal`).join('\n')}
+AVAILABLE INGREDIENTS (top 20 results from ${searchResults.ingredients.length} total):
+${topResults.map((ingredient: any, index: number) => 
+  `${index + 1}. ID: ${ingredient.id} - ${ingredient.name} (${ingredient.category || 'Unknown'}) - ${ingredient.description || 'No description'}`
+).join('\n')}
 
-CRITICAL SELECTION RULES:
-1. **EXACT MATCHES FIRST**: If you see an exact match for the search term, choose it
-2. **BASIC INGREDIENTS OVER PROCESSED**: Always prefer basic, unprocessed ingredients
-3. **AVOID COMPLEX NAMES**: Don't choose ingredients with long, specific descriptions
-4. **CATEGORY RELEVANCE**: Consider the ingredient's category and description
-5. **SIMPLE NAMES**: Prefer ingredients with short, simple names
+TASK: Analyze the search term and the top 20 available ingredients. Return ONLY the single best matching ingredient as JSON.
 
-EXAMPLES OF GOOD CHOICES:
-- Search "salt" → Choose "salt, table, iodized" (NOT "nuts, almonds, dry roasted, with salt added")
-- Search "milk" → Choose "milk, lowfat, fluid, 1% milkfat" (NOT "cheese, cottage, lowfat, 2% milkfat")
-- Search "butter" → Choose "butter, stick, unsalted" (NOT "peanut butter, creamy")
-- Search "pepper" → Choose "pepper, black" (NOT "peppers, bell, green, raw")
-- Search "garlic" → Choose "garlic, raw" (NOT "garlic powder" or "garlic bread")
+CRITERIA for best match:
+1. Exact name match (highest priority)
+2. Contains all search words in any order
+3. Most relevant category match
+4. Closest semantic meaning
+5. Most commonly used/recognizable ingredient
 
-EXAMPLES OF BAD CHOICES:
-- ❌ "salt" → "nuts, almonds, dry roasted, with salt added" (contains salt but is not salt)
-- ❌ "milk" → "cheese, cottage, lowfat, 2% milkfat" (is cheese, not milk)
-- ❌ "butter" → "peanut butter, creamy" (is peanut butter, not butter)
-- ❌ "pepper" → "peppers, bell, green, raw" (is bell pepper, not black pepper)
-
-SELECTION PRIORITY:
-1. Exact name match
-2. Basic ingredient in correct category
-3. Simple, unprocessed ingredient
-4. Avoid ingredients that "contain" the search term but are not the ingredient itself
-
-Return your response as JSON with this exact format:
+RESPONSE FORMAT: Return ONLY a JSON object with this exact structure:
 {
   "bestMatch": {
     "id": "ingredient_id",
     "name": "ingredient_name",
-    "reasoning": "explanation of why this is the best match"
-  }
-}`;
+    "description": "ingredient_description",
+    "category": "ingredient_category",
+    "aisle": "ingredient_aisle",
+    "calories": number,
+    "protein": number,
+    "carbs": number,
+    "fat": number,
+    "fiber": number,
+    "sugar": number,
+    "sodium": number
+  },
+  "reasoning": "Brief explanation of why this ingredient is the best match"
+}
+
+IMPORTANT: Return ONLY the JSON object, no additional text or formatting.`;
 
           const llmResponse = await this.llmRouter.generateResponse({
             prompt: aiPrompt,
             userId: authInfo.userId,
             tool: 'ai_search_ingredients',
+            maxTokens: 1000,
+            temperature: 0.1 // Low temperature for more consistent results (same as admin panel)
           });
 
-          // Parse the AI response
-          const jsonString = this.extractJsonFromResponse(llmResponse.content);
-          if (!jsonString) {
-            throw new Error('Failed to extract JSON from AI response');
-          }
-
-          const aiResult = JSON.parse(jsonString);
-          const bestMatch = searchResults.ingredients.find(ing => ing.id === aiResult.bestMatch.id);
-
-          if (!bestMatch) {
-            // Fallback to first result if AI selection not found
+          // Parse the AI response (same robust approach as admin panel)
+          let aiResult;
+          try {
+            // Extract JSON from the response (in case there's extra text)
+            const jsonMatch = llmResponse.content.match(/\{[\s\S]*\}/);
+            if (jsonMatch) {
+              aiResult = JSON.parse(jsonMatch[0]);
+              console.log('Parsed AI result:', aiResult);
+            } else {
+              throw new Error('No JSON found in response');
+            }
+          } catch (parseError) {
+            console.error('Failed to parse AI response:', llmResponse.content);
             return {
-              success: true,
-              data: {
-                searchTerm: args.search_term,
-                bestMatch: searchResults.ingredients[0],
-                reasoning: 'Selected first available match as fallback',
-                totalCandidates: searchResults.ingredients.length,
-                provider: 'fallback'
-              }
+              success: false,
+              error: 'Failed to parse AI response',
+              content: llmResponse.content
             };
           }
+
+          // Validate the AI response structure
+          if (!aiResult.bestMatch || !aiResult.bestMatch.id) {
+            console.error('Invalid AI response structure:', aiResult);
+            return {
+              success: false,
+              error: 'Invalid AI response structure',
+              result: aiResult
+            };
+          }
+
+          console.log('AI selected ID:', aiResult.bestMatch.id);
+          console.log('Available IDs:', searchResults.ingredients.map(i => i.id));
+
+          // Find the actual ingredient data from the original list
+          const bestMatch = searchResults.ingredients.find((ingredient: any) => 
+            ingredient.id === aiResult.bestMatch.id
+          );
+
+          if (!bestMatch) {
+            console.error('AI selected ingredient not found in original list');
+            console.error('AI selected ID:', aiResult.bestMatch.id);
+            console.error('Available ingredients:', searchResults.ingredients.map(i => ({ id: i.id, name: i.name })));
+            
+            // Fallback: try to find by name if ID doesn't match
+            const fallbackMatch = searchResults.ingredients.find((ingredient: any) => 
+              ingredient.name.toLowerCase() === aiResult.bestMatch.name.toLowerCase()
+            );
+            
+            if (fallbackMatch) {
+              console.log('Found fallback match by name:', fallbackMatch.name);
+              return {
+                success: true,
+                data: {
+                  searchTerm: args.search_term,
+                  bestMatch: fallbackMatch,
+                  reasoning: aiResult.reasoning || 'AI selected this ingredient as the best match (found by name)',
+                  totalCandidates: topResults.length,
+                  totalFound: searchResults.ingredients.length,
+                  provider: llmResponse.provider,
+                  note: 'Matched by name due to ID mismatch'
+                }
+              };
+            }
+            
+            return {
+              success: false,
+              error: 'AI selected ingredient not found in original list',
+              selectedId: aiResult.bestMatch.id,
+              selectedName: aiResult.bestMatch.name,
+              availableIds: searchResults.ingredients.map(i => i.id).slice(0, 10)
+            };
+          }
+
+          console.log('Successfully found matching ingredient:', bestMatch.name);
 
           return {
             success: true,
             data: {
               searchTerm: args.search_term,
               bestMatch: bestMatch,
-              reasoning: aiResult.bestMatch.reasoning,
-              totalCandidates: searchResults.ingredients.length,
-              provider: 'ai_analysis'
+              reasoning: aiResult.reasoning || 'AI selected this ingredient as the best match',
+              totalCandidates: topResults.length,
+              totalFound: searchResults.ingredients.length,
+              provider: llmResponse.provider
             }
           };
+
         } catch (error) {
           console.error('AI ingredient search error:', error);
           return {

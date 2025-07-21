@@ -401,29 +401,6 @@ export class RecipeService {
     return this.getRecipeById(recipeId);
   }
 
-  async adjustNutrition(
-    recipeId: string,
-    targetCalories: number
-  ): Promise<RecipeWithNutrition | null> {
-    const recipe = await this.getRecipeById(recipeId);
-    if (!recipe) return null;
-
-    const currentCalories = recipe.nutrition.totalCalories;
-    const adjustmentFactor = targetCalories / currentCalories;
-
-    // Update all ingredient amounts
-    for (const recipeIngredient of recipe.ingredients) {
-      await prisma.recipeIngredient.update({
-        where: { id: recipeIngredient.id },
-        data: {
-          amount: recipeIngredient.amount * adjustmentFactor
-        }
-      });
-    }
-
-    return this.getRecipeById(recipeId);
-  }
-
   private calculateNutrition(recipe: any): RecipeWithNutrition {
     let totalCalories = 0;
     let totalProtein = 0;

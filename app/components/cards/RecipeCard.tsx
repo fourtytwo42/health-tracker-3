@@ -27,6 +27,7 @@ import {
   SwapHoriz as SwapIcon,
   Delete as DeleteIcon,
 } from '@mui/icons-material';
+import NutritionLabel from './NutritionLabel';
 
 // Utility function to convert metric to cups
 const convertToCups = (amount: number, unit: string): string => {
@@ -85,6 +86,8 @@ const convertToCups = (amount: number, unit: string): string => {
   }
 };
 
+import { formatEggDisplay } from '@/lib/utils/unitConversion';
+
 interface Ingredient {
   id?: string;
   name: string;
@@ -103,6 +106,7 @@ interface Ingredient {
   category?: string;
   aisle?: string;
   servingSize?: string;
+  notes?: string; // Add notes field to store original AI ingredient name
 }
 
 interface RecipeCardProps {
@@ -276,7 +280,12 @@ export default function RecipeCard({
               )}
               {servings && (
                 <Grid item>
-                  <Chip label={`${servings} servings`} size="small" variant="outlined" />
+                  <Chip 
+                    label={`${servings} servings`} 
+                    size="small" 
+                    variant="outlined" 
+                    color="primary"
+                  />
                 </Grid>
               )}
               {cuisine && (
@@ -297,48 +306,31 @@ export default function RecipeCard({
           </Box>
 
           {/* Nutrition Info */}
-          {(kcal || protein || netCarbs || fat || fiber || sugar || sodium) && (
+          {(kcal || protein || netCarbs || fat || fiber || sugar || sodium) && servings && (
             <Box sx={{ mb: 2 }}>
-              <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                Nutrition (per serving)
-              </Typography>
-              <Grid container spacing={1}>
-                {kcal && (
-                  <Grid item>
-                    <Chip label={`${kcal} kcal`} size="small" variant="outlined" />
-                  </Grid>
+              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                <Typography variant="subtitle2" color="text.secondary" sx={{ flexGrow: 1 }}>
+                  Nutrition Facts
+                </Typography>
+                {scalingApplied && targetCalories && (
+                  <Chip 
+                    label={`Generated for ${targetCalories} cal`} 
+                    size="small" 
+                    color="info" 
+                    variant="outlined"
+                  />
                 )}
-                {protein && (
-                  <Grid item>
-                    <Chip label={`${protein}g protein`} size="small" variant="outlined" />
-                  </Grid>
-                )}
-                {netCarbs && (
-                  <Grid item>
-                    <Chip label={`${netCarbs}g carbs`} size="small" variant="outlined" />
-                  </Grid>
-                )}
-                {fat && (
-                  <Grid item>
-                    <Chip label={`${fat}g fat`} size="small" variant="outlined" />
-                  </Grid>
-                )}
-                {fiber && (
-                  <Grid item>
-                    <Chip label={`${fiber}g fiber`} size="small" variant="outlined" />
-                  </Grid>
-                )}
-                {sugar && (
-                  <Grid item>
-                    <Chip label={`${sugar}g sugar`} size="small" variant="outlined" />
-                  </Grid>
-                )}
-                {sodium && (
-                  <Grid item>
-                    <Chip label={`${sodium}mg sodium`} size="small" variant="outlined" />
-                  </Grid>
-                )}
-              </Grid>
+              </Box>
+              <NutritionLabel
+                servings={servings}
+                calories={kcal || 0}
+                protein={protein || 0}
+                carbs={netCarbs || 0}
+                fat={fat || 0}
+                fiber={fiber || 0}
+                sugar={sugar || 0}
+                sodium={sodium || 0}
+              />
             </Box>
           )}
 
@@ -376,15 +368,6 @@ export default function RecipeCard({
             <Box sx={{ mb: 2 }}>
               <Typography variant="subtitle2" gutterBottom>
                 Ingredients
-                {scalingApplied && (
-                  <Chip 
-                    label={`Scaled to ${targetCalories} cal`} 
-                    size="small" 
-                    color="info" 
-                    variant="outlined"
-                    sx={{ ml: 1 }}
-                  />
-                )}
               </Typography>
               <List dense>
                 {ingredients.map((ingredient, index) => (
@@ -430,9 +413,33 @@ export default function RecipeCard({
                                   {convertToCups(ingredient.amount, ingredient.unit)}
                                 </Typography>
                               )}
-                              <Typography variant="body2" color="text.secondary">
-                                ({ingredient.amount} {ingredient.unit})
-                              </Typography>
+                              
+                              {/* Check if this is an egg ingredient and convert to quantity */}
+                              {(() => {
+                                console.log(`🔍 About to call egg conversion for ingredient:`, {
+                                  name: ingredient.name,
+                                  amount: ingredient.amount,
+                                  unit: ingredient.unit,
+                                  servingSize: ingredient.servingSize,
+                                  notes: ingredient.notes
+                                });
+                                
+                                const displayText = formatEggDisplay(
+                                  ingredient.amount, 
+                                  ingredient.unit, 
+                                  ingredient.scalingFactor || 1,
+                                  ingredient.name, 
+                                  ingredient.servingSize, 
+                                  ingredient.notes
+                                );
+                                console.log(`🔍 Egg display result:`, displayText);
+                                
+                                return (
+                                  <Typography variant="body2" color="text.secondary" fontWeight="medium">
+                                    ({displayText})
+                                  </Typography>
+                                );
+                              })()}
                             </Box>
                             
                             {/* Database Ingredient Name */}

@@ -146,4 +146,57 @@ export const formatIngredientWeight = (grams: number): string => {
     return `${kg} kg`;
   }
   return `${grams} g`;
+};
+
+// Egg conversion utilities
+export interface EggConversion {
+  quantity: number;
+  displayUnit: string;
+}
+
+export const convertEggWeightToQuantity = (
+  amount: number, 
+  unit: string, 
+  ingredientName?: string, 
+  databaseName?: string, 
+  notes?: string
+): EggConversion | null => {
+  // Check if this is an egg ingredient
+  const isEggIngredient = 
+    (ingredientName && ingredientName.toLowerCase().includes('egg')) ||
+    (notes && notes.toLowerCase().includes('egg')) ||
+    (databaseName && databaseName.toLowerCase().includes('egg'));
+
+  if (isEggIngredient && unit.toLowerCase() === 'g' && amount > 0) {
+    // Convert weight to egg quantity (50g per egg is standard)
+    const eggQuantity = Math.round(amount / 50);
+    if (eggQuantity > 0) {
+      return {
+        quantity: eggQuantity,
+        displayUnit: eggQuantity === 1 ? 'egg' : 'eggs'
+      };
+    }
+  }
+  
+  return null;
+};
+
+// Format egg display with scaling support
+export const formatEggDisplay = (
+  amount: number, 
+  unit: string, 
+  scalingFactor: number = 1,
+  ingredientName?: string, 
+  databaseName?: string, 
+  notes?: string
+): string => {
+  const scaledAmount = amount * scalingFactor;
+  const eggConversion = convertEggWeightToQuantity(scaledAmount, unit, ingredientName, databaseName, notes);
+  
+  if (eggConversion) {
+    return `${eggConversion.quantity} ${eggConversion.displayUnit}`;
+  }
+  
+  // Fallback to original format
+  return `${Math.round(scaledAmount)} ${unit}`;
 }; 

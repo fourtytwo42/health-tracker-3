@@ -234,36 +234,49 @@ model IngredientTaxonomy {
 }
 
 model Ingredient {
-  id                 String             @id @default(cuid())
-  name               String             @unique
+  id                 String   @id @default(cuid())
+  name               String   @unique
   description        String?
-  servingSize        String             @map("serving_size")
-  calories           Float
-  protein            Float
-  carbs              Float
-  fat                Float
-  fiber              Float?
-  sugar              Float?
-  sodium             Float?
+  servingSize        String   @default("100g") @map("serving_size")
+  calories           Float    @default(0)
+  protein            Float    @default(0)
+  carbs              Float    @default(0)
+  fat                Float    @default(0)
+  fiber              Float    @default(0)
+  sugar              Float    @default(0)
+  sodium             Float    @default(0)
   category           String?
   aisle              String?
-  isActive           Boolean            @default(true) @map("is_active")
-  createdAt          DateTime           @default(now()) @map("created_at")
-  updatedAt          DateTime           @updatedAt @map("updated_at")
+  isActive           Boolean  @default(true) @map("is_active")
   allergens          String?
-  cholesterol        Float?
-  dietaryFlags       String?            @map("dietary_flags")
-  glycemicIndex      Float?             @map("glycemic_index")
-  glycemicLoad       Float?             @map("glycemic_load")
-  monounsaturatedFat Float?             @map("monounsaturated_fat")
-  netCarbs           Float?             @map("net_carbs")
-  polyunsaturatedFat Float?             @map("polyunsaturated_fat")
-  saturatedFat       Float?             @map("saturated_fat")
-  transFat           Float?             @map("trans_fat")
-  foodPreferences    FoodPreference[]
+  cholesterol        Float    @default(0)
+  dietaryFlags       String?  @map("dietary_flags")
+  glycemicIndex      Float?   @map("glycemic_index")
+  glycemicLoad       Float?   @map("glycemic_load")
+  monounsaturatedFat Float?   @map("monounsaturated_fat")
+  netCarbs           Float?   @map("net_carbs")
+  polyunsaturatedFat Float?   @map("polyunsaturated_fat")
+  saturatedFat       Float?   @map("saturated_fat")
+  transFat           Float?   @map("trans_fat")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
   recipeIngredients  RecipeIngredient[]
+  mappings           IngredientMapping[]
+  foodPreferences    FoodPreference[]
 
   @@map("ingredients")
+}
+
+model IngredientMapping {
+  id            String     @id @default(cuid())
+  keyword       String     @unique
+  ingredientId  String     @map("ingredient_id")
+  isActive      Boolean    @default(true) @map("is_active")
+  createdAt     DateTime   @default(now()) @map("created_at")
+  updatedAt     DateTime   @updatedAt @map("updated_at")
+  ingredient    Ingredient @relation(fields: [ingredientId], references: [id], onDelete: Cascade)
+
+  @@map("ingredient_mappings")
 }
 
 model Recipe {

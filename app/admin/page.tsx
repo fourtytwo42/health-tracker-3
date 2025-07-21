@@ -24,6 +24,7 @@ import LLMProvidersTab from './components/LLMProvidersTab';
 import AIPromptsTab from './components/AIPromptsTab';
 import IngredientsTab from './components/IngredientsTab';
 import ExercisesTab from './components/ExercisesTab';
+import IngredientMappingsTab from './components/IngredientMappingsTab';
 
 interface LLMRouterConfig {
   selectedModel: string;
@@ -910,6 +911,7 @@ export default function AdminDashboard() {
               <Tab label="AI Prompts" />
               <Tab label="Ingredients" />
               <Tab label="Exercises" />
+              <Tab label="Ingredient Mappings" />
             </Tabs>
           </Box>
 
@@ -1016,6 +1018,11 @@ export default function AdminDashboard() {
               setPageSize={setExercisePageSize}
               setCurrentPage={setExerciseCurrentPage}
             />
+          )}
+
+          {/* Ingredient Mappings Tab */}
+          {activeTab === 4 && (
+            <IngredientMappingsTab />
           )}
         </Paper>
 

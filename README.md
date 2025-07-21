@@ -79,36 +79,60 @@ git clone <repository-url>
 cd health-tracker-3
 ```
 
-2. Install dependencies:
-```bash
-npm install
-```
+2. **Quick Setup (Recommended):**
+   
+   **For Linux/Mac:**
+   ```bash
+   chmod +x setup-new-server.sh
+   ./setup-new-server.sh
+   ```
+   
+   **For Windows:**
+   ```cmd
+   setup-new-server.bat
+   ```
 
-3. Set up environment variables:
-```bash
-cp env.example .env.local
-# Edit .env.local with your configuration
-```
+3. **Manual Setup (Alternative):**
+   
+   Install dependencies:
+   ```bash
+   npm install
+   ```
+   
+   Set up environment variables:
+   ```bash
+   cp env.example .env.local
+   # Edit .env.local with your configuration
+   ```
+   
+   Set up the database and seed data:
+   ```bash
+   npx prisma generate
+   npx prisma db push
+   npx tsx scripts/seed.ts
+   ```
+   
+   Seed additional data (if needed):
+   ```bash
+   # Basic ingredients
+   node scripts/seed-ingredients-simple.js
+   
+   # Exercises
+   node scripts/seed-exercises.js
+   ```
 
-4. Set up the database and seed data:
-```bash
-# Quick setup (recommended)
-node scripts/setup-db.js
-
-# OR manual setup
-npx prisma generate
-npx prisma db push
-npx ts-node scripts/seed.ts
-node scripts/seed-ingredients-simple.js
-node scripts/seed-all.js
-```
-
-5. Start the development server:
+4. Start the development server:
 ```bash
 npm run dev
 ```
 
-6. Open [http://localhost:3001](http://localhost:3001) in your browser
+5. Access the application:
+   - **Application**: http://localhost:3000
+   - **Admin Dashboard**: http://localhost:3000/admin
+   - **Login Credentials**: 
+     - Admin: `admin/demo`
+     - Demo: `demo/demo`
+     - Test: `test/test`
 
 ### Default Users
 - **Admin**: `admin` / `demo`

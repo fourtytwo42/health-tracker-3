@@ -47,6 +47,8 @@ import {
   TrendingUp as TrendingUpIcon,
   Delete as DeleteIcon
 } from '@mui/icons-material';
+import { formatEggDisplay } from '@/lib/utils/unitConversion';
+import NutritionLabel from '../../components/cards/NutritionLabel';
 
 // Utility function to convert metric to cups
 const convertToCups = (amount: number, unit: string): string => {
@@ -159,6 +161,8 @@ interface Recipe {
     fiberPerServing: number;
     sugarPerServing: number;
   };
+  // Add scaling factor for local adjustments
+  scalingFactor?: number;
 }
 
 interface MenuBuilderTabProps {
@@ -194,6 +198,71 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
     { value: 'dessert', label: 'Dessert' }
   ];
 
+  // LocalStorage functions for calorie adjustments
+  const getStoredAdjustments = (): Record<string, number> => {
+    try {
+      const stored = localStorage.getItem('recipeCalorieAdjustments');
+      return stored ? JSON.parse(stored) : {};
+    } catch {
+      return {};
+    }
+  };
+
+  const saveAdjustment = (recipeId: string, scalingFactor: number) => {
+    try {
+      const adjustments = getStoredAdjustments();
+      adjustments[recipeId] = scalingFactor;
+      localStorage.setItem('recipeCalorieAdjustments', JSON.stringify(adjustments));
+    } catch (error) {
+      console.error('Error saving adjustment:', error);
+    }
+  };
+
+  const removeAdjustment = (recipeId: string) => {
+    try {
+      const adjustments = getStoredAdjustments();
+      delete adjustments[recipeId];
+      localStorage.setItem('recipeCalorieAdjustments', JSON.stringify(adjustments));
+    } catch (error) {
+      console.error('Error removing adjustment:', error);
+    }
+  };
+
+  const applyAdjustmentToRecipe = (recipe: Recipe): Recipe => {
+    const adjustments = getStoredAdjustments();
+    const scalingFactor = adjustments[recipe.id];
+    
+    if (!scalingFactor || scalingFactor === 1) {
+      return recipe;
+    }
+
+    // Apply scaling factor to ingredients and nutrition
+    const adjustedRecipe = {
+      ...recipe,
+      scalingFactor,
+      ingredients: recipe.ingredients.map(ri => ({
+        ...ri,
+        amount: ri.amount * scalingFactor
+      })),
+      nutrition: {
+        totalCalories: Math.round(recipe.nutrition.totalCalories * scalingFactor),
+        totalProtein: Math.round((recipe.nutrition.totalProtein * scalingFactor) * 10) / 10,
+        totalCarbs: Math.round((recipe.nutrition.totalCarbs * scalingFactor) * 10) / 10,
+        totalFat: Math.round((recipe.nutrition.totalFat * scalingFactor) * 10) / 10,
+        totalFiber: Math.round((recipe.nutrition.totalFiber * scalingFactor) * 10) / 10,
+        totalSugar: Math.round((recipe.nutrition.totalSugar * scalingFactor) * 10) / 10,
+        caloriesPerServing: Math.round((recipe.nutrition.totalCalories * scalingFactor) / recipe.servings),
+        proteinPerServing: Math.round(((recipe.nutrition.totalProtein * scalingFactor) / recipe.servings) * 10) / 10,
+        carbsPerServing: Math.round(((recipe.nutrition.totalCarbs * scalingFactor) / recipe.servings) * 10) / 10,
+        fatPerServing: Math.round(((recipe.nutrition.totalFat * scalingFactor) / recipe.servings) * 10) / 10,
+        fiberPerServing: Math.round(((recipe.nutrition.totalFiber * scalingFactor) / recipe.servings) * 10) / 10,
+        sugarPerServing: Math.round(((recipe.nutrition.totalSugar * scalingFactor) / recipe.servings) * 10) / 10
+      }
+    };
+
+    return adjustedRecipe;
+  };
+
   useEffect(() => {
     loadRecipes();
   }, [currentPage, searchQuery, filterMealType, filterFavorite]);
@@ -217,7 +286,7 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
       });
       if (response.ok) {
         const data = await response.json();
-        setRecipes(data.recipes);
+        setRecipes(data.recipes.map(applyAdjustmentToRecipe));
         setTotalPages(data.totalPages);
       }
     } catch (error) {
@@ -252,7 +321,7 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
 
       if (response.ok) {
         const data = await response.json();
-        setRecipes(prev => [data.recipe, ...prev]);
+        setRecipes(prev => [applyAdjustmentToRecipe(data.recipe), ...prev]);
         setKeywords('');
         alert('Recipe generated successfully!');
       } else {
@@ -281,7 +350,7 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
         const data = await response.json();
         setRecipes(prev => 
           prev.map(recipe => 
-            recipe.id === recipeId ? data.recipe : recipe
+            recipe.id === recipeId ? applyAdjustmentToRecipe(data.recipe) : recipe
           )
         );
       }
@@ -316,7 +385,7 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
       if (response.ok) {
         const data = await response.json();
         setRecipes(prev => 
-          prev.map(r => r.id === recipeId ? data.recipe : r)
+          prev.map(r => r.id === recipeId ? applyAdjustmentToRecipe(data.recipe) : r)
         );
         alert('Recipe regenerated successfully!');
       }
@@ -348,7 +417,7 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
         const data = await response.json();
         setRecipes(prev => 
           prev.map(recipe => 
-            recipe.id === recipeId ? data.recipe : recipe
+            recipe.id === recipeId ? applyAdjustmentToRecipe(data.recipe) : recipe
           )
         );
         setShowIngredientDialog(false);
@@ -361,29 +430,39 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
   };
 
   const adjustNutrition = async (recipeId: string) => {
-    try {
-      const token = localStorage.getItem('accessToken');
-      const response = await fetch(`/api/recipes/${recipeId}/adjust-nutrition`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ targetCalories })
-      });
+    const recipe = recipes.find(r => r.id === recipeId);
+    if (!recipe) return;
 
-      if (response.ok) {
-        const data = await response.json();
-        setRecipes(prev => 
-          prev.map(recipe => 
-            recipe.id === recipeId ? data.recipe : recipe
-          )
-        );
-        setShowNutritionDialog(false);
-      }
-    } catch (error) {
-      console.error('Error adjusting nutrition:', error);
-    }
+    const currentCalories = recipe.nutrition.totalCalories;
+    const scalingFactor = targetCalories / currentCalories;
+
+    // Save adjustment to localStorage
+    saveAdjustment(recipeId, scalingFactor);
+
+    // Update the recipe in state with the new scaling factor
+    setRecipes(prev => 
+      prev.map(recipe => 
+        recipe.id === recipeId ? applyAdjustmentToRecipe(recipe) : recipe
+      )
+    );
+    
+    setShowNutritionDialog(false);
+    alert(`Recipe adjusted to ${targetCalories} calories!`);
+  };
+
+  const resetAdjustment = (recipeId: string) => {
+    // Remove adjustment from localStorage
+    removeAdjustment(recipeId);
+
+    // Reload the recipe without adjustment
+    setRecipes(prev => 
+      prev.map(recipe => 
+        recipe.id === recipeId ? { ...recipe, scalingFactor: undefined } : recipe
+      )
+    );
+    
+    setShowNutritionDialog(false);
+    alert('Recipe adjustment reset to original!');
   };
 
   const deleteRecipe = async (recipeId: string) => {
@@ -414,55 +493,18 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
   };
 
   const NutritionCard = ({ nutrition, servings }: { nutrition: any; servings: number }) => (
-    <Card variant="outlined" sx={{ mb: 2 }}>
-      <CardContent>
-        <Typography variant="h6" gutterBottom>
-          Nutrition Facts
-        </Typography>
-        <Grid container spacing={2}>
-          <Grid item xs={6}>
-            <Typography variant="body2" color="text.secondary">
-              Total Calories
-            </Typography>
-            <Typography variant="h6">
-              {nutrition.totalCalories} cal
-            </Typography>
-          </Grid>
-          <Grid item xs={6}>
-            <Typography variant="body2" color="text.secondary">
-              Per Serving
-            </Typography>
-            <Typography variant="h6">
-              {nutrition.caloriesPerServing} cal
-            </Typography>
-          </Grid>
-          <Grid item xs={4}>
-            <Typography variant="body2" color="text.secondary">
-              Protein
-            </Typography>
-            <Typography variant="body1">
-              {nutrition.totalProtein}g
-            </Typography>
-          </Grid>
-          <Grid item xs={4}>
-            <Typography variant="body2" color="text.secondary">
-              Carbs
-            </Typography>
-            <Typography variant="body1">
-              {nutrition.totalCarbs}g
-            </Typography>
-          </Grid>
-          <Grid item xs={4}>
-            <Typography variant="body2" color="text.secondary">
-              Fat
-            </Typography>
-            <Typography variant="body1">
-              {nutrition.totalFat}g
-            </Typography>
-          </Grid>
-        </Grid>
-      </CardContent>
-    </Card>
+    <Box sx={{ mb: 2, display: 'flex', justifyContent: 'center' }}>
+      <NutritionLabel
+        servings={servings}
+        calories={nutrition.caloriesPerServing}
+        protein={nutrition.proteinPerServing}
+        carbs={nutrition.carbsPerServing}
+        fat={nutrition.fatPerServing}
+        fiber={nutrition.fiberPerServing}
+        sugar={nutrition.sugarPerServing}
+        sodium={0} // TODO: Add sodium field to nutrition data structure
+      />
+    </Box>
   );
 
   return (
@@ -664,6 +706,13 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
 
                 <NutritionCard nutrition={recipe.nutrition} servings={recipe.servings} />
 
+                {/* Show adjustment indicator if recipe has been adjusted */}
+                {recipe.scalingFactor && recipe.scalingFactor !== 1 && (
+                  <Alert severity="info" sx={{ mb: 2 }}>
+                    Recipe adjusted by {Math.round((recipe.scalingFactor - 1) * 100)}%
+                  </Alert>
+                )}
+
                 <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
                   <Button
                     size="small"
@@ -681,6 +730,7 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                     startIcon={<TrendingUpIcon />}
                     onClick={() => {
                       setSelectedRecipe(recipe);
+                      // Set target calories to current adjusted calories
                       setTargetCalories(recipe.nutrition.totalCalories);
                       setShowNutritionDialog(true);
                     }}
@@ -755,40 +805,55 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                                     </Typography>
                                   )}
                                   <Typography variant="body2" color="text.secondary">
-                                    ({ri.amount} {ri.unit})
+                                    ({formatEggDisplay(ri.amount, ri.unit, selectedRecipe?.scalingFactor || 1, ri.ingredient.name, ri.ingredient.servingSize, ri.notes)})
                                   </Typography>
                                 </Box>
                                 
-                                {/* Database Ingredient Name - Italicized */}
-                                <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, fontStyle: 'italic' }}>
-                                  {ri.ingredient.name}
-                                </Typography>
+                                {/* Database Ingredient Name - Italicized (only show if different from AI name) */}
+                                {ri.notes && ri.notes !== ri.ingredient.name && (
+                                  <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, fontStyle: 'italic' }}>
+                                    {ri.ingredient.name}
+                                  </Typography>
+                                )}
                               </Box>
                             }
                             secondary={
                               <Box>
                                 <Box sx={{ mt: 0.5 }}>
                                   <Grid container spacing={1}>
-                                    {ri.ingredient.calories > 0 && (
-                                      <Grid item>
-                                        <Chip label={`${ri.ingredient.calories} cal`} size="small" variant="outlined" />
-                                      </Grid>
-                                    )}
-                                    {ri.ingredient.protein > 0 && (
-                                      <Grid item>
-                                        <Chip label={`${ri.ingredient.protein}g protein`} size="small" variant="outlined" />
-                                      </Grid>
-                                    )}
-                                    {ri.ingredient.carbs > 0 && (
-                                      <Grid item>
-                                        <Chip label={`${ri.ingredient.carbs}g carbs`} size="small" variant="outlined" />
-                                      </Grid>
-                                    )}
-                                    {ri.ingredient.fat > 0 && (
-                                      <Grid item>
-                                        <Chip label={`${ri.ingredient.fat}g fat`} size="small" variant="outlined" />
-                                      </Grid>
-                                    )}
+                                    {(() => {
+                                      // Calculate scaled nutrition values for this ingredient
+                                      const multiplier = ri.amount / 100; // Assuming nutrition values are per 100g
+                                      const scaledCalories = Math.round(ri.ingredient.calories * multiplier);
+                                      const scaledProtein = Math.round((ri.ingredient.protein * multiplier) * 10) / 10;
+                                      const scaledCarbs = Math.round((ri.ingredient.carbs * multiplier) * 10) / 10;
+                                      const scaledFat = Math.round((ri.ingredient.fat * multiplier) * 10) / 10;
+                                      
+                                      return (
+                                        <>
+                                          {scaledCalories > 0 && (
+                                            <Grid item>
+                                              <Chip label={`${scaledCalories} cal`} size="small" variant="outlined" />
+                                            </Grid>
+                                          )}
+                                          {scaledProtein > 0 && (
+                                            <Grid item>
+                                              <Chip label={`${scaledProtein}g protein`} size="small" variant="outlined" />
+                                            </Grid>
+                                          )}
+                                          {scaledCarbs > 0 && (
+                                            <Grid item>
+                                              <Chip label={`${scaledCarbs}g carbs`} size="small" variant="outlined" />
+                                            </Grid>
+                                          )}
+                                          {scaledFat > 0 && (
+                                            <Grid item>
+                                              <Chip label={`${scaledFat}g fat`} size="small" variant="outlined" />
+                                            </Grid>
+                                          )}
+                                        </>
+                                      );
+                                    })()}
                                   </Grid>
                                 </Box>
                               </Box>
@@ -854,8 +919,8 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
         <DialogContent>
           {selectedIngredient && (
             <Typography>
-              Find an alternative for {selectedIngredient.amount} {selectedIngredient.unit} of{' '}
-              {selectedIngredient.ingredient.name}
+              Find an alternative for {Math.round(selectedIngredient.amount)} {selectedIngredient.unit} of{' '}
+              {selectedIngredient.notes || selectedIngredient.ingredient.name}
             </Typography>
           )}
           {/* TODO: Add ingredient search functionality */}
@@ -874,20 +939,52 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
       >
         <DialogTitle>Adjust Recipe Calories</DialogTitle>
         <DialogContent>
-          <Typography variant="body2" sx={{ mb: 2 }}>
-            Current total calories: {selectedRecipe?.nutrition.totalCalories}
-          </Typography>
-          <TextField
-            fullWidth
-            type="number"
-            label="Target Calories"
-            value={targetCalories}
-            onChange={(e) => setTargetCalories(parseInt(e.target.value) || 0)}
-            inputProps={{ min: 100, max: 5000 }}
-          />
+          {selectedRecipe && (() => {
+            const adjustments = getStoredAdjustments();
+            const currentAdjustment = adjustments[selectedRecipe.id];
+            const originalCalories = selectedRecipe.nutrition.totalCalories / (currentAdjustment || 1);
+            
+            return (
+              <>
+                <Typography variant="body2" sx={{ mb: 2 }}>
+                  Original calories: {Math.round(originalCalories)}
+                </Typography>
+                <Typography variant="body2" sx={{ mb: 2 }}>
+                  Current calories: {selectedRecipe.nutrition.totalCalories}
+                  {currentAdjustment && currentAdjustment !== 1 && (
+                    <span style={{ color: 'green', marginLeft: '8px' }}>
+                      (Adjusted by {Math.round((currentAdjustment - 1) * 100)}%)
+                    </span>
+                  )}
+                </Typography>
+                <TextField
+                  fullWidth
+                  type="number"
+                  label="Target Calories"
+                  value={targetCalories}
+                  onChange={(e) => setTargetCalories(parseInt(e.target.value) || 0)}
+                  inputProps={{ min: 100, max: 5000 }}
+                  sx={{ mb: 2 }}
+                />
+                {currentAdjustment && currentAdjustment !== 1 && (
+                  <Alert severity="info" sx={{ mb: 2 }}>
+                    This recipe has been adjusted. You can reset it to the original values.
+                  </Alert>
+                )}
+              </>
+            );
+          })()}
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setShowNutritionDialog(false)}>Cancel</Button>
+          {selectedRecipe && getStoredAdjustments()[selectedRecipe.id] && (
+            <Button 
+              color="warning" 
+              onClick={() => resetAdjustment(selectedRecipe.id)}
+            >
+              Reset
+            </Button>
+          )}
           <Button
             variant="contained"
             onClick={() => selectedRecipe && adjustNutrition(selectedRecipe.id)}

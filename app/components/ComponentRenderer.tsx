@@ -10,6 +10,7 @@ import GoalBadge from './cards/GoalBadge';
 import BiomarkerChart from './cards/BiomarkerChart';
 import MealCard from './cards/MealCard';
 import IngredientAlternatives from './cards/IngredientAlternatives';
+import NutritionLabel from './cards/NutritionLabel';
 import QuickReplies from './QuickReplies';
 
 export interface ComponentJson {
@@ -33,6 +34,7 @@ const componentRegistry: Record<string, React.ComponentType<any>> = {
   BiomarkerChart,
   MealCard,
   IngredientAlternatives,
+  NutritionLabel,
 };
 
 export default function ComponentRenderer({ component, onQuickReply }: ComponentRendererProps) {

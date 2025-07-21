@@ -34,7 +34,9 @@
     "docker:up": "docker-compose up -d",
     "docker:down": "docker-compose down",
     "docker:logs": "docker-compose logs -f",
-    "setup": "npm run docker:up && npm run db:migrate && npm run db:seed"
+    "setup": "npm run docker:up && npm run db:migrate && npm run db:seed",
+    "setup:new": "npx tsx scripts/setup-complete.ts",
+    "setup:quick": "npm install && npx prisma generate && npx prisma db push && npx tsx scripts/seed.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.470.0",
