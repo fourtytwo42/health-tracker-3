@@ -25,6 +25,7 @@ import AIPromptsTab from './components/AIPromptsTab';
 import IngredientsTab from './components/IngredientsTab';
 import ExercisesTab from './components/ExercisesTab';
 import IngredientMappingsTab from './components/IngredientMappingsTab';
+import ImageGeneratorTab from './components/ImageGeneratorTab';
 
 interface LLMRouterConfig {
   selectedModel: string;
@@ -912,6 +913,7 @@ export default function AdminDashboard() {
               <Tab label="Ingredients" />
               <Tab label="Exercises" />
               <Tab label="Ingredient Mappings" />
+              <Tab label="Image Generator" />
             </Tabs>
           </Box>
 
@@ -1023,6 +1025,11 @@ export default function AdminDashboard() {
           {/* Ingredient Mappings Tab */}
           {activeTab === 4 && (
             <IngredientMappingsTab />
+          )}
+
+          {/* Image Generator Tab */}
+          {activeTab === 5 && (
+            <ImageGeneratorTab />
           )}
         </Paper>
 
