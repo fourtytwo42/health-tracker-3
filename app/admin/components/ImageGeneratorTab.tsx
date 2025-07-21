@@ -17,6 +17,10 @@ import {
   Alert,
   Paper,
   Divider,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
 } from '@mui/material';
 import {
   Image as ImageIcon,
@@ -87,6 +91,9 @@ export default function ImageGeneratorTab() {
     tokens?: number;
     cost?: number;
   } | null>(null);
+  const [apiKey, setApiKey] = useState('');
+  const [showApiKeyDialog, setShowApiKeyDialog] = useState(false);
+  const [apiKeyStatus, setApiKeyStatus] = useState<{ hasKey: boolean; maskedKey?: string }>({ hasKey: false });
 
   const handleConfigChange = (field: keyof ImageGenerationConfig, value: any) => {
     setConfig(prev => ({ ...prev, [field]: value }));
@@ -98,9 +105,79 @@ export default function ImageGeneratorTab() {
     }
   };
 
+  const checkApiKeyStatus = async () => {
+    try {
+      const response = await fetch('/api/admin/image-generation/api-key-status');
+      if (response.ok) {
+        const data = await response.json();
+        setApiKeyStatus(data);
+      }
+    } catch (error) {
+      console.error('Error checking API key status:', error);
+    }
+  };
+
+  const saveApiKey = async () => {
+    if (!apiKey.trim()) {
+      setError('Please enter an API key');
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/admin/image-generation/api-key', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ apiKey: apiKey.trim() }),
+      });
+
+      if (response.ok) {
+        setShowApiKeyDialog(false);
+        setApiKey('');
+        await checkApiKeyStatus();
+        setError(null);
+      } else {
+        const errorData = await response.json();
+        setError(errorData.error || 'Failed to save API key');
+      }
+    } catch (error) {
+      setError('Failed to save API key');
+    }
+  };
+
+  const removeApiKey = async () => {
+    try {
+      const response = await fetch('/api/admin/image-generation/api-key', {
+        method: 'DELETE',
+      });
+
+      if (response.ok) {
+        await checkApiKeyStatus();
+        setError(null);
+      } else {
+        const errorData = await response.json();
+        setError(errorData.error || 'Failed to remove API key');
+      }
+    } catch (error) {
+      setError('Failed to remove API key');
+    }
+  };
+
+  // Check API key status on component mount
+  React.useEffect(() => {
+    checkApiKeyStatus();
+  }, []);
+
   const generateImage = async () => {
     if (!config.prompt.trim()) {
       setError('Please enter a prompt');
+      return;
+    }
+
+    if (!apiKeyStatus.hasKey) {
+      setError('OpenAI API key not configured. Please add your API key first.');
+      setShowApiKeyDialog(true);
       return;
     }
 
@@ -180,9 +257,39 @@ export default function ImageGeneratorTab() {
         <Grid item xs={12} md={6}>
           <Card>
             <CardContent>
-              <Typography variant="h6" gutterBottom>
-                Configuration
-              </Typography>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                <Typography variant="h6">
+                  Configuration
+                </Typography>
+                <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                  {apiKeyStatus.hasKey ? (
+                    <>
+                      <Alert severity="success" sx={{ py: 0, px: 1 }}>
+                        API Key: {apiKeyStatus.maskedKey}
+                      </Alert>
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        color="error"
+                        onClick={removeApiKey}
+                      >
+                        Remove
+                      </Button>
+                    </>
+                  ) : (
+                    <Alert severity="warning" sx={{ py: 0, px: 1 }}>
+                      No API Key
+                    </Alert>
+                  )}
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    onClick={() => setShowApiKeyDialog(true)}
+                  >
+                    {apiKeyStatus.hasKey ? 'Update' : 'Add'} API Key
+                  </Button>
+                </Box>
+              </Box>
               
               <TextField
                 fullWidth
@@ -430,6 +537,50 @@ export default function ImageGeneratorTab() {
           </Card>
         </Grid>
       </Grid>
+
+      {/* API Key Dialog */}
+      <Dialog open={showApiKeyDialog} onClose={() => setShowApiKeyDialog(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>
+          {apiKeyStatus.hasKey ? 'Update OpenAI API Key' : 'Add OpenAI API Key'}
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Enter your OpenAI API key to enable image generation. Your key will be stored securely.
+          </Typography>
+          <TextField
+            fullWidth
+            label="OpenAI API Key"
+            type="password"
+            value={apiKey}
+            onChange={(e) => setApiKey(e.target.value)}
+            placeholder="sk-..."
+            sx={{ mb: 2 }}
+          />
+          {apiKeyStatus.hasKey && (
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+              Current key: {apiKeyStatus.maskedKey}
+            </Typography>
+          )}
+          <Alert severity="info" sx={{ mb: 2 }}>
+            <Typography variant="body2">
+              <strong>Note:</strong> You can get your API key from{' '}
+              <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer">
+                OpenAI Platform
+              </a>
+            </Typography>
+          </Alert>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setShowApiKeyDialog(false)}>Cancel</Button>
+          <Button 
+            onClick={saveApiKey} 
+            variant="contained"
+            disabled={!apiKey.trim()}
+          >
+            {apiKeyStatus.hasKey ? 'Update' : 'Save'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 } 
