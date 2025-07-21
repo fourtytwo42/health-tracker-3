@@ -4,54 +4,75 @@ import React, { useState, useEffect } from 'react';
 import {
   Box,
   Typography,
-  TextField,
   Button,
+  TextField,
   Card,
   CardContent,
   Grid,
-  Chip,
-  IconButton,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  Slider,
-  Pagination,
+  FormControlLabel,
+  Checkbox,
+  IconButton,
+  Chip,
   Alert,
   CircularProgress,
-  Accordion,
-  AccordionSummary,
-  AccordionDetails,
   List,
   ListItem,
   ListItemText,
   Divider,
+  Paper,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
+  ListItemButton,
+  ListItemIcon,
   Tooltip,
-  FormControlLabel,
-  Checkbox
+  Slider,
+  Pagination,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  InputAdornment,
+  Fab,
+  Badge,
 } from '@mui/material';
+import * as TabsPrimitive from '@radix-ui/react-tabs';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   Add as AddIcon,
-  Refresh as RefreshIcon,
   Favorite as FavoriteIcon,
   FavoriteBorder as FavoriteBorderIcon,
-  Search as SearchIcon,
-  FilterList as FilterIcon,
+  Close as CloseIcon,
   ExpandMore as ExpandMoreIcon,
   Restaurant as RestaurantIcon,
-  Timer as TimerIcon,
   LocalDining as LocalDiningIcon,
-  SwapHoriz as SwapIcon,
+  FitnessCenter as FitnessCenterIcon,
   TrendingUp as TrendingUpIcon,
+  ShoppingCart as ShoppingCartIcon,
+  Bookmark as BookmarkIcon,
+  BookmarkBorder as BookmarkBorderIcon,
+  Refresh as RefreshIcon,
+  Info as InfoIcon,
+  Warning as WarningIcon,
+  CheckCircle as CheckCircleIcon,
+  Error as ErrorIcon,
+  Star as StarIcon,
+  StarBorder as StarBorderIcon,
+  ThumbUp as ThumbUpIcon,
+  ThumbDown as ThumbDownIcon,
+  SwapHoriz as SwapHorizIcon,
+  Search as SearchIcon,
+  FilterList as FilterIcon,
   Delete as DeleteIcon,
-  Image as ImageIcon
+  Timer as TimerIcon,
+  Image as ImageIcon,
 } from '@mui/icons-material';
+import { useAuth } from '@/context/AuthContext';
 import { formatEggDisplay } from '@/lib/utils/unitConversion';
-import NutritionLabel from '../../components/cards/NutritionLabel';
 
 // Utility function to convert metric to cups
 const convertToCups = (amount: number, unit: string): string => {
@@ -555,7 +576,7 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
 
   const NutritionCard = ({ nutrition, servings }: { nutrition: any; servings: number }) => (
     <Box sx={{ mb: 2, display: 'flex', justifyContent: 'center' }}>
-      <NutritionLabel
+      <NutritionCard
         servings={servings}
         calories={nutrition.caloriesPerServing}
         protein={nutrition.proteinPerServing}
@@ -567,6 +588,271 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
       />
     </Box>
   );
+
+    // Simple overlay component using Radix UI Tabs
+  const RecipeOverlay = ({ recipe, onClose }: { recipe: any; onClose: () => void }) => {
+    const [activeTab, setActiveTab] = useState('instructions');
+
+    return (
+      <Box
+        sx={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0, 0, 0, 0.4)',
+          zIndex: 10,
+          display: 'flex',
+          flexDirection: 'column',
+        }}
+      >
+        {/* Close button */}
+        <IconButton
+          onClick={onClose}
+          sx={{
+            position: 'absolute',
+            top: 8,
+            right: 8,
+            color: 'white',
+            zIndex: 11,
+            background: 'rgba(0, 0, 0, 0.5)',
+            '&:hover': {
+              background: 'rgba(0, 0, 0, 0.7)',
+            },
+          }}
+        >
+          <CloseIcon />
+        </IconButton>
+
+        {/* Tabs Navigation */}
+        <TabsPrimitive.Root
+          value={activeTab}
+          onValueChange={setActiveTab}
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            height: '100%',
+            background: 'rgba(255, 255, 255, 0.95)',
+            backdropFilter: 'blur(10px)',
+          }}
+        >
+          <TabsPrimitive.List
+            style={{
+              display: 'flex',
+              borderBottom: '1px solid rgba(0, 0, 0, 0.1)',
+              background: 'rgba(255, 255, 255, 0.9)',
+            }}
+          >
+            <TabsPrimitive.Trigger
+              value="instructions"
+              style={{
+                flex: 1,
+                padding: '12px 16px',
+                border: 'none',
+                background: 'transparent',
+                cursor: 'pointer',
+                fontSize: '14px',
+                fontWeight: 'bold',
+                color: activeTab === 'instructions' ? '#1976d2' : '#666',
+                borderBottom: activeTab === 'instructions' ? '2px solid #1976d2' : '2px solid transparent',
+                transition: 'all 0.2s ease',
+              }}
+            >
+              Instructions
+            </TabsPrimitive.Trigger>
+            <TabsPrimitive.Trigger
+              value="ingredients"
+              style={{
+                flex: 1,
+                padding: '12px 16px',
+                border: 'none',
+                background: 'transparent',
+                cursor: 'pointer',
+                fontSize: '14px',
+                fontWeight: 'bold',
+                color: activeTab === 'ingredients' ? '#1976d2' : '#666',
+                borderBottom: activeTab === 'ingredients' ? '2px solid #1976d2' : '2px solid transparent',
+                transition: 'all 0.2s ease',
+              }}
+            >
+              Ingredients
+            </TabsPrimitive.Trigger>
+            <TabsPrimitive.Trigger
+              value="nutrition"
+              style={{
+                flex: 1,
+                padding: '12px 16px',
+                border: 'none',
+                background: 'transparent',
+                cursor: 'pointer',
+                fontSize: '14px',
+                fontWeight: 'bold',
+                color: activeTab === 'nutrition' ? '#1976d2' : '#666',
+                borderBottom: activeTab === 'nutrition' ? '2px solid #1976d2' : '2px solid transparent',
+                transition: 'all 0.2s ease',
+              }}
+            >
+              Nutrition
+            </TabsPrimitive.Trigger>
+          </TabsPrimitive.List>
+
+          <TabsPrimitive.Content
+            value="instructions"
+            style={{
+              flex: 1,
+              padding: '20px',
+              overflow: 'auto',
+            }}
+          >
+            <Typography variant="h6" gutterBottom>
+              Instructions
+            </Typography>
+            <Typography
+              variant="body1"
+              sx={{
+                whiteSpace: 'pre-wrap',
+                lineHeight: 1.6,
+              }}
+            >
+              {recipe.instructions}
+            </Typography>
+          </TabsPrimitive.Content>
+
+          <TabsPrimitive.Content
+            value="ingredients"
+            style={{
+              flex: 1,
+              padding: '20px',
+              overflow: 'auto',
+            }}
+          >
+            <Typography variant="h6" gutterBottom>
+              Ingredients
+            </Typography>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+              {recipe.ingredients.map((ri: any, index: number) => (
+                <Box
+                  key={ri.id}
+                  sx={{
+                    background: 'rgba(255, 255, 255, 0.9)',
+                    borderRadius: '8px',
+                    padding: 1.5,
+                    border: '1px solid rgba(255, 255, 255, 0.3)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                  }}
+                >
+                  {/* Left side - Ingredient info */}
+                  <Box sx={{ flex: 1 }}>
+                    {/* Row 1: Name and Amount */}
+                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
+                      <Typography
+                        variant="body2"
+                        sx={{
+                          fontWeight: 'bold',
+                          color: '#2c3e50',
+                          mr: 1,
+                        }}
+                      >
+                        {ri.notes || ri.ingredient.name}
+                      </Typography>
+                      <Typography
+                        variant="caption"
+                        sx={{
+                          color: '#666',
+                        }}
+                      >
+                        {formatEggDisplay(ri.amount, ri.unit, recipe.scalingFactor || 1, ri.ingredient.name, ri.ingredient.servingSize, ri.notes)} • {ri.ingredient.name}
+                      </Typography>
+                    </Box>
+
+                    {/* Row 2: Nutrition Facts */}
+                    <Typography
+                      variant="caption"
+                      sx={{
+                        color: '#666',
+                        display: 'block',
+                      }}
+                    >
+                      {Math.round(ri.amount * (ri.ingredient.calories / 100))} cal • {Math.round(ri.amount * (ri.ingredient.protein / 100))}g protein • {Math.round(ri.amount * (ri.ingredient.carbs / 100))}g carbs • {Math.round(ri.amount * (ri.ingredient.fat / 100))}g fat
+                    </Typography>
+                  </Box>
+
+                  {/* Right side - Action Buttons */}
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      gap: 0.5,
+                      ml: 1,
+                    }}
+                  >
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      onClick={() => replaceIngredient(recipe.id, ri.id, '')}
+                      sx={{ fontSize: '0.6rem', minWidth: 'auto', padding: '2px 4px' }}
+                    >
+                      Sub
+                    </Button>
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      onClick={() => handleIngredientPreference(ri.ingredient.id, 'like')}
+                      sx={{ fontSize: '0.6rem', minWidth: 'auto', padding: '2px 4px', color: 'green' }}
+                    >
+                      Like
+                    </Button>
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      onClick={() => handleIngredientPreference(ri.ingredient.id, 'dislike')}
+                      sx={{ fontSize: '0.6rem', minWidth: 'auto', padding: '2px 4px', color: 'orange' }}
+                    >
+                      Dis
+                    </Button>
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      onClick={() => handleIngredientPreference(ri.ingredient.id, 'allergy')}
+                      sx={{ fontSize: '0.6rem', minWidth: 'auto', padding: '2px 4px', color: 'red' }}
+                    >
+                      All
+                    </Button>
+                  </Box>
+                </Box>
+              ))}
+            </Box>
+          </TabsPrimitive.Content>
+
+          <TabsPrimitive.Content
+            value="nutrition"
+            style={{
+              flex: 1,
+              padding: '20px',
+              overflow: 'auto',
+            }}
+          >
+            <Typography variant="h6" gutterBottom>
+              Nutrition Facts
+            </Typography>
+            <NutritionCard
+              nutrition={{
+                caloriesPerServing: recipe.calories,
+                proteinPerServing: recipe.protein,
+                carbsPerServing: recipe.carbs,
+                fatPerServing: recipe.fat,
+                fiberPerServing: recipe.fiber,
+                sugarPerServing: recipe.sugar,
+              }}
+              servings={recipe.servings}
+            />
+          </TabsPrimitive.Content>
+        </TabsPrimitive.Root>
+      </Box>
+    );
+  };
 
   return (
     <Box sx={{ p: 3 }}>
@@ -792,115 +1078,26 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                           borderRadius: '8px'
                         }}
                       />
-                      {/* Book-style Navigation - Left Side */}
-                      <Box
+                      {/* Simple overlay trigger button */}
+                      <Button
+                        onClick={() => setSelectedRecipe(recipe)}
                         sx={{
                           position: 'absolute',
-                          left: 0,
-                          top: 0,
-                          bottom: 0,
-                          display: 'flex',
-                          flexDirection: 'row',
-                          zIndex: 10
+                          top: 8,
+                          right: 8,
+                          color: 'white',
+                          background: 'rgba(0, 0, 0, 0.7)',
+                          '&:hover': {
+                            background: 'rgba(0, 0, 0, 0.8)',
+                          },
+                          zIndex: 10,
+                          minWidth: 'auto',
+                          padding: '4px 8px',
+                          fontSize: '0.7rem',
                         }}
                       >
-                        {/* Instructions - Always on left (never moves to right) */}
-                        <Box
-                          sx={{
-                            width: '40px',
-                            height: '100%',
-                            background: expandedInstructions[recipe.id] ? 'rgba(0, 0, 0, 0.8)' : 'rgba(0, 0, 0, 0.7)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            cursor: 'pointer',
-                            transition: 'all 0.3s ease',
-                            '&:hover': {
-                              background: 'rgba(0, 0, 0, 0.8)'
-                            }
-                          }}
-                          onClick={() => toggleInstructionsExpansion(recipe.id)}
-                        >
-                          <Typography
-                            variant="caption"
-                            sx={{
-                              color: 'white',
-                              whiteSpace: 'nowrap',
-                              fontWeight: 'bold',
-                              fontSize: '0.7rem',
-                              transform: 'rotate(-90deg)'
-                            }}
-                          >
-                            Instructions
-                          </Typography>
-                        </Box>
-
-                        {/* Ingredients - On left only when instructions is active or no overlays are active */}
-                        {(!expandedIngredients[recipe.id] && !expandedNutrition[recipe.id]) && (
-                          <Box
-                            sx={{
-                              width: '40px',
-                              height: '100%',
-                              background: expandedIngredients[recipe.id] ? 'rgba(0, 0, 0, 0.8)' : 'rgba(0, 0, 0, 0.7)',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              cursor: 'pointer',
-                              transition: 'all 0.3s ease',
-                              '&:hover': {
-                                background: 'rgba(0, 0, 0, 0.8)'
-                              }
-                            }}
-                            onClick={() => toggleIngredientsExpansion(recipe.id)}
-                          >
-                            <Typography
-                              variant="caption"
-                              sx={{
-                                color: 'white',
-                                whiteSpace: 'nowrap',
-                                fontWeight: 'bold',
-                                fontSize: '0.7rem',
-                                transform: 'rotate(-90deg)'
-                              }}
-                            >
-                              Ingredients
-                            </Typography>
-                          </Box>
-                        )}
-
-                        {/* Nutrition - On left only when no overlays are active */}
-                        {!expandedIngredients[recipe.id] && !expandedNutrition[recipe.id] && (
-                          <Box
-                            sx={{
-                              width: '40px',
-                              height: '100%',
-                              background: expandedNutrition[recipe.id] ? 'rgba(0, 0, 0, 0.8)' : 'rgba(0, 0, 0, 0.7)',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              cursor: 'pointer',
-                              transition: 'all 0.3s ease',
-                              '&:hover': {
-                                background: 'rgba(0, 0, 0, 0.8)'
-                              }
-                            }}
-                            onClick={() => toggleNutritionExpansion(recipe.id)}
-                          >
-                            <Typography
-                              variant="caption"
-                              sx={{
-                                color: 'white',
-                                whiteSpace: 'nowrap',
-                                fontWeight: 'bold',
-                                fontSize: '0.7rem',
-                                transform: 'rotate(-90deg)'
-                              }}
-                            >
-                              Nutrition
-                            </Typography>
-                          </Box>
-                        )}
-                      </Box>
+                        View Details
+                      </Button>
 
                       {/* Book-style Navigation - Right Side */}
                       {(expandedNutrition[recipe.id] || expandedIngredients[recipe.id] || expandedInstructions[recipe.id]) && (
