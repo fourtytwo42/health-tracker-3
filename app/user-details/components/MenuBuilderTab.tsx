@@ -2133,23 +2133,34 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
             }}>
               {/* Image and Nutrition Section */}
               <Box sx={{ position: 'relative' }}>
+                <Box sx={{ 
+                  position: 'relative',
+                  lineHeight: 0,
+                  fontSize: 0
+                }}>
                   {recipe.photoUrl ? (
-                    <Box sx={{ 
-                      position: 'relative',
-                      lineHeight: 0,
-                      fontSize: 0
-                    }}>
-                      <img
-                        src={recipe.photoUrl}
-                        alt={recipe.name}
-                        style={{
-                          width: '100%',
-                          height: '420px',
-                          objectFit: 'cover',
-                          borderRadius: '8px',
-                          display: 'block'
-                        }}
-                      />
+                    <img
+                      src={recipe.photoUrl}
+                      alt={recipe.name}
+                      style={{
+                        width: '100%',
+                        height: '420px',
+                        objectFit: 'cover',
+                        borderRadius: '8px',
+                        display: 'block'
+                      }}
+                    />
+                  ) : (
+                    <Box
+                      sx={{
+                        width: '100%',
+                        height: '420px',
+                        backgroundColor: '#808080',
+                        borderRadius: '8px',
+                        display: 'block'
+                      }}
+                    />
+                  )}
                       
                       {/* Dimming Overlay - Behind everything, covers the entire image */}
                       {(expandedNutrition[recipe.id] || expandedIngredients[recipe.id] || expandedInstructions[recipe.id]) && (
@@ -2847,12 +2858,7 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                           </Box>
                         </Box>
                       </Box>
-
-
-
                     </Box>
-                  ) : (
-                    <NutritionDisplay nutrition={recipe.nutrition} servings={recipe.servings} />
                   )}
                 </Box>
 
