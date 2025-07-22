@@ -84,7 +84,6 @@ interface IngredientsTabProps {
   loadIngredients: (page: number, size: number) => Promise<void>;
   setPageSize: (size: number) => void;
   setCurrentPage: (page: number) => void;
-  setCsvImportDialogOpen: (open: boolean) => void;
 }
 
 export default function IngredientsTab({
@@ -121,8 +120,7 @@ export default function IngredientsTab({
   deleteIngredient,
   loadIngredients,
   setPageSize,
-  setCurrentPage,
-  setCsvImportDialogOpen
+  setCurrentPage
 }: IngredientsTabProps) {
   
   // AI Search state
@@ -249,94 +247,12 @@ export default function IngredientsTab({
     <Box sx={{ p: 3 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
         <Typography variant="h6">Ingredients Management</Typography>
-        <Box sx={{ display: 'flex', gap: 1 }}>
-          <Button
-            variant="outlined"
-            onClick={() => setCsvImportDialogOpen(true)}
-          >
-            Import CSV
-          </Button>
-          <Button
-            variant="outlined"
-            onClick={async () => {
-              try {
-                const response = await fetch('/api/ingredients/example', {
-                  headers: { 'Authorization': `Bearer ${localStorage.getItem('accessToken')}` }
-                });
-                if (response.ok) {
-                  const blob = await response.blob();
-                  const url = window.URL.createObjectURL(blob);
-                  const a = document.createElement('a');
-                  a.href = url;
-                  a.download = 'ingredients_example.csv';
-                  document.body.appendChild(a);
-                  a.click();
-                  window.URL.revokeObjectURL(url);
-                  document.body.removeChild(a);
-                }
-              } catch (error) {
-                console.error('Error downloading example CSV:', error);
-              }
-            }}
-          >
-            Download Example
-          </Button>
-          <Button
-            variant="outlined"
-            onClick={async () => {
-              try {
-                const response = await fetch('/api/ingredients/export', {
-                  headers: { 'Authorization': `Bearer ${localStorage.getItem('accessToken')}` }
-                });
-                if (response.ok) {
-                  const blob = await response.blob();
-                  const url = window.URL.createObjectURL(blob);
-                  const a = document.createElement('a');
-                  a.href = url;
-                  a.download = 'ingredients.csv';
-                  document.body.appendChild(a);
-                  a.click();
-                  window.URL.revokeObjectURL(url);
-                  document.body.removeChild(a);
-                }
-              } catch (error) {
-                console.error('Error exporting ingredients:', error);
-              }
-            }}
-          >
-            Export All
-          </Button>
-          <Button
-            variant="outlined"
-            color="error"
-            onClick={async () => {
-              if (!confirm('Are you sure you want to delete ALL ingredients? This action cannot be undone.')) return;
-              
-              try {
-                const response = await fetch('/api/ingredients/delete-all', {
-                  method: 'DELETE',
-                  headers: { 'Authorization': `Bearer ${localStorage.getItem('accessToken')}` }
-                });
-                if (response.ok) {
-                  await loadIngredients(1, pageSize);
-                } else {
-                  const error = await response.json();
-                  console.error(error.error || 'Failed to delete all ingredients');
-                }
-              } catch (error) {
-                console.error('Failed to delete all ingredients');
-              }
-            }}
-          >
-            Delete All
-          </Button>
-          <Button
-            variant="contained"
-            onClick={() => openIngredientDialog()}
-          >
-            Add Ingredient
-          </Button>
-        </Box>
+        <Button
+          variant="contained"
+          onClick={() => openIngredientDialog()}
+        >
+          Add Ingredient
+        </Button>
       </Box>
 
       {/* Search and Filter Section */}
