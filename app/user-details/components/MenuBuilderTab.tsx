@@ -2287,7 +2287,7 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                                       })
                                       .join('\n')
                                       .replace(/\.\s*(?=.*Step\s+\d+:?)/gi, '.<br><br>')
-                                      .replace(/\.\s*/g, '.')
+                                      .replace(/\.\s*/g, '. ')
                                   }}
                                 />
                               </Box>
