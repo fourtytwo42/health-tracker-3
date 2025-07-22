@@ -305,7 +305,7 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
   const [expandedNutrition, setExpandedNutrition] = useState<Record<string, boolean>>({});
   const [expandedIngredients, setExpandedIngredients] = useState<Record<string, boolean>>({});
   const [expandedInstructions, setExpandedInstructions] = useState<Record<string, boolean>>({});
-  const [buttonOrder, setButtonOrder] = useState<Record<string, string[]>>({});
+
   const [detailedIngredientInfo, setDetailedIngredientInfo] = useState(true);
 
   const mealTypes = [
@@ -671,18 +671,13 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
   };
 
   const toggleNutritionExpansion = (recipeId: string) => {
-    const currentOrder = buttonOrder[recipeId] || ['instructions', 'ingredients', 'nutrition'];
+    const originalOrder = ['instructions', 'ingredients', 'nutrition'];
     const isCurrentlyExpanded = expandedNutrition[recipeId];
     
     if (isCurrentlyExpanded) {
       // Button is on the right, move it and any buttons to its left back to the left
-      const nutritionIndex = currentOrder.indexOf('nutrition');
-      const buttonsToMoveLeft = currentOrder.slice(0, nutritionIndex + 1);
-      
-      setButtonOrder(prev => ({
-        ...prev,
-        [recipeId]: currentOrder.filter(btn => !buttonsToMoveLeft.includes(btn))
-      }));
+      const nutritionIndex = originalOrder.indexOf('nutrition');
+      const buttonsToMoveLeft = originalOrder.slice(0, nutritionIndex + 1);
       
       // Close the buttons that are moving back to the left
       setExpandedNutrition(prev => ({ ...prev, [recipeId]: false }));
@@ -694,13 +689,8 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
       }
     } else {
       // Button is on the left, move it and any buttons to its right to the right
-      const nutritionIndex = currentOrder.indexOf('nutrition');
-      const buttonsToMoveRight = currentOrder.slice(nutritionIndex);
-      
-      setButtonOrder(prev => ({
-        ...prev,
-        [recipeId]: currentOrder.filter(btn => !buttonsToMoveRight.includes(btn))
-      }));
+      const nutritionIndex = originalOrder.indexOf('nutrition');
+      const buttonsToMoveRight = originalOrder.slice(nutritionIndex);
       
       // Open the buttons that are moving to the right
       setExpandedNutrition(prev => ({ ...prev, [recipeId]: true }));
@@ -714,18 +704,13 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
   };
 
   const toggleIngredientsExpansion = (recipeId: string) => {
-    const currentOrder = buttonOrder[recipeId] || ['instructions', 'ingredients', 'nutrition'];
+    const originalOrder = ['instructions', 'ingredients', 'nutrition'];
     const isCurrentlyExpanded = expandedIngredients[recipeId];
     
     if (isCurrentlyExpanded) {
       // Button is on the right, move it and any buttons to its left back to the left
-      const ingredientsIndex = currentOrder.indexOf('ingredients');
-      const buttonsToMoveLeft = currentOrder.slice(0, ingredientsIndex + 1);
-      
-      setButtonOrder(prev => ({
-        ...prev,
-        [recipeId]: currentOrder.filter(btn => !buttonsToMoveLeft.includes(btn))
-      }));
+      const ingredientsIndex = originalOrder.indexOf('ingredients');
+      const buttonsToMoveLeft = originalOrder.slice(0, ingredientsIndex + 1);
       
       // Close the buttons that are moving back to the left
       setExpandedIngredients(prev => ({ ...prev, [recipeId]: false }));
@@ -734,13 +719,8 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
       }
     } else {
       // Button is on the left, move it and any buttons to its right to the right
-      const ingredientsIndex = currentOrder.indexOf('ingredients');
-      const buttonsToMoveRight = currentOrder.slice(ingredientsIndex);
-      
-      setButtonOrder(prev => ({
-        ...prev,
-        [recipeId]: currentOrder.filter(btn => !buttonsToMoveRight.includes(btn))
-      }));
+      const ingredientsIndex = originalOrder.indexOf('ingredients');
+      const buttonsToMoveRight = originalOrder.slice(ingredientsIndex);
       
       // Open the buttons that are moving to the right
       setExpandedIngredients(prev => ({ ...prev, [recipeId]: true }));
@@ -751,18 +731,13 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
   };
 
   const toggleInstructionsExpansion = (recipeId: string) => {
-    const currentOrder = buttonOrder[recipeId] || ['instructions', 'ingredients', 'nutrition'];
+    const originalOrder = ['instructions', 'ingredients', 'nutrition'];
     const isCurrentlyExpanded = expandedInstructions[recipeId];
     
     if (isCurrentlyExpanded) {
       // Button is on the right, move it and any buttons to its left back to the left
-      const instructionsIndex = currentOrder.indexOf('instructions');
-      const buttonsToMoveLeft = currentOrder.slice(0, instructionsIndex + 1);
-      
-      setButtonOrder(prev => ({
-        ...prev,
-        [recipeId]: currentOrder.filter(btn => !buttonsToMoveLeft.includes(btn))
-      }));
+      const instructionsIndex = originalOrder.indexOf('instructions');
+      const buttonsToMoveLeft = originalOrder.slice(0, instructionsIndex + 1);
       
       // Close the buttons that are moving back to the left
       setExpandedInstructions(prev => ({ ...prev, [recipeId]: false }));
@@ -774,13 +749,8 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
       }
     } else {
       // Button is on the left, move it and any buttons to its right to the right
-      const instructionsIndex = currentOrder.indexOf('instructions');
-      const buttonsToMoveRight = currentOrder.slice(instructionsIndex);
-      
-      setButtonOrder(prev => ({
-        ...prev,
-        [recipeId]: currentOrder.filter(btn => !buttonsToMoveRight.includes(btn))
-      }));
+      const instructionsIndex = originalOrder.indexOf('instructions');
+      const buttonsToMoveRight = originalOrder.slice(instructionsIndex);
       
       // Open the buttons that are moving to the right
       setExpandedInstructions(prev => ({ ...prev, [recipeId]: true }));
