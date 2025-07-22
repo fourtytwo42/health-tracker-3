@@ -2640,10 +2640,10 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                                   size="small"
                                   onClick={() => toggleFavorite(recipe.id)}
                                   sx={{
-                                    color: recipe.isFavorite ? '#ff6b6b' : 'white',
-                                    backgroundColor: recipe.isFavorite ? 'rgba(255,107,107,0.2)' : 'transparent',
+                                    color: recipe.isFavorite ? '#ffd700' : 'white',
+                                    backgroundColor: recipe.isFavorite ? 'rgba(255,215,0,0.2)' : 'transparent',
                                     '&:hover': { 
-                                      backgroundColor: recipe.isFavorite ? 'rgba(255,107,107,0.3)' : 'rgba(255,255,255,0.1)',
+                                      backgroundColor: recipe.isFavorite ? 'rgba(255,215,0,0.3)' : 'rgba(255,255,255,0.1)',
                                       transform: 'scale(1.1)'
                                     },
                                     transition: 'all 0.2s ease',
@@ -2658,9 +2658,9 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                                   size="small"
                                   onClick={() => printRecipe(recipe)}
                                   sx={{
-                                    color: 'white',
+                                    color: '#808080',
                                     '&:hover': { 
-                                      backgroundColor: 'rgba(255,255,255,0.1)',
+                                      backgroundColor: 'rgba(128,128,128,0.2)',
                                       transform: 'scale(1.1)'
                                     },
                                     transition: 'all 0.2s ease',
@@ -2675,9 +2675,9 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                                   size="small"
                                   onClick={() => deleteRecipe(recipe.id)}
                                   sx={{
-                                    color: 'white',
+                                    color: '#ff4444',
                                     '&:hover': { 
-                                      backgroundColor: 'rgba(255,107,107,0.2)',
+                                      backgroundColor: 'rgba(255,68,68,0.2)',
                                       transform: 'scale(1.1)'
                                     },
                                     transition: 'all 0.2s ease',
