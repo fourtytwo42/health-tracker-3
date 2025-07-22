@@ -2552,84 +2552,73 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                                 </Box>
                                 {/* Badges Row (only this, remove any other badge rows below) */}
                                 <Box sx={{ display: 'flex', gap: 0.5, mb: 0.5 }}>
-                                  <Box
-                                    sx={{
-                                      backgroundColor: '#ffd700',
-                                      borderRadius: '16px',
-                                      padding: '2px 8px',
-                                      display: 'flex',
-                                      alignItems: 'center',
-                                      gap: 0.5,
-                                      fontSize: '0.7rem',
-                                      minWidth: 0
-                                    }}
-                                  >
-                                    <Typography sx={{ fontSize: '0.65rem', fontWeight: 'bold', color: '#000' }}>
-                                      {recipe.mealType.charAt(0)}
-                                    </Typography>
-                                    <Typography
+                                  <Tooltip title={recipe.mealType.charAt(0).toUpperCase() + recipe.mealType.slice(1)}>
+                                    <Box
                                       sx={{
-                                        fontWeight: 'bold',
-                                        color: '#000',
+                                        backgroundColor: '#ffd700',
+                                        borderRadius: '16px',
+                                        padding: '2px 8px',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: 0.5,
                                         fontSize: '0.7rem',
-                                        letterSpacing: 0.5
+                                        minWidth: 0,
+                                        cursor: 'help'
                                       }}
                                     >
-                                      {recipe.mealType.toUpperCase()}
-                                    </Typography>
-                                  </Box>
-                                  <Box
-                                    sx={{
-                                      backgroundColor: '#4CAF50',
-                                      borderRadius: '16px',
-                                      padding: '2px 8px',
-                                      display: 'flex',
-                                      alignItems: 'center',
-                                      gap: 0.5,
-                                      fontSize: '0.7rem',
-                                      minWidth: 0
-                                    }}
-                                  >
-                                    <Typography sx={{ fontSize: '0.65rem', fontWeight: 'bold', color: 'white' }}>
-                                      {recipe.servings}
-                                    </Typography>
-                                    <Typography
+                                      <Typography sx={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#000' }}>
+                                        {recipe.mealType.charAt(0).toUpperCase()}
+                                      </Typography>
+                                    </Box>
+                                  </Tooltip>
+                                  <Tooltip title={`${recipe.servings} serving${recipe.servings > 1 ? 's' : ''}`}>
+                                    <Box
                                       sx={{
-                                        color: 'white',
-                                        fontWeight: 'medium',
+                                        backgroundColor: '#4CAF50',
+                                        borderRadius: '16px',
+                                        padding: '2px 8px',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: 0.5,
                                         fontSize: '0.7rem',
-                                        letterSpacing: 0.5
+                                        minWidth: 0,
+                                        cursor: 'help'
                                       }}
                                     >
-                                      serving{recipe.servings > 1 ? 's' : ''}
-                                    </Typography>
-                                  </Box>
-                                  <Box
-                                    sx={{
-                                      backgroundColor: '#2196F3',
-                                      borderRadius: '16px',
-                                      padding: '2px 8px',
-                                      display: 'flex',
-                                      alignItems: 'center',
-                                      gap: 0.5,
-                                      fontSize: '0.7rem',
-                                      minWidth: 0
-                                    }}
-                                  >
-                                    <Typography sx={{ fontSize: '0.65rem', fontWeight: 'bold', color: 'white' }}>
-                                      ⏱
-                                    </Typography>
-                                    <Typography
+                                      <Typography sx={{ fontSize: '0.8rem', fontWeight: 'bold', color: 'white' }}>
+                                        {recipe.servings}
+                                      </Typography>
+                                    </Box>
+                                  </Tooltip>
+                                  <Tooltip title={`${recipe.totalTime || ((recipe.prepTime || 0) + (recipe.cookTime || 0)) || 45} minutes`}>
+                                    <Box
                                       sx={{
-                                        color: 'white',
-                                        fontWeight: 'medium',
+                                        backgroundColor: '#2196F3',
+                                        borderRadius: '16px',
+                                        padding: '2px 8px',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: 0.5,
                                         fontSize: '0.7rem',
-                                        letterSpacing: 0.5
+                                        minWidth: 0,
+                                        cursor: 'help'
                                       }}
                                     >
-                                      {recipe.totalTime || ((recipe.prepTime || 0) + (recipe.cookTime || 0)) || 45} min
-                                    </Typography>
-                                  </Box>
+                                      <Typography sx={{ fontSize: '0.65rem', fontWeight: 'bold', color: 'white' }}>
+                                        ⏱
+                                      </Typography>
+                                      <Typography
+                                        sx={{
+                                          color: 'white',
+                                          fontWeight: 'medium',
+                                          fontSize: '0.8rem',
+                                          letterSpacing: 0.5
+                                        }}
+                                      >
+                                        {recipe.totalTime || ((recipe.prepTime || 0) + (recipe.cookTime || 0)) || 45}
+                                      </Typography>
+                                    </Box>
+                                  </Tooltip>
                                 </Box>
                               </Box>
                               {/* Action Icons - Separate Section, ensure clickable */}
