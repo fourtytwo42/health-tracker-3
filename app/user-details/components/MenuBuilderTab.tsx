@@ -917,8 +917,35 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
     printWindow.document.write(printContent);
     printWindow.document.close();
     printWindow.focus();
-    printWindow.print();
-    printWindow.close();
+    
+    // Wait for the content to load before printing
+    printWindow.onload = () => {
+      try {
+        printWindow.print();
+        // Close the window after a delay to allow the print dialog to appear
+        setTimeout(() => {
+          printWindow.close();
+        }, 1000);
+      } catch (error) {
+        console.error('Print failed:', error);
+        printWindow.close();
+      }
+    };
+    
+    // Fallback if onload doesn't fire
+    setTimeout(() => {
+      if (!printWindow.closed) {
+        try {
+          printWindow.print();
+          setTimeout(() => {
+            printWindow.close();
+          }, 1000);
+        } catch (error) {
+          console.error('Print failed:', error);
+          printWindow.close();
+        }
+      }
+    }, 500);
   };
 
   const toggleNutritionExpansion = (recipeId: string) => {
