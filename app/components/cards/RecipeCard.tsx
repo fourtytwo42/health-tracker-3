@@ -311,7 +311,7 @@ export default function RecipeCard({
               <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
                 <Typography variant="subtitle2" color="text.secondary" sx={{ flexGrow: 1 }}>
                   Nutrition Facts
-                </Typography>
+              </Typography>
                 {scalingApplied && targetCalories && (
                   <Chip 
                     label={`Generated for ${targetCalories} cal`} 
@@ -434,11 +434,11 @@ export default function RecipeCard({
                                 );
                                 console.log(`🔍 Egg display result:`, displayText);
                                 
-                                return (
-                                  <Typography variant="body2" color="text.secondary" fontWeight="medium">
+                                  return (
+                                    <Typography variant="body2" color="text.secondary" fontWeight="medium">
                                     ({displayText})
-                                  </Typography>
-                                );
+                                    </Typography>
+                                  );
                               })()}
                             </Box>
                             

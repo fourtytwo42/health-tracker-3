@@ -1075,7 +1075,7 @@ RESPONSE FORMAT: Return ONLY a JSON object with this exact structure:
     "sodium": number
   },
   "reasoning": "Brief explanation of why this ingredient is the best match"
-}
+  }
 
 IMPORTANT: Return ONLY the JSON object, no additional text or formatting.`;
 
@@ -1137,10 +1137,10 @@ IMPORTANT: Return ONLY the JSON object, no additional text or formatting.`;
             
             if (fallbackMatch) {
               console.log('Found fallback match by name:', fallbackMatch.name);
-              return {
-                success: true,
-                data: {
-                  searchTerm: args.search_term,
+            return {
+              success: true,
+              data: {
+                searchTerm: args.search_term,
                   bestMatch: fallbackMatch,
                   reasoning: aiResult.reasoning || 'AI selected this ingredient as the best match (found by name)',
                   totalCandidates: topResults.length,

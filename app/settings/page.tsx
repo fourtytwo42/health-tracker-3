@@ -18,7 +18,7 @@ import {
   ListItemText,
   ListItemSecondaryAction,
 } from '@mui/material';
-import { Save, Notifications, Security, Language, Palette } from '@mui/icons-material';
+import { Save, Notifications, Security, Language, Palette, Restaurant } from '@mui/icons-material';
 
 interface Settings {
   notifications: {
@@ -35,6 +35,9 @@ interface Settings {
   appearance: {
     theme: 'light' | 'dark' | 'auto';
     language: string;
+  };
+  recipe: {
+    detailedIngredientInfo: boolean;
   };
 }
 
@@ -54,6 +57,9 @@ export default function SettingsPage() {
     appearance: {
       theme: 'auto',
       language: 'en',
+    },
+    recipe: {
+      detailedIngredientInfo: true,
     },
   });
   const [loading, setLoading] = useState(true);
@@ -81,7 +87,31 @@ export default function SettingsPage() {
 
       if (response.ok) {
         const data = await response.json();
-        setSettings(data.settings);
+        // Merge with default settings to ensure all properties exist
+        setSettings({
+          notifications: {
+            email: true,
+            push: true,
+            mealReminders: true,
+            goalReminders: true,
+            ...data.settings?.notifications
+          },
+          privacy: {
+            profileVisible: true,
+            leaderboardVisible: true,
+            dataSharing: false,
+            ...data.settings?.privacy
+          },
+          appearance: {
+            theme: 'auto',
+            language: 'en',
+            ...data.settings?.appearance
+          },
+          recipe: {
+            detailedIngredientInfo: true,
+            ...data.settings?.recipe
+          }
+        });
       }
     } catch (error) {
       console.error('Error loading settings:', error);
@@ -114,6 +144,8 @@ export default function SettingsPage() {
 
       if (response.ok) {
         setSuccess('Settings saved successfully');
+        // Also save to localStorage for immediate access
+        localStorage.setItem('userSettings', JSON.stringify(settings));
       } else {
         const errorData = await response.json();
         setError(errorData.error || 'Failed to save settings');
@@ -142,6 +174,16 @@ export default function SettingsPage() {
       privacy: {
         ...prev.privacy,
         [key]: !prev.privacy[key],
+      },
+    }));
+  };
+
+  const handleRecipeChange = (key: keyof Settings['recipe']) => {
+    setSettings(prev => ({
+      ...prev,
+      recipe: {
+        ...prev.recipe,
+        [key]: !prev.recipe[key],
       },
     }));
   };
@@ -281,6 +323,31 @@ export default function SettingsPage() {
                     edge="end"
                     checked={settings.privacy.dataSharing}
                     onChange={() => handlePrivacyChange('dataSharing')}
+                  />
+                </ListItemSecondaryAction>
+              </ListItem>
+            </List>
+          </Box>
+
+          <Divider sx={{ my: 3 }} />
+
+          {/* Recipe Section */}
+          <Box sx={{ mb: 3 }}>
+            <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+              <Restaurant sx={{ mr: 1 }} />
+              Recipe Settings
+            </Typography>
+            <List>
+              <ListItem>
+                <ListItemText
+                  primary="Detailed Ingredient Information"
+                  secondary="Show database names, categories, and aisles for ingredients"
+                />
+                <ListItemSecondaryAction>
+                  <Switch
+                    edge="end"
+                    checked={settings.recipe.detailedIngredientInfo}
+                    onChange={() => handleRecipeChange('detailedIngredientInfo')}
                   />
                 </ListItemSecondaryAction>
               </ListItem>

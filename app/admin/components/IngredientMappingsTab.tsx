@@ -232,11 +232,11 @@ export default function IngredientMappingsTab() {
               <Grid item xs={12} md={6}>
                 <FormControl fullWidth>
                   <InputLabel>Ingredient</InputLabel>
-                  <Select
-                    value={formData.ingredientId}
+                <Select
+                  value={formData.ingredientId}
                     onChange={(e) => setFormData({ ...formData, ingredientId: e.target.value })}
                     label="Ingredient"
-                  >
+                >
                     {ingredients.map((ingredient) => (
                       <MenuItem key={ingredient.id} value={ingredient.id}>
                         {ingredient.name}
@@ -247,32 +247,32 @@ export default function IngredientMappingsTab() {
                         )}
                       </MenuItem>
                     ))}
-                  </Select>
+                </Select>
                 </FormControl>
               </Grid>
               <Grid item xs={12}>
                 <FormControlLabel
                   control={
-                    <Switch
-                      checked={formData.isActive}
+              <Switch
+                checked={formData.isActive}
                       onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
-                    />
+              />
                   }
                   label="Active"
                 />
               </Grid>
               <Grid item xs={12}>
                 <Box display="flex" gap={1}>
-                  <Button
+              <Button
                     variant="contained"
-                    onClick={editingMapping ? handleUpdateMapping : handleCreateMapping}
-                    disabled={!formData.keyword || !formData.ingredientId}
-                  >
-                    {editingMapping ? 'Update' : 'Create'}
-                  </Button>
+                onClick={editingMapping ? handleUpdateMapping : handleCreateMapping}
+                disabled={!formData.keyword || !formData.ingredientId}
+              >
+                {editingMapping ? 'Update' : 'Create'}
+              </Button>
                   <Button variant="outlined" onClick={handleCancel}>
-                    Cancel
-                  </Button>
+                Cancel
+              </Button>
                 </Box>
               </Grid>
             </Grid>
@@ -329,7 +329,7 @@ export default function IngredientMappingsTab() {
       {filteredMappings.length === 0 && (
         <Box textAlign="center" py={4}>
           <Typography color="text.secondary">
-            {searchTerm ? 'No mappings found matching your search.' : 'No ingredient mappings found.'}
+          {searchTerm ? 'No mappings found matching your search.' : 'No ingredient mappings found.'}
           </Typography>
         </Box>
       )}

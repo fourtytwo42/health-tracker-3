@@ -74,61 +74,149 @@ import {
 import { useAuth } from '@/context/AuthContext';
 import { formatEggDisplay } from '@/lib/utils/unitConversion';
 
-// Utility function to convert metric to cups
-const convertToCups = (amount: number, unit: string): string => {
-  // Common conversion factors
-  const conversions: { [key: string]: number } = {
-    // Weight to cups (approximate)
-    'g': 0.004, // 1g ≈ 0.004 cups (varies by ingredient)
-    'kg': 4, // 1kg ≈ 4 cups
-    'oz': 0.125, // 1oz ≈ 1/8 cup
-    'lb': 2, // 1lb ≈ 2 cups
-    
-    // Volume to cups
-    'ml': 0.004, // 1ml ≈ 0.004 cups
-    'l': 4, // 1L ≈ 4 cups
-    'tbsp': 0.0625, // 1 tbsp = 1/16 cup
-    'tsp': 0.0208, // 1 tsp ≈ 1/48 cup
-    'cup': 1, // 1 cup = 1 cup
-    'cups': 1
-  };
-
-  const conversionFactor = conversions[unit.toLowerCase()] || 0.004; // Default to 0.004 for unknown units
-  const cups = amount * conversionFactor;
-
-  // Round to nearest fraction
-  if (cups < 1) {
-    // For amounts under 1 cup, round to nearest 1/8
-    const eighths = Math.round(cups * 8);
-    if (eighths === 0) return '';
-    if (eighths === 1) return '1/8 cup';
-    if (eighths === 2) return '1/4 cup';
-    if (eighths === 3) return '3/8 cup';
-    if (eighths === 4) return '1/2 cup';
-    if (eighths === 5) return '5/8 cup';
-    if (eighths === 6) return '3/4 cup';
-    if (eighths === 7) return '7/8 cup';
-    return '1 cup';
-  } else {
-    // For amounts over 1 cup, round to nearest 1/4
-    const quarters = Math.round(cups * 4);
-    const wholeCups = Math.floor(quarters / 4);
-    const remainder = quarters % 4;
-    
-    let result = '';
-    if (wholeCups > 0) {
-      result += `${wholeCups} cup${wholeCups > 1 ? 's' : ''}`;
+// Utility function to convert metric to user-friendly units
+const formatIngredientAmount = (amount: number, unit: string, ingredientName: string): string => {
+  const unitLower = unit.toLowerCase();
+  
+  // Handle eggs specifically
+  if (ingredientName.toLowerCase().includes('egg') && unitLower === 'g') {
+    const eggQuantity = Math.round(amount / 50);
+    if (eggQuantity > 0) {
+      return `${eggQuantity} ${eggQuantity === 1 ? 'egg' : 'eggs'}`;
     }
-    
-    if (remainder > 0) {
-      if (result) result += ' ';
-      if (remainder === 1) result += '1/4';
-      else if (remainder === 2) result += '1/2';
-      else if (remainder === 3) result += '3/4';
-    }
-    
-    return result;
   }
+  
+  // Handle volume conversions (ml)
+  if (unitLower === 'ml') {
+    if (amount >= 236) { // 1 cup = 236.588 ml
+      const cups = amount / 236.588;
+      if (cups >= 1) {
+        const wholeCups = Math.floor(cups);
+        const remainder = cups - wholeCups;
+        if (remainder === 0) {
+          return `${wholeCups} cup${wholeCups > 1 ? 's' : ''}`;
+        } else if (remainder < 0.125) {
+          return `${wholeCups} cup${wholeCups > 1 ? 's' : ''}`;
+        } else if (remainder < 0.25) {
+          return `${wholeCups} 1/4 cup${wholeCups > 1 ? 's' : ''}`;
+        } else if (remainder < 0.375) {
+          return `${wholeCups} 1/3 cup${wholeCups > 1 ? 's' : ''}`;
+        } else if (remainder < 0.5) {
+          return `${wholeCups} 3/8 cup${wholeCups > 1 ? 's' : ''}`;
+        } else if (remainder < 0.625) {
+          return `${wholeCups} 1/2 cup${wholeCups > 1 ? 's' : ''}`;
+        } else if (remainder < 0.75) {
+          return `${wholeCups} 5/8 cup${wholeCups > 1 ? 's' : ''}`;
+        } else if (remainder < 0.875) {
+          return `${wholeCups} 3/4 cup${wholeCups > 1 ? 's' : ''}`;
+  } else {
+          return `${wholeCups + 1} cup${wholeCups + 1 > 1 ? 's' : ''}`;
+        }
+      } else {
+        // Less than 1 cup
+        if (cups >= 0.5) {
+          return '1/2 cup';
+        } else if (cups >= 0.33) {
+          return '1/3 cup';
+        } else if (cups >= 0.25) {
+          return '1/4 cup';
+        } else if (cups >= 0.125) {
+          return '1/8 cup';
+        }
+      }
+    }
+    
+    // Convert to tablespoons and teaspoons (only if less than 1/8 cup)
+    if (amount >= 15 && amount < 30) { // 1 tbsp = 14.787 ml, 1/8 cup = 30ml
+      const tbsp = Math.round(amount / 14.787);
+      if (tbsp === 1) {
+        return '1 tbsp';
+      } else {
+        return `${tbsp} tbsp`;
+      }
+    } else if (amount >= 5 && amount < 15) { // 1 tsp = 4.929 ml, 1 tbsp = 15ml
+      const tsp = Math.round(amount / 4.929);
+      if (tsp === 1) {
+        return '1 tsp';
+      } else {
+        return `${tsp} tsp`;
+      }
+    } else if (amount >= 1 && amount < 5) {
+      // Very small amounts
+      return `${Math.round(amount)} ml`;
+    }
+  }
+  
+  // Handle weight conversions (grams)
+  if (unitLower === 'g') {
+    // For flour, sugar, salt, baking ingredients - convert to cups
+    if (ingredientName.toLowerCase().includes('flour') || 
+        ingredientName.toLowerCase().includes('sugar') ||
+        ingredientName.toLowerCase().includes('salt') ||
+        ingredientName.toLowerCase().includes('baking') ||
+        ingredientName.toLowerCase().includes('powder') ||
+        ingredientName.toLowerCase().includes('soda')) {
+      
+      const cups = amount / 120; // ~120g per cup for most dry ingredients
+      if (cups >= 1) {
+        const wholeCups = Math.floor(cups);
+        const remainder = cups - wholeCups;
+        if (remainder === 0) {
+          return `${wholeCups} cup${wholeCups > 1 ? 's' : ''}`;
+        } else if (remainder < 0.125) {
+          return `${wholeCups} cup${wholeCups > 1 ? 's' : ''}`;
+        } else if (remainder < 0.25) {
+          return `${wholeCups} 1/4 cup${wholeCups > 1 ? 's' : ''}`;
+        } else if (remainder < 0.375) {
+          return `${wholeCups} 1/3 cup${wholeCups > 1 ? 's' : ''}`;
+        } else if (remainder < 0.5) {
+          return `${wholeCups} 3/8 cup${wholeCups > 1 ? 's' : ''}`;
+        } else if (remainder < 0.625) {
+          return `${wholeCups} 1/2 cup${wholeCups > 1 ? 's' : ''}`;
+        } else if (remainder < 0.75) {
+          return `${wholeCups} 5/8 cup${wholeCups > 1 ? 's' : ''}`;
+        } else if (remainder < 0.875) {
+          return `${wholeCups} 3/4 cup${wholeCups > 1 ? 's' : ''}`;
+        } else {
+          return `${wholeCups + 1} cup${wholeCups + 1 > 1 ? 's' : ''}`;
+        }
+      } else {
+        // Less than 1 cup
+        if (cups >= 0.5) {
+          return '1/2 cup';
+        } else if (cups >= 0.33) {
+          return '1/3 cup';
+        } else if (cups >= 0.25) {
+          return '1/4 cup';
+        } else if (cups >= 0.125) {
+          return '1/8 cup';
+        }
+      }
+    }
+    
+    // For other ingredients, try to convert to tablespoons/teaspoons (only if less than 1/8 cup)
+    if (amount >= 15 && amount < 30) { // 1 tbsp ≈ 15g, 1/8 cup ≈ 15g
+      const tbsp = Math.round(amount / 15);
+      if (tbsp === 1) {
+        return '1 tbsp';
+      } else {
+        return `${tbsp} tbsp`;
+      }
+    } else if (amount >= 5 && amount < 15) { // 1 tsp ≈ 5g, 1 tbsp ≈ 15g
+      const tsp = Math.round(amount / 5);
+      if (tsp === 1) {
+        return '1 tsp';
+      } else {
+        return `${tsp} tsp`;
+      }
+    } else if (amount >= 1 && amount < 5) {
+      // Very small amounts - use "pinch"
+      return 'pinch';
+    }
+  }
+  
+  // Fallback to original format
+  return `${Math.round(amount)} ${unit}`;
 };
 
 interface Recipe {
@@ -217,6 +305,8 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
   const [expandedNutrition, setExpandedNutrition] = useState<Record<string, boolean>>({});
   const [expandedIngredients, setExpandedIngredients] = useState<Record<string, boolean>>({});
   const [expandedInstructions, setExpandedInstructions] = useState<Record<string, boolean>>({});
+  const [buttonOrder, setButtonOrder] = useState<Record<string, string[]>>({});
+  const [detailedIngredientInfo, setDetailedIngredientInfo] = useState(true);
 
   const mealTypes = [
     { value: 'breakfast', label: 'Breakfast' },
@@ -293,7 +383,65 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
 
   useEffect(() => {
     loadRecipes();
+    loadUserSettings();
   }, [currentPage, searchQuery, filterMealType, filterFavorite]);
+
+  // Reload settings when window gains focus or becomes visible (e.g., when navigating back from settings)
+  useEffect(() => {
+    const handleFocus = () => {
+      loadUserSettings();
+    };
+
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        loadUserSettings();
+      }
+    };
+
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, []);
+
+  const loadUserSettings = async () => {
+    try {
+      // First check localStorage for immediate access
+      const localSettings = localStorage.getItem('userSettings');
+      if (localSettings) {
+        try {
+          const parsed = JSON.parse(localSettings);
+          if (parsed.recipe?.detailedIngredientInfo !== undefined) {
+            setDetailedIngredientInfo(parsed.recipe.detailedIngredientInfo);
+            return; // Use local settings if available
+          }
+        } catch (e) {
+          console.error('Error parsing local settings:', e);
+        }
+      }
+
+      // Fallback to API
+      const token = localStorage.getItem('accessToken');
+      if (!token) return;
+
+      const response = await fetch('/api/settings/user', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setDetailedIngredientInfo(data.settings?.recipe?.detailedIngredientInfo ?? true);
+      } else {
+        // Fallback to default if API fails
+        setDetailedIngredientInfo(true);
+      }
+    } catch (error) {
+      console.error('Error loading user settings:', error);
+    }
+  };
 
   const loadRecipes = async () => {
     try {
@@ -523,38 +671,125 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
   };
 
   const toggleNutritionExpansion = (recipeId: string) => {
-    setExpandedNutrition(prev => ({
-      ...prev,
-      [recipeId]: !prev[recipeId]
-    }));
-    // Close other tabs when opening nutrition
-    if (!expandedNutrition[recipeId]) {
-      setExpandedIngredients(prev => ({ ...prev, [recipeId]: false }));
-      setExpandedInstructions(prev => ({ ...prev, [recipeId]: false }));
+    const currentOrder = buttonOrder[recipeId] || ['instructions', 'ingredients', 'nutrition'];
+    const isCurrentlyExpanded = expandedNutrition[recipeId];
+    
+    if (isCurrentlyExpanded) {
+      // Button is on the right, move it and any buttons to its left back to the left
+      const nutritionIndex = currentOrder.indexOf('nutrition');
+      const buttonsToMoveLeft = currentOrder.slice(0, nutritionIndex + 1);
+      
+      setButtonOrder(prev => ({
+        ...prev,
+        [recipeId]: currentOrder.filter(btn => !buttonsToMoveLeft.includes(btn))
+      }));
+      
+      // Close the buttons that are moving back to the left
+      setExpandedNutrition(prev => ({ ...prev, [recipeId]: false }));
+      if (buttonsToMoveLeft.includes('ingredients')) {
+        setExpandedIngredients(prev => ({ ...prev, [recipeId]: false }));
+      }
+      if (buttonsToMoveLeft.includes('instructions')) {
+        setExpandedInstructions(prev => ({ ...prev, [recipeId]: false }));
+      }
+    } else {
+      // Button is on the left, move it and any buttons to its right to the right
+      const nutritionIndex = currentOrder.indexOf('nutrition');
+      const buttonsToMoveRight = currentOrder.slice(nutritionIndex);
+      
+      setButtonOrder(prev => ({
+        ...prev,
+        [recipeId]: currentOrder.filter(btn => !buttonsToMoveRight.includes(btn))
+      }));
+      
+      // Open the buttons that are moving to the right
+      setExpandedNutrition(prev => ({ ...prev, [recipeId]: true }));
+      if (buttonsToMoveRight.includes('ingredients')) {
+        setExpandedIngredients(prev => ({ ...prev, [recipeId]: true }));
+      }
+      if (buttonsToMoveRight.includes('instructions')) {
+        setExpandedInstructions(prev => ({ ...prev, [recipeId]: true }));
+      }
     }
   };
 
   const toggleIngredientsExpansion = (recipeId: string) => {
-    setExpandedIngredients(prev => ({
-      ...prev,
-      [recipeId]: !prev[recipeId]
-    }));
-    // Close other tabs when opening ingredients
-    if (!expandedIngredients[recipeId]) {
-      setExpandedNutrition(prev => ({ ...prev, [recipeId]: false }));
-      setExpandedInstructions(prev => ({ ...prev, [recipeId]: false }));
+    const currentOrder = buttonOrder[recipeId] || ['instructions', 'ingredients', 'nutrition'];
+    const isCurrentlyExpanded = expandedIngredients[recipeId];
+    
+    if (isCurrentlyExpanded) {
+      // Button is on the right, move it and any buttons to its left back to the left
+      const ingredientsIndex = currentOrder.indexOf('ingredients');
+      const buttonsToMoveLeft = currentOrder.slice(0, ingredientsIndex + 1);
+      
+      setButtonOrder(prev => ({
+        ...prev,
+        [recipeId]: currentOrder.filter(btn => !buttonsToMoveLeft.includes(btn))
+      }));
+      
+      // Close the buttons that are moving back to the left
+      setExpandedIngredients(prev => ({ ...prev, [recipeId]: false }));
+      if (buttonsToMoveLeft.includes('instructions')) {
+        setExpandedInstructions(prev => ({ ...prev, [recipeId]: false }));
+      }
+    } else {
+      // Button is on the left, move it and any buttons to its right to the right
+      const ingredientsIndex = currentOrder.indexOf('ingredients');
+      const buttonsToMoveRight = currentOrder.slice(ingredientsIndex);
+      
+      setButtonOrder(prev => ({
+        ...prev,
+        [recipeId]: currentOrder.filter(btn => !buttonsToMoveRight.includes(btn))
+      }));
+      
+      // Open the buttons that are moving to the right
+      setExpandedIngredients(prev => ({ ...prev, [recipeId]: true }));
+      if (buttonsToMoveRight.includes('nutrition')) {
+        setExpandedNutrition(prev => ({ ...prev, [recipeId]: true }));
+      }
     }
   };
 
   const toggleInstructionsExpansion = (recipeId: string) => {
-    setExpandedInstructions(prev => ({
-      ...prev,
-      [recipeId]: !prev[recipeId]
-    }));
-    // Close other tabs when opening instructions
-    if (!expandedInstructions[recipeId]) {
-      setExpandedNutrition(prev => ({ ...prev, [recipeId]: false }));
-      setExpandedIngredients(prev => ({ ...prev, [recipeId]: false }));
+    const currentOrder = buttonOrder[recipeId] || ['instructions', 'ingredients', 'nutrition'];
+    const isCurrentlyExpanded = expandedInstructions[recipeId];
+    
+    if (isCurrentlyExpanded) {
+      // Button is on the right, move it and any buttons to its left back to the left
+      const instructionsIndex = currentOrder.indexOf('instructions');
+      const buttonsToMoveLeft = currentOrder.slice(0, instructionsIndex + 1);
+      
+      setButtonOrder(prev => ({
+        ...prev,
+        [recipeId]: currentOrder.filter(btn => !buttonsToMoveLeft.includes(btn))
+      }));
+      
+      // Close the buttons that are moving back to the left
+      setExpandedInstructions(prev => ({ ...prev, [recipeId]: false }));
+      if (buttonsToMoveLeft.includes('ingredients')) {
+        setExpandedIngredients(prev => ({ ...prev, [recipeId]: false }));
+      }
+      if (buttonsToMoveLeft.includes('nutrition')) {
+        setExpandedNutrition(prev => ({ ...prev, [recipeId]: false }));
+      }
+    } else {
+      // Button is on the left, move it and any buttons to its right to the right
+      const instructionsIndex = currentOrder.indexOf('instructions');
+      const buttonsToMoveRight = currentOrder.slice(instructionsIndex);
+      
+      setButtonOrder(prev => ({
+        ...prev,
+        [recipeId]: currentOrder.filter(btn => !buttonsToMoveRight.includes(btn))
+      }));
+      
+      // Open the buttons that are moving to the right
+      setExpandedInstructions(prev => ({ ...prev, [recipeId]: true }));
+      if (buttonsToMoveRight.includes('ingredients')) {
+        setExpandedIngredients(prev => ({ ...prev, [recipeId]: true }));
+      }
+      if (buttonsToMoveRight.includes('nutrition')) {
+        setExpandedNutrition(prev => ({ ...prev, [recipeId]: true }));
+      }
     }
   };
 
@@ -580,6 +815,303 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
     }
   };
 
+  const IngredientsDisplay = ({ ingredients, scalingFactor = 1 }: { ingredients: any[]; scalingFactor?: number }) => {
+    const [expandedIngredients, setExpandedIngredients] = useState<Record<string, boolean>>({});
+
+    const toggleIngredientExpansion = (ingredientId: string) => {
+      setExpandedIngredients(prev => ({
+        ...prev,
+        [ingredientId]: !prev[ingredientId]
+      }));
+    };
+
+    if (!ingredients || ingredients.length === 0) {
+      return (
+        <Box sx={{ mb: 2, display: 'flex', justifyContent: 'center' }}>
+          <Typography variant="body2" sx={{ color: 'white', textShadow: '1px 1px 2px rgba(0,0,0,0.8)' }}>
+            No ingredients available
+          </Typography>
+        </Box>
+      );
+    }
+
+    return (
+      <Box sx={{ mb: 2, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+        {/* Header */}
+        <Box sx={{ mb: 0.5, textAlign: 'center' }}>
+          <Typography variant="body2" sx={{
+            fontWeight: 'bold',
+            fontSize: '1.2rem',
+            mb: 0.25,
+            color: 'white',
+            textShadow: '2px 2px 4px rgba(0,0,0,0.9)',
+            textAlign: 'center'
+          }}>
+            Ingredients
+          </Typography>
+        </Box>
+
+        {/* Ingredients List */}
+        <Box sx={{
+          border: '2px solid rgba(255,255,255,0.7)',
+          borderRadius: 1,
+          overflow: 'auto',
+          minWidth: '450px',
+          maxWidth: '500px',
+          backgroundColor: 'rgba(255,255,255,0.1)',
+          maxHeight: '300px',
+          alignSelf: 'center',
+          '&::-webkit-scrollbar': {
+            display: 'none'
+          },
+          scrollbarWidth: 'none',
+          msOverflowStyle: 'none'
+        }}>
+          {ingredients.map((ri: any, index: number) => {
+            const scaledAmount = ri.amount * scalingFactor;
+            const scaledCalories = Math.round(scaledAmount * (ri.ingredient.calories / 100));
+            const scaledProtein = Math.round(scaledAmount * (ri.ingredient.protein / 100));
+            const scaledCarbs = Math.round(scaledAmount * (ri.ingredient.carbs / 100));
+            const scaledFat = Math.round(scaledAmount * (ri.ingredient.fat / 100));
+            const isExpanded = expandedIngredients[ri.id];
+
+            return (
+              <Box key={ri.id}>
+                                {/* Main Ingredient Row */}
+                <Box
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    padding: 0.75,
+                    cursor: 'pointer',
+                    borderBottom: index < ingredients.length - 1 ? '1px solid rgba(255,255,255,0.3)' : 'none',
+                    position: 'relative',
+                    zIndex: 10,
+                    '&:hover': {
+                      backgroundColor: 'rgba(255,255,255,0.1)'
+                    }
+                  }}
+                  onClick={() => toggleIngredientExpansion(ri.id)}
+                >
+                  {/* Ingredient Name */}
+                  <Box sx={{ flex: 2, display: 'flex', alignItems: 'center' }}>
+                    <Typography variant="body2" sx={{
+                      fontWeight: 'bold',
+                      color: 'white',
+                      textShadow: '1px 1px 3px rgba(0,0,0,0.8)',
+                      fontSize: '0.85rem'
+                    }}>
+                      {ri.notes || ri.ingredient.name}
+                    </Typography>
+                  </Box>
+
+                  {/* Original Amount */}
+                  <Box sx={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
+                    <Typography variant="body2" sx={{
+                      color: 'rgba(255,255,255,0.7)',
+                      textShadow: '1px 1px 2px rgba(0,0,0,0.8)',
+                      fontSize: '0.75rem'
+                    }}>
+                      {Math.round(scaledAmount)} {ri.unit}
+                    </Typography>
+                  </Box>
+
+                  {/* Converted Amount */}
+                  <Box sx={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
+                    <Typography variant="body2" sx={{
+                      color: 'rgba(255,255,255,0.9)',
+                      textShadow: '1px 1px 2px rgba(0,0,0,0.8)',
+                      fontSize: '0.75rem',
+                      fontWeight: 'medium'
+                    }}>
+                      {formatIngredientAmount(scaledAmount, ri.unit, ri.ingredient.name)}
+                    </Typography>
+                  </Box>
+
+                  {/* Action Icons */}
+                  <Box sx={{ 
+                    display: 'flex', 
+                    gap: 0.25, 
+                    ml: 0.5,
+                    position: 'relative',
+                    zIndex: 20
+                  }}>
+                    <Tooltip title="Substitute ingredient" arrow>
+                      <IconButton
+                        size="small"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedIngredient(ri);
+                          setShowIngredientDialog(true);
+                        }}
+                        sx={{
+                          color: '#1976d2',
+                          '&:hover': { backgroundColor: 'rgba(25, 118, 210, 0.2)' },
+                          p: 0.25,
+                          position: 'relative',
+                          zIndex: 30
+                        }}
+                      >
+                        <SwapHorizIcon sx={{ 
+                          fontSize: '0.9rem',
+                          filter: 'drop-shadow(1px 1px 2px rgba(255,255,255,0.4))',
+                          stroke: 'rgba(255,255,255,0.3)',
+                          strokeWidth: '0.5px'
+                        }} />
+                      </IconButton>
+                    </Tooltip>
+                    
+                    <Tooltip title="Like this ingredient" arrow>
+                      <IconButton
+                        size="small"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleIngredientPreference(ri.ingredient.id, 'like');
+                        }}
+                        sx={{
+                          color: '#2e7d32',
+                          '&:hover': { backgroundColor: 'rgba(46, 125, 50, 0.2)' },
+                          p: 0.25,
+                          position: 'relative',
+                          zIndex: 30
+                        }}
+                      >
+                        <ThumbUpIcon sx={{ 
+                          fontSize: '0.9rem',
+                          filter: 'drop-shadow(1px 1px 2px rgba(255,255,255,0.4))',
+                          stroke: 'rgba(255,255,255,0.3)',
+                          strokeWidth: '0.5px'
+                        }} />
+                      </IconButton>
+                    </Tooltip>
+                    
+                    <Tooltip title="Dislike this ingredient" arrow>
+                      <IconButton
+                        size="small"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleIngredientPreference(ri.ingredient.id, 'dislike');
+                        }}
+                        sx={{
+                          color: '#d32f2f',
+                          '&:hover': { backgroundColor: 'rgba(211, 47, 47, 0.2)' },
+                          p: 0.25,
+                          position: 'relative',
+                          zIndex: 30
+                        }}
+                      >
+                        <ThumbDownIcon sx={{ 
+                          fontSize: '0.9rem',
+                          filter: 'drop-shadow(1px 1px 2px rgba(255,255,255,0.4))',
+                          stroke: 'rgba(255,255,255,0.3)',
+                          strokeWidth: '0.5px'
+                        }} />
+                      </IconButton>
+                    </Tooltip>
+                    
+                    <Tooltip title="Mark as allergy" arrow>
+                      <IconButton
+                        size="small"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleIngredientPreference(ri.ingredient.id, 'allergy');
+                        }}
+                        sx={{
+                          color: '#f57c00',
+                          '&:hover': { backgroundColor: 'rgba(245, 124, 0, 0.2)' },
+                          p: 0.25,
+                          position: 'relative',
+                          zIndex: 30
+                        }}
+                      >
+                        <WarningIcon sx={{ 
+                          fontSize: '0.9rem',
+                          filter: 'drop-shadow(1px 1px 2px rgba(255,255,255,0.4))',
+                          stroke: 'rgba(255,255,255,0.3)',
+                          strokeWidth: '0.5px'
+                        }} />
+                      </IconButton>
+                    </Tooltip>
+                  </Box>
+                </Box>
+
+                {/* Expanded Details */}
+                {isExpanded && (
+                  <Box sx={{
+                    padding: 1,
+                    backgroundColor: 'rgba(0,0,0,0.3)',
+                    borderTop: '1px solid rgba(255,255,255,0.3)'
+                  }}>
+                    {/* Database Name */}
+                    {detailedIngredientInfo && ri.notes && (
+                      <Box sx={{ mb: 1 }}>
+                        <Typography variant="caption" sx={{
+                          color: 'rgba(255,255,255,0.7)',
+                          textShadow: '1px 1px 2px rgba(0,0,0,0.8)',
+                          fontSize: '0.7rem',
+                          fontStyle: 'italic'
+                        }}>
+                          Database: {ri.ingredient.name}
+                        </Typography>
+                      </Box>
+                    )}
+
+                    {/* Nutrition Information */}
+                    <Box sx={{ mb: 1 }}>
+                      <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+                        <Typography variant="caption" sx={{
+                          color: 'white',
+                          textShadow: '1px 1px 2px rgba(0,0,0,0.8)',
+                          fontSize: '0.7rem'
+                        }}>
+                          {scaledCalories} cal
+                        </Typography>
+                        <Typography variant="caption" sx={{
+                          color: 'white',
+                          textShadow: '1px 1px 2px rgba(0,0,0,0.8)',
+                          fontSize: '0.7rem'
+                        }}>
+                          {scaledProtein}g protein
+                        </Typography>
+                        <Typography variant="caption" sx={{
+                          color: 'white',
+                          textShadow: '1px 1px 2px rgba(0,0,0,0.8)',
+                          fontSize: '0.7rem'
+                        }}>
+                          {scaledCarbs}g carbs
+                        </Typography>
+                        <Typography variant="caption" sx={{
+                          color: 'white',
+                          textShadow: '1px 1px 2px rgba(0,0,0,0.8)',
+                          fontSize: '0.7rem'
+                        }}>
+                          {scaledFat}g fat
+                        </Typography>
+                      </Box>
+                    </Box>
+
+                    {/* Additional Info */}
+                    {detailedIngredientInfo && (
+                      <Box>
+                        <Typography variant="caption" sx={{
+                          color: 'rgba(255,255,255,0.7)',
+                          textShadow: '1px 1px 2px rgba(0,0,0,0.8)',
+                          fontSize: '0.7rem'
+                        }}>
+                          Category: {ri.ingredient.category} • Aisle: {ri.ingredient.aisle}
+                        </Typography>
+                      </Box>
+                    )}
+                  </Box>
+                )}
+              </Box>
+            );
+          })}
+        </Box>
+      </Box>
+    );
+  };
+
   const NutritionDisplay = ({ nutrition, servings }: { nutrition: any; servings: number }) => {
     if (!nutrition) {
       return (
@@ -592,9 +1124,9 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
     }
 
     return (
-      <Box sx={{ mb: 2 }}>
+      <Box sx={{ mb: 2, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
         {/* Header */}
-        <Box sx={{ mb: 1 }}>
+        <Box sx={{ mb: 1, textAlign: 'center' }}>
           <Typography variant="body2" sx={{ 
             fontWeight: 'bold', 
             fontSize: '1.3rem',
@@ -603,15 +1135,16 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
             textShadow: '2px 2px 4px rgba(0,0,0,0.9)',
             textAlign: 'center'
           }}>
-            Nutrition Facts
-          </Typography>
+          Nutrition Facts
+        </Typography>
           <Typography variant="body2" sx={{ 
             color: 'white', 
             textShadow: '1px 1px 3px rgba(0,0,0,0.8)',
-            mb: 0.5
+            mb: 0.5,
+            textAlign: 'center'
           }}>
             Serving Size: {servings} serving{servings > 1 ? 's' : ''}
-          </Typography>
+            </Typography>
         </Box>
         
         {/* Nutrition Table */}
@@ -620,7 +1153,8 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
           borderRadius: 1,
           overflow: 'hidden',
           minWidth: '320px',
-          maxWidth: '400px'
+          maxWidth: '400px',
+          alignSelf: 'center'
         }}>
           {/* Header Row */}
           <Box sx={{ 
@@ -640,7 +1174,7 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                 textAlign: 'center'
               }}>
                 Nutrient
-              </Typography>
+            </Typography>
             </Box>
             <Box sx={{ 
               flex: 1, 
@@ -653,8 +1187,8 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                 textShadow: '1px 1px 3px rgba(0,0,0,0.8)',
                 textAlign: 'center'
               }}>
-                Per Serving
-              </Typography>
+              Per Serving
+            </Typography>
             </Box>
             <Box sx={{ flex: 1, p: 0.75 }}>
               <Typography variant="body2" sx={{ 
@@ -664,7 +1198,7 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                 textAlign: 'center'
               }}>
                 Total
-              </Typography>
+            </Typography>
             </Box>
           </Box>
 
@@ -684,7 +1218,7 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                 textShadow: '1px 1px 3px rgba(0,0,0,0.8)'
               }}>
                 Calories
-              </Typography>
+            </Typography>
             </Box>
             <Box sx={{ 
               flex: 1, 
@@ -698,7 +1232,7 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                 textAlign: 'center'
               }}>
                 {Math.round(nutrition.caloriesPerServing || 0)}
-              </Typography>
+            </Typography>
             </Box>
             <Box sx={{ flex: 1, p: 0.75 }}>
               <Typography variant="body2" sx={{ 
@@ -769,8 +1303,8 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                 color: 'white',
                 textShadow: '1px 1px 3px rgba(0,0,0,0.8)'
               }}>
-                Carbs
-              </Typography>
+              Carbs
+            </Typography>
             </Box>
             <Box sx={{ 
               flex: 1, 
@@ -784,7 +1318,7 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                 textAlign: 'center'
               }}>
                 {Math.round(nutrition.carbsPerServing || 0)}g
-              </Typography>
+            </Typography>
             </Box>
             <Box sx={{ flex: 1, p: 0.75 }}>
               <Typography variant="body2" sx={{ 
@@ -794,7 +1328,7 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                 textAlign: 'center'
               }}>
                 {Math.round(nutrition.totalCarbs || 0)}g
-              </Typography>
+            </Typography>
             </Box>
           </Box>
 
@@ -813,7 +1347,7 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                 textShadow: '1px 1px 3px rgba(0,0,0,0.8)'
               }}>
                 Protein
-              </Typography>
+            </Typography>
             </Box>
             <Box sx={{ 
               flex: 1, 
@@ -1423,7 +1957,23 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                         }}
                       />
                       
-                      {/* 3-Column Book Navigation - Horizontal Layout */}
+                      {/* Dimming Overlay - Behind everything, covers the entire image */}
+                      {(expandedNutrition[recipe.id] || expandedIngredients[recipe.id] || expandedInstructions[recipe.id]) && (
+                        <Box
+                          sx={{
+                            position: 'absolute',
+                            top: 0,
+                            left: 0,
+                            right: 0,
+                            bottom: 0,
+                            background: 'rgba(0, 0, 0, 0.4)',
+                            zIndex: 15,
+                            borderRadius: '8px'
+                          }}
+                        />
+                      )}
+                      
+                      {/* 3-Column Layout - Proper Structure */}
                       <Box
                         sx={{
                           position: 'absolute',
@@ -1432,355 +1982,422 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                           bottom: 0,
                           display: 'flex',
                           flexDirection: 'row',
-                          zIndex: 10,
+                          zIndex: 25,
                           width: '100%'
                         }}
                       >
-                        {/* Instructions Column */}
+                        {/* Left Column - Navigation Buttons (When Not Active) */}
                         <Box
                           sx={{
-                            width: '40px',
+                            width: '120px',
                             height: '100%',
-                            background: expandedInstructions[recipe.id] ? 'rgba(0, 0, 0, 0.8)' : 'rgba(0, 0, 0, 0.7)',
                             display: 'flex',
+                            flexDirection: 'row',
                             alignItems: 'center',
-                            justifyContent: 'center',
-                            cursor: 'pointer',
-                            transition: 'all 0.3s ease',
-                            position: 'absolute',
-                            left: expandedInstructions[recipe.id] ? 'calc(100% - 120px)' : '0px',
-                            zIndex: 10,
-                            '&:hover': {
-                              background: 'rgba(0, 0, 0, 0.8)'
-                            }
+                            zIndex: 25
                           }}
-                          onClick={() => toggleInstructionsExpansion(recipe.id)}
                         >
-                          <Typography
-                            variant="caption"
+                          {/* Instructions Button Position */}
+                          <Box
                             sx={{
-                              color: 'white',
-                              whiteSpace: 'nowrap',
-                              fontWeight: 'bold',
-                              fontSize: '0.7rem',
-                              transform: 'rotate(-90deg)',
-                              padding: '4px 2px'
+                              width: '40px',
+                              height: '100%',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center'
                             }}
                           >
-                            Instructions
-                          </Typography>
+                            {!expandedInstructions[recipe.id] && (
+                              <Box
+                                sx={{
+                                  width: '40px',
+                                  height: '100%',
+                                  background: 'rgba(0, 0, 0, 0.7)',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  cursor: 'pointer',
+                                  transition: 'all 0.3s ease',
+                                  '&:hover': {
+                                    background: 'rgba(0, 0, 0, 0.8)'
+                                  }
+                                }}
+                                onClick={() => toggleInstructionsExpansion(recipe.id)}
+                              >
+                                <Typography
+                                  variant="caption"
+                                  sx={{
+                                    color: 'white',
+                                    whiteSpace: 'nowrap',
+                                    fontWeight: 'bold',
+                                    fontSize: '0.7rem',
+                                    transform: 'rotate(-90deg)',
+                                    padding: '4px 2px'
+                                  }}
+                                >
+                                  Instructions
+                                </Typography>
+                              </Box>
+                            )}
+                          </Box>
+
+                          {/* Ingredients Button Position */}
+                          <Box
+                            sx={{
+                              width: '40px',
+                              height: '100%',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center'
+                            }}
+                          >
+                            {!expandedIngredients[recipe.id] && (
+                              <Box
+                                sx={{
+                                  width: '40px',
+                                  height: '100%',
+                                  background: 'rgba(0, 0, 0, 0.7)',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  cursor: 'pointer',
+                                  transition: 'all 0.3s ease',
+                                  '&:hover': {
+                                    background: 'rgba(0, 0, 0, 0.8)'
+                                  }
+                                }}
+                                onClick={() => toggleIngredientsExpansion(recipe.id)}
+                              >
+                                <Typography
+                                  variant="caption"
+                                  sx={{
+                                    color: 'white',
+                                    whiteSpace: 'nowrap',
+                                    fontWeight: 'bold',
+                                    fontSize: '0.7rem',
+                                    transform: 'rotate(-90deg)',
+                                    padding: '4px 2px'
+                                  }}
+                                >
+                                  Ingredients
+                                </Typography>
+                              </Box>
+                            )}
+                          </Box>
+
+                          {/* Nutrition Button Position */}
+                          <Box
+                            sx={{
+                              width: '40px',
+                              height: '100%',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center'
+                            }}
+                          >
+                            {!expandedNutrition[recipe.id] && (
+                              <Box
+                                sx={{
+                                  width: '40px',
+                                  height: '100%',
+                                  background: 'rgba(0, 0, 0, 0.7)',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  cursor: 'pointer',
+                                  transition: 'all 0.3s ease',
+                                  '&:hover': {
+                                    background: 'rgba(0, 0, 0, 0.8)'
+                                  }
+                                }}
+                                onClick={() => toggleNutritionExpansion(recipe.id)}
+                              >
+                                <Typography
+                                  variant="caption"
+                                  sx={{
+                                    color: 'white',
+                                    whiteSpace: 'nowrap',
+                                    fontWeight: 'bold',
+                                    fontSize: '0.7rem',
+                                    transform: 'rotate(-90deg)',
+                                    padding: '4px 2px'
+                                  }}
+                                >
+                                  Nutrition
+                                </Typography>
+                              </Box>
+                            )}
+                          </Box>
                         </Box>
 
-                        {/* Ingredients Column */}
+                        {/* Middle Column - Content Area */}
                         <Box
                           sx={{
-                            width: '40px',
+                            flex: 1,
                             height: '100%',
-                            background: expandedIngredients[recipe.id] ? 'rgba(0, 0, 0, 0.8)' : 'rgba(0, 0, 0, 0.7)',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
-                            cursor: 'pointer',
-                            transition: 'all 0.3s ease',
-                            position: 'absolute',
-                            left: expandedIngredients[recipe.id] ? 'calc(100% - 80px)' : 
-                                 expandedInstructions[recipe.id] ? 'calc(100% - 120px)' : '40px',
-                            zIndex: 11,
-                            '&:hover': {
-                              background: 'rgba(0, 0, 0, 0.8)'
-                            }
+                            zIndex: 25,
+                            padding: 2
                           }}
-                          onClick={() => toggleIngredientsExpansion(recipe.id)}
                         >
-                          <Typography
-                            variant="caption"
-                            sx={{
-                              color: 'white',
-                              whiteSpace: 'nowrap',
-                              fontWeight: 'bold',
-                              fontSize: '0.7rem',
-                              transform: 'rotate(-90deg)',
-                              padding: '4px 2px'
-                            }}
-                          >
-                            Ingredients
-                          </Typography>
+                          {/* Instructions Content */}
+                          {expandedInstructions[recipe.id] && (
+                            <Box
+                              sx={{
+                                background: 'rgba(255, 255, 255, 0.95)',
+                                borderRadius: 2,
+                                padding: 3,
+                                width: '100%',
+                                maxWidth: '600px',
+                                maxHeight: '90%',
+                                overflow: 'auto',
+                                backdropFilter: 'blur(10px)',
+                                '&::-webkit-scrollbar': {
+                                  display: 'none'
+                                },
+                                scrollbarWidth: 'none',
+                                msOverflowStyle: 'none'
+                              }}
+                            >
+                              <Typography variant="h6" gutterBottom>
+                                Instructions
+                              </Typography>
+                              <Typography
+                                variant="body1"
+                                sx={{
+                                  whiteSpace: 'pre-wrap',
+                                  lineHeight: 1.6
+                                }}
+                              >
+                                {recipe.instructions}
+                              </Typography>
+                            </Box>
+                          )}
+
+                          {/* Ingredients Content */}
+                          {!expandedInstructions[recipe.id] && expandedIngredients[recipe.id] && (
+                            <Box
+                              sx={{
+                                width: '100%',
+                                maxWidth: '600px',
+                                maxHeight: '90%',
+                                overflow: 'auto',
+                                '&::-webkit-scrollbar': {
+                                  display: 'none'
+                                },
+                                scrollbarWidth: 'none',
+                                msOverflowStyle: 'none'
+                              }}
+                            >
+                              <Box
+                                sx={{
+                                  color: 'white',
+                                  textShadow: '1px 1px 2px rgba(0, 0, 0, 0.8)',
+                                  '& .MuiTypography-root': {
+                                    color: 'white',
+                                    textShadow: '1px 1px 2px rgba(0, 0, 0, 0.8)'
+                                  }
+                                }}
+                              >
+                                <IngredientsDisplay
+                                  ingredients={recipe.ingredients}
+                                  scalingFactor={recipe.scalingFactor || 1}
+                                />
+                              </Box>
+                            </Box>
+                          )}
+
+                          {/* Nutrition Content */}
+                          {!expandedInstructions[recipe.id] && !expandedIngredients[recipe.id] && expandedNutrition[recipe.id] && (
+                            <Box
+                              sx={{
+                                width: '100%',
+                                maxWidth: '600px',
+                                maxHeight: '90%',
+                                overflow: 'auto',
+                                '&::-webkit-scrollbar': {
+                                  display: 'none'
+                                },
+                                scrollbarWidth: 'none',
+                                msOverflowStyle: 'none'
+                              }}
+                            >
+                              <Box
+                                sx={{
+                                  color: 'white',
+                                  textShadow: '1px 1px 2px rgba(0, 0, 0, 0.8)',
+                                  '& .MuiTypography-root': {
+                                    color: 'white',
+                                    textShadow: '1px 1px 2px rgba(0, 0, 0, 0.8)'
+                                  }
+                                }}
+                              >
+                                <NutritionDisplay
+                                  nutrition={recipe.nutrition}
+                                  servings={recipe.servings}
+                                />
+                              </Box>
+                            </Box>
+                          )}
                         </Box>
 
-                        {/* Nutrition Column */}
+                        {/* Right Column - Navigation Buttons (When Active) */}
                         <Box
                           sx={{
-                            width: '40px',
+                            width: (() => {
+                              const activeButtons = [
+                                expandedInstructions[recipe.id] ? 1 : 0,
+                                expandedIngredients[recipe.id] ? 1 : 0,
+                                expandedNutrition[recipe.id] ? 1 : 0
+                              ].reduce((sum, count) => sum + count, 0);
+                              return activeButtons * 40;
+                            })(),
                             height: '100%',
-                            background: expandedNutrition[recipe.id] ? 'rgba(0, 0, 0, 0.8)' : 'rgba(0, 0, 0, 0.7)',
                             display: 'flex',
+                            flexDirection: 'row',
                             alignItems: 'center',
-                            justifyContent: 'center',
-                            cursor: 'pointer',
-                            transition: 'all 0.3s ease',
-                            position: 'absolute',
-                            left: expandedNutrition[recipe.id] ? 'calc(100% - 40px)' : 
-                                 (expandedInstructions[recipe.id] || expandedIngredients[recipe.id]) ? 'calc(100% - 80px)' : '80px',
-                            zIndex: 12,
-                            '&:hover': {
-                              background: 'rgba(0, 0, 0, 0.8)'
-                            }
+                            zIndex: 25,
+                            transition: 'width 0.3s ease'
                           }}
-                          onClick={() => toggleNutritionExpansion(recipe.id)}
                         >
-                          <Typography
-                            variant="caption"
+                          {/* Instructions Button Position */}
+                          <Box
                             sx={{
-                              color: 'white',
-                              whiteSpace: 'nowrap',
-                              fontWeight: 'bold',
-                              fontSize: '0.7rem',
-                              transform: 'rotate(-90deg)',
-                              padding: '4px 2px'
+                              width: '40px',
+                              height: '100%',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center'
                             }}
                           >
-                            Nutrition
-                          </Typography>
+                            {expandedInstructions[recipe.id] && (
+                              <Box
+                                sx={{
+                                  width: '40px',
+                                  height: '100%',
+                                  background: 'rgba(0, 0, 0, 0.8)',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  cursor: 'pointer',
+                                  transition: 'all 0.3s ease',
+                                  '&:hover': {
+                                    background: 'rgba(0, 0, 0, 0.9)'
+                                  }
+                                }}
+                                onClick={() => toggleInstructionsExpansion(recipe.id)}
+                              >
+                                <Typography
+                                  variant="caption"
+                                  sx={{
+                                    color: 'white',
+                                    whiteSpace: 'nowrap',
+                                    fontWeight: 'bold',
+                                    fontSize: '0.7rem',
+                                    transform: 'rotate(-90deg)',
+                                    padding: '4px 2px'
+                                  }}
+                                >
+                                  Instructions
+                                </Typography>
+                              </Box>
+                            )}
+                          </Box>
+
+                          {/* Ingredients Button Position */}
+                          <Box
+                            sx={{
+                              width: '40px',
+                              height: '100%',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center'
+                            }}
+                          >
+                            {expandedIngredients[recipe.id] && (
+                              <Box
+                                sx={{
+                                  width: '40px',
+                                  height: '100%',
+                                  background: 'rgba(0, 0, 0, 0.8)',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  cursor: 'pointer',
+                                  transition: 'all 0.3s ease',
+                                  '&:hover': {
+                                    background: 'rgba(0, 0, 0, 0.9)'
+                                  }
+                                }}
+                                onClick={() => toggleIngredientsExpansion(recipe.id)}
+                              >
+                                <Typography
+                                  variant="caption"
+                                  sx={{
+                                    color: 'white',
+                                    whiteSpace: 'nowrap',
+                                    fontWeight: 'bold',
+                                    fontSize: '0.7rem',
+                                    transform: 'rotate(-90deg)',
+                                    padding: '4px 2px'
+                                  }}
+                                >
+                                  Ingredients
+                                </Typography>
+                              </Box>
+                            )}
+                          </Box>
+
+                          {/* Nutrition Button Position */}
+                          <Box
+                            sx={{
+                              width: '40px',
+                              height: '100%',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center'
+                            }}
+                          >
+                            {expandedNutrition[recipe.id] && (
+                              <Box
+                                sx={{
+                                  width: '40px',
+                                  height: '100%',
+                                  background: 'rgba(0, 0, 0, 0.8)',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  cursor: 'pointer',
+                                  transition: 'all 0.3s ease',
+                                  '&:hover': {
+                                    background: 'rgba(0, 0, 0, 0.9)'
+                                  }
+                                }}
+                                onClick={() => toggleNutritionExpansion(recipe.id)}
+                              >
+                                <Typography
+                                  variant="caption"
+                                  sx={{
+                                    color: 'white',
+                                    whiteSpace: 'nowrap',
+                                    fontWeight: 'bold',
+                                    fontSize: '0.7rem',
+                                    transform: 'rotate(-90deg)',
+                                    padding: '4px 2px'
+                                  }}
+                                >
+                                  Nutrition
+                                </Typography>
+                              </Box>
+                            )}
+                          </Box>
                         </Box>
                       </Box>
 
-                      {/* Overlay Content - Only show one at a time */}
-                      {expandedInstructions[recipe.id] && (
-                        <Box
-                          sx={{
-                            position: 'absolute',
-                            top: 0,
-                            left: 0,
-                            right: 0,
-                            bottom: 0,
-                            background: 'rgba(0, 0, 0, 0.4)',
-                            zIndex: 5,
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            padding: 2,
-                            borderRadius: '8px'
-                          }}
-                        >
-                          <Box
-                            sx={{
-                              background: 'rgba(255, 255, 255, 0.95)',
-                              borderRadius: 2,
-                              padding: 3,
-                              maxWidth: '90%',
-                              maxHeight: '90%',
-                              overflow: 'auto',
-                              backdropFilter: 'blur(10px)',
-                              '&::-webkit-scrollbar': {
-                                display: 'none'
-                              },
-                              scrollbarWidth: 'none',
-                              msOverflowStyle: 'none'
-                            }}
-                          >
-                            <Typography variant="h6" gutterBottom>
-                              Instructions
-                            </Typography>
-                            <Typography
-                              variant="body1"
-                              sx={{
-                                whiteSpace: 'pre-wrap',
-                                lineHeight: 1.6
-                              }}
-                            >
-                              {recipe.instructions}
-                            </Typography>
-                          </Box>
-                        </Box>
-                      )}
 
-                      {!expandedInstructions[recipe.id] && expandedIngredients[recipe.id] && (
-                        <Box
-                          sx={{
-                            position: 'absolute',
-                            top: 0,
-                            left: 0,
-                            right: 0,
-                            bottom: 0,
-                            background: 'rgba(0, 0, 0, 0.4)',
-                            zIndex: 5,
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            padding: 2,
-                            borderRadius: '8px'
-                          }}
-                        >
-                          <Box
-                            sx={{
-                              background: 'rgba(255, 255, 255, 0.95)',
-                              borderRadius: 2,
-                              padding: 3,
-                              maxWidth: '90%',
-                              maxHeight: '90%',
-                              overflow: 'auto',
-                              backdropFilter: 'blur(10px)',
-                              '&::-webkit-scrollbar': {
-                                display: 'none'
-                              },
-                              scrollbarWidth: 'none',
-                              msOverflowStyle: 'none'
-                            }}
-                          >
-                            <Typography variant="h6" gutterBottom>
-                              Ingredients
-                            </Typography>
-                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                              {recipe.ingredients.map((ri: any, index: number) => (
-                                <Box
-                                  key={ri.id}
-                                  sx={{
-                                    background: 'rgba(255, 255, 255, 0.9)',
-                                    borderRadius: '8px',
-                                    padding: 1.5,
-                                    border: '1px solid rgba(255, 255, 255, 0.3)',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'space-between'
-                                  }}
-                                >
-                                  {/* Left side - Ingredient info */}
-                                  <Box sx={{ flex: 1 }}>
-                                    {/* Row 1: Name and Amount */}
-                                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
-                                      <Typography
-                                        variant="body2"
-                                        sx={{
-                                          fontWeight: 'bold',
-                                          color: '#2c3e50',
-                                          mr: 1
-                                        }}
-                                      >
-                                        {ri.notes || ri.ingredient.name}
-                                      </Typography>
-                                      <Typography
-                                        variant="caption"
-                                        sx={{
-                                          color: '#666'
-                                        }}
-                                      >
-                                        {formatEggDisplay(ri.amount, ri.unit, recipe.scalingFactor || 1, ri.ingredient.name, '100', ri.notes)} • {ri.ingredient.name}
-                                      </Typography>
-                                    </Box>
 
-                                    {/* Row 2: Nutrition Facts */}
-                                    <Typography
-                                      variant="caption"
-                                      sx={{
-                                        color: '#666',
-                                        display: 'block'
-                                      }}
-                                    >
-                                      {Math.round(ri.amount * (ri.ingredient.calories / 100))} cal • {Math.round(ri.amount * (ri.ingredient.protein / 100))}g protein • {Math.round(ri.amount * (ri.ingredient.carbs / 100))}g carbs • {Math.round(ri.amount * (ri.ingredient.fat / 100))}g fat
-                                    </Typography>
-                                  </Box>
-
-                                  {/* Right side - Action Buttons */}
-                                  <Box
-                                    sx={{
-                                      display: 'flex',
-                                      gap: 0.5,
-                                      ml: 1
-                                    }}
-                                  >
-                                    <Button
-                                      size="small"
-                                      variant="outlined"
-                                      onClick={() => {
-                                        setSelectedIngredient(ri);
-                                        setShowIngredientDialog(true);
-                                      }}
-                                      sx={{ minWidth: 'auto', px: 1 }}
-                                    >
-                                      Sub
-                                    </Button>
-                                    <Button
-                                      size="small"
-                                      variant="outlined"
-                                      onClick={() => handleIngredientPreference(ri.ingredient.id, 'like')}
-                                      sx={{ minWidth: 'auto', px: 1 }}
-                                    >
-                                      Like
-                                    </Button>
-                                    <Button
-                                      size="small"
-                                      variant="outlined"
-                                      onClick={() => handleIngredientPreference(ri.ingredient.id, 'dislike')}
-                                      sx={{ minWidth: 'auto', px: 1 }}
-                                    >
-                                      Dis
-                                    </Button>
-                                    <Button
-                                      size="small"
-                                      variant="outlined"
-                                      onClick={() => handleIngredientPreference(ri.ingredient.id, 'allergy')}
-                                      sx={{ minWidth: 'auto', px: 1 }}
-                                    >
-                                      All
-                                    </Button>
-                                  </Box>
-                                </Box>
-                              ))}
-                            </Box>
-                          </Box>
-                        </Box>
-                      )}
-
-                      {!expandedInstructions[recipe.id] && !expandedIngredients[recipe.id] && expandedNutrition[recipe.id] && (
-                        <Box
-                          sx={{
-                            position: 'absolute',
-                            top: 0,
-                            left: 0,
-                            right: 0,
-                            bottom: 0,
-                            background: 'rgba(0, 0, 0, 0.4)',
-                            zIndex: 5,
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            padding: 2,
-                            borderRadius: '8px'
-                          }}
-                        >
-                          <Box
-                            sx={{
-                              borderRadius: 2,
-                              padding: 3,
-                              maxWidth: '90%',
-                              maxHeight: '90%',
-                              overflow: 'auto',
-                              '&::-webkit-scrollbar': {
-                                display: 'none'
-                              },
-                              scrollbarWidth: 'none',
-                              msOverflowStyle: 'none'
-                            }}
-                          >
-
-                            <Box
-                              sx={{
-                                color: 'white',
-                                textShadow: '1px 1px 2px rgba(0, 0, 0, 0.8)',
-                                '& .MuiTypography-root': {
-                                  color: 'white',
-                                  textShadow: '1px 1px 2px rgba(0, 0, 0, 0.8)'
-                                }
-                              }}
-                            >
-                              <NutritionDisplay
-                                nutrition={recipe.nutrition}
-                                servings={recipe.servings}
-                              />
-                            </Box>
-                          </Box>
-                        </Box>
-                      )}
                     </Box>
                   ) : (
                     <NutritionDisplay nutrition={recipe.nutrition} servings={recipe.servings} />
@@ -1794,31 +2411,7 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                   </Alert>
                 )}
 
-                <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                  <Button
-                    size="small"
-                    variant="outlined"
-                    onClick={() => {
-                      setSelectedRecipe(recipe);
-                      setShowRecipeDialog(true);
-                    }}
-                  >
-                    View Details
-                  </Button>
-                  <Button
-                    size="small"
-                    variant="outlined"
-                    startIcon={<TrendingUpIcon />}
-                    onClick={() => {
-                      setSelectedRecipe(recipe);
-                      // Set target calories to current adjusted calories
-                      setTargetCalories(recipe.nutrition.totalCalories);
-                      setShowNutritionDialog(true);
-                    }}
-                  >
-                    Adjust Calories
-                  </Button>
-                </Box>
+
               </CardContent>
             </Card>
           </Grid>
@@ -1846,7 +2439,7 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
       >
         <DialogTitle>
           <Typography variant="h3" component="h1" sx={{ fontWeight: 'bold', mb: 1 }}>
-            {selectedRecipe?.name}
+          {selectedRecipe?.name}
           </Typography>
           <IconButton
             onClick={() => selectedRecipe && toggleFavorite(selectedRecipe.id)}
@@ -1992,7 +2585,7 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                         bottom: 0,
                         display: 'flex',
                         flexDirection: 'row',
-                        zIndex: 10
+                        zIndex: 20
                       }}
                     >
                       {/* Ingredients - On right when ingredients or nutrition is active */}
@@ -2074,7 +2667,7 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                       background: (expandedNutrition[selectedRecipe.id] || expandedIngredients[selectedRecipe.id] || expandedInstructions[selectedRecipe.id]) ? 'rgba(0, 0, 0, 0.4)' : 'transparent',
                       transition: 'background 0.3s ease',
                       borderRadius: '8px',
-                      zIndex: 2
+                      zIndex: 15
                     }}
                   />
                   
@@ -2083,16 +2676,16 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                     sx={{
                       position: 'absolute',
                       top: 0,
-                      left: expandedNutrition[selectedRecipe.id] ? 0 : '-100%',
+                      left: expandedNutrition[selectedRecipe.id] ? 0 : '-100%', // Cover full area
                       right: 0,
                       bottom: 0,
                       display: expandedNutrition[selectedRecipe.id] ? 'flex' : 'none',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      borderRadius: '8px',
                       padding: 2,
+                      paddingLeft: expandedNutrition[selectedRecipe.id] ? 'calc(40px + 2rem)' : '0px', // Account for navigation columns
                       transition: 'left 0.3s ease',
-                      zIndex: 5
+                      zIndex: 25
                     }}
                   >
                     <Box sx={{ 
@@ -2107,7 +2700,7 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                       {/* Nutrition Facts Display */}
                       <Box sx={{
                         width: '100%',
-                        maxWidth: '450px',
+                        maxWidth: '600px', // Fixed max width for better centering
                         padding: 2
                       }}>
                         <Typography variant="h6" sx={{ 
@@ -2263,13 +2856,8 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                                 
                                 {/* Weight/Volume */}
                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
-                                  {convertToCups(ri.amount, ri.unit) && (
                                     <Typography variant="body2" color="text.secondary" fontWeight="medium">
-                                      {convertToCups(ri.amount, ri.unit)}
-                                    </Typography>
-                                  )}
-                                  <Typography variant="body2" color="text.secondary">
-                                    ({formatEggDisplay(ri.amount, ri.unit, selectedRecipe?.scalingFactor || 1, ri.ingredient.name, '100', ri.notes)})
+                                    {formatIngredientAmount(ri.amount, ri.unit, ri.ingredient.name)}
                                   </Typography>
                                 </Box>
                                 

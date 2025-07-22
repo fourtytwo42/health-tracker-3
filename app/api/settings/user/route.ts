@@ -35,6 +35,9 @@ export async function GET(request: NextRequest) {
         theme: 'auto' as const,
         language: 'en',
       },
+      recipe: {
+        detailedIngredientInfo: true,
+      },
     };
 
     return NextResponse.json({ settings });
