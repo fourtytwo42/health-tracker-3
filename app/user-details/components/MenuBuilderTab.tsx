@@ -70,6 +70,7 @@ import {
   Delete as DeleteIcon,
   Timer as TimerIcon,
   Image as ImageIcon,
+  Print as PrintIcon,
 } from '@mui/icons-material';
 import { useAuth } from '@/context/AuthContext';
 import { formatEggDisplay } from '@/lib/utils/unitConversion';
@@ -2372,6 +2373,165 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                             </Box>
                           )}
                         </Box>
+
+                        {/* Recipe Information Overlay - Shows when no columns are active */}
+                        {!expandedInstructions[recipe.id] && !expandedIngredients[recipe.id] && !expandedNutrition[recipe.id] && (
+                          <Box
+                            sx={{
+                              position: 'absolute',
+                              left: '120px',
+                              right: 0,
+                              top: 0,
+                              bottom: 0,
+                              display: 'flex',
+                              flexDirection: 'column',
+                              justifyContent: 'space-between',
+                              padding: 3,
+                              zIndex: 20
+                            }}
+                          >
+                            {/* Top Section - Recipe Name and Action Icons */}
+                            <Box
+                              sx={{
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'flex-start',
+                                mb: 2
+                              }}
+                            >
+                              {/* Recipe Name */}
+                              <Box
+                                sx={{
+                                  backgroundColor: 'rgba(0, 0, 0, 0.7)',
+                                  borderRadius: 2,
+                                  padding: 2,
+                                  maxWidth: '60%'
+                                }}
+                              >
+                                <Typography
+                                  variant="h4"
+                                  sx={{
+                                    fontWeight: 'bold',
+                                    color: 'white',
+                                    textShadow: '2px 2px 4px rgba(0,0,0,0.9)',
+                                    fontSize: '1.8rem',
+                                    lineHeight: 1.2
+                                  }}
+                                >
+                                  {recipe.name}
+                                </Typography>
+                              </Box>
+
+                              {/* Action Icons */}
+                              <Box
+                                sx={{
+                                  display: 'flex',
+                                  gap: 1,
+                                  backgroundColor: 'rgba(0, 0, 0, 0.7)',
+                                  borderRadius: 2,
+                                  padding: 1
+                                }}
+                              >
+                                <IconButton
+                                  size="small"
+                                  onClick={() => toggleFavorite(recipe.id)}
+                                  sx={{
+                                    color: recipe.isFavorite ? '#ff6b6b' : 'white',
+                                    '&:hover': { backgroundColor: 'rgba(255, 255, 255, 0.1)' }
+                                  }}
+                                >
+                                  {recipe.isFavorite ? <FavoriteIcon /> : <FavoriteBorderIcon />}
+                                </IconButton>
+                                <IconButton
+                                  size="small"
+                                  onClick={() => window.print()}
+                                  sx={{
+                                    color: 'white',
+                                    '&:hover': { backgroundColor: 'rgba(255, 255, 255, 0.1)' }
+                                  }}
+                                >
+                                  <PrintIcon />
+                                </IconButton>
+                                <IconButton
+                                  size="small"
+                                  onClick={() => deleteRecipe(recipe.id)}
+                                  sx={{
+                                    color: 'white',
+                                    '&:hover': { backgroundColor: 'rgba(255, 107, 107, 0.2)' }
+                                  }}
+                                >
+                                  <DeleteIcon />
+                                </IconButton>
+                              </Box>
+                            </Box>
+
+                            {/* Middle Section - Recipe Details */}
+                            <Box
+                              sx={{
+                                backgroundColor: 'rgba(0, 0, 0, 0.7)',
+                                borderRadius: 2,
+                                padding: 2,
+                                alignSelf: 'flex-start'
+                              }}
+                            >
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1 }}>
+                                <Typography
+                                  variant="h6"
+                                  sx={{
+                                    fontWeight: 'bold',
+                                    color: '#ffd700',
+                                    textShadow: '1px 1px 2px rgba(0,0,0,0.8)',
+                                    fontSize: '1rem'
+                                  }}
+                                >
+                                  {recipe.mealType.toUpperCase()}
+                                </Typography>
+                                <Typography
+                                  variant="body1"
+                                  sx={{
+                                    color: 'white',
+                                    textShadow: '1px 1px 2px rgba(0,0,0,0.8)',
+                                    fontWeight: 'medium'
+                                  }}
+                                >
+                                  {recipe.servings} serving{recipe.servings > 1 ? 's' : ''}
+                                </Typography>
+                                <Typography
+                                  variant="body1"
+                                  sx={{
+                                    color: 'white',
+                                    textShadow: '1px 1px 2px rgba(0,0,0,0.8)',
+                                    fontWeight: 'medium'
+                                  }}
+                                >
+                                  {recipe.totalTime || ((recipe.prepTime || 0) + (recipe.cookTime || 0)) || 45} min
+                                </Typography>
+                              </Box>
+                            </Box>
+
+                            {/* Bottom Section - Recipe Description */}
+                            <Box
+                              sx={{
+                                backgroundColor: 'rgba(0, 0, 0, 0.7)',
+                                borderRadius: 2,
+                                padding: 2,
+                                maxWidth: '80%'
+                              }}
+                            >
+                              <Typography
+                                variant="body1"
+                                sx={{
+                                  color: 'white',
+                                  textShadow: '1px 1px 2px rgba(0,0,0,0.8)',
+                                  lineHeight: 1.5,
+                                  fontSize: '0.95rem'
+                                }}
+                              >
+                                {recipe.description || 'A delicious and nutritious recipe perfect for any meal.'}
+                              </Typography>
+                            </Box>
+                          </Box>
+                        )}
 
                         {/* Right Column - Navigation Buttons (When Active) */}
                         <Box
