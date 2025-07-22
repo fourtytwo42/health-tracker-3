@@ -2231,8 +2231,6 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                                   justifyContent: 'center',
                                   cursor: 'pointer',
                                   transition: 'all 0.3s ease',
-                                  borderTopLeftRadius: '12px',
-                                  borderBottomLeftRadius: '12px',
                                   '&:hover': {
                                     background: 'rgba(0, 0, 0, 0.8)'
                                   }
@@ -2277,8 +2275,6 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                                   justifyContent: 'center',
                                   cursor: 'pointer',
                                   transition: 'all 0.3s ease',
-                                  borderTopLeftRadius: '12px',
-                                  borderBottomLeftRadius: '12px',
                                   '&:hover': {
                                     background: 'rgba(0, 0, 0, 0.8)'
                                   }
