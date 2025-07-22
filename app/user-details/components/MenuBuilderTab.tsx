@@ -2518,208 +2518,194 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                               bottom: 0,
                               display: 'flex',
                               flexDirection: 'column',
-                              padding: 4,
+                              justifyContent: 'space-between',
+                              padding: 2,
                               zIndex: 20
                             }}
                           >
-                            {/* Hero Section - Recipe Name with Gradient Background */}
-                            <Box
-                              sx={{
-                                background: 'linear-gradient(135deg, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0.6) 100%)',
-                                borderRadius: 3,
-                                padding: 3,
-                                mb: 3,
-                                backdropFilter: 'blur(10px)',
-                                border: '1px solid rgba(255,255,255,0.1)'
-                              }}
-                            >
-                              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
+                            {/* Top Section - Title and Action Icons */}
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                              {/* Recipe Title */}
+                              <Box
+                                sx={{
+                                  backgroundColor: 'rgba(0, 0, 0, 0.5)',
+                                  borderRadius: 2,
+                                  padding: 1.5,
+                                  maxWidth: '60%',
+                                  backdropFilter: 'blur(5px)'
+                                }}
+                              >
                                 <Typography
-                                  variant="h3"
+                                  variant="h4"
                                   sx={{
                                     fontWeight: 'bold',
                                     color: 'white',
-                                    textShadow: '3px 3px 6px rgba(0,0,0,0.8)',
-                                    fontSize: '2.2rem',
-                                    lineHeight: 1.1,
-                                    flex: 1,
-                                    mr: 2
+                                    textShadow: '2px 2px 4px rgba(0,0,0,0.8)',
+                                    fontSize: '1.5rem',
+                                    lineHeight: 1.2
                                   }}
                                 >
                                   {recipe.name}
                                 </Typography>
-                                
-                                {/* Action Icons with Better Styling */}
-                                <Box
-                                  sx={{
-                                    display: 'flex',
-                                    gap: 0.5,
-                                    backgroundColor: 'rgba(255,255,255,0.1)',
-                                    borderRadius: 2,
-                                    padding: 0.5,
-                                    backdropFilter: 'blur(5px)'
-                                  }}
-                                >
-                                  <IconButton
-                                    size="small"
-                                    onClick={() => toggleFavorite(recipe.id)}
-                                    sx={{
-                                      color: recipe.isFavorite ? '#ff6b6b' : 'white',
-                                      backgroundColor: recipe.isFavorite ? 'rgba(255,107,107,0.2)' : 'transparent',
-                                      '&:hover': { 
-                                        backgroundColor: recipe.isFavorite ? 'rgba(255,107,107,0.3)' : 'rgba(255,255,255,0.1)',
-                                        transform: 'scale(1.1)'
-                                      },
-                                      transition: 'all 0.2s ease'
-                                    }}
-                                  >
-                                    {recipe.isFavorite ? <FavoriteIcon /> : <FavoriteBorderIcon />}
-                                  </IconButton>
-                                  <IconButton
-                                    size="small"
-                                    onClick={() => printRecipe(recipe)}
-                                    sx={{
-                                      color: 'white',
-                                      '&:hover': { 
-                                        backgroundColor: 'rgba(255,255,255,0.1)',
-                                        transform: 'scale(1.1)'
-                                      },
-                                      transition: 'all 0.2s ease'
-                                    }}
-                                  >
-                                    <PrintIcon />
-                                  </IconButton>
-                                  <IconButton
-                                    size="small"
-                                    onClick={() => deleteRecipe(recipe.id)}
-                                    sx={{
-                                      color: 'white',
-                                      '&:hover': { 
-                                        backgroundColor: 'rgba(255,107,107,0.2)',
-                                        transform: 'scale(1.1)'
-                                      },
-                                      transition: 'all 0.2s ease'
-                                    }}
-                                  >
-                                    <DeleteIcon />
-                                  </IconButton>
-                                </Box>
                               </Box>
 
-                              {/* Recipe Stats with Icons */}
-                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 3, flexWrap: 'wrap' }}>
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                  <Box
-                                    sx={{
-                                      backgroundColor: '#ffd700',
-                                      borderRadius: '50%',
-                                      width: 24,
-                                      height: 24,
-                                      display: 'flex',
-                                      alignItems: 'center',
-                                      justifyContent: 'center'
-                                    }}
-                                  >
-                                    <Typography sx={{ fontSize: '0.7rem', fontWeight: 'bold', color: '#000' }}>
-                                      {recipe.mealType.charAt(0)}
-                                    </Typography>
-                                  </Box>
+                              {/* Action Icons - Separate Section */}
+                              <Box
+                                sx={{
+                                  display: 'flex',
+                                  gap: 0.5,
+                                  backgroundColor: 'rgba(0, 0, 0, 0.5)',
+                                  borderRadius: 2,
+                                  padding: 0.5,
+                                  backdropFilter: 'blur(5px)'
+                                }}
+                              >
+                                <IconButton
+                                  size="small"
+                                  onClick={() => toggleFavorite(recipe.id)}
+                                  sx={{
+                                    color: recipe.isFavorite ? '#ff6b6b' : 'white',
+                                    backgroundColor: recipe.isFavorite ? 'rgba(255,107,107,0.2)' : 'transparent',
+                                    '&:hover': { 
+                                      backgroundColor: recipe.isFavorite ? 'rgba(255,107,107,0.3)' : 'rgba(255,255,255,0.1)',
+                                      transform: 'scale(1.1)'
+                                    },
+                                    transition: 'all 0.2s ease'
+                                  }}
+                                >
+                                  {recipe.isFavorite ? <FavoriteIcon /> : <FavoriteBorderIcon />}
+                                </IconButton>
+                                <IconButton
+                                  size="small"
+                                  onClick={() => printRecipe(recipe)}
+                                  sx={{
+                                    color: 'white',
+                                    '&:hover': { 
+                                      backgroundColor: 'rgba(255,255,255,0.1)',
+                                      transform: 'scale(1.1)'
+                                    },
+                                    transition: 'all 0.2s ease'
+                                  }}
+                                >
+                                  <PrintIcon />
+                                </IconButton>
+                                <IconButton
+                                  size="small"
+                                  onClick={() => deleteRecipe(recipe.id)}
+                                  sx={{
+                                    color: 'white',
+                                    '&:hover': { 
+                                      backgroundColor: 'rgba(255,107,107,0.2)',
+                                      transform: 'scale(1.1)'
+                                    },
+                                    transition: 'all 0.2s ease'
+                                  }}
+                                >
+                                  <DeleteIcon />
+                                </IconButton>
+                              </Box>
+                            </Box>
+
+                            {/* Bottom Section - Recipe Stats and Description */}
+                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                              {/* Recipe Stats - Badge Style */}
+                              <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                                <Box
+                                  sx={{
+                                    backgroundColor: '#ffd700',
+                                    borderRadius: '20px',
+                                    padding: '4px 12px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: 0.5
+                                  }}
+                                >
+                                  <Typography sx={{ fontSize: '0.7rem', fontWeight: 'bold', color: '#000' }}>
+                                    {recipe.mealType.charAt(0)}
+                                  </Typography>
                                   <Typography
-                                    variant="h6"
                                     sx={{
                                       fontWeight: 'bold',
-                                      color: '#ffd700',
-                                      textShadow: '1px 1px 2px rgba(0,0,0,0.8)',
-                                      fontSize: '1.1rem'
+                                      color: '#000',
+                                      fontSize: '0.8rem'
                                     }}
                                   >
                                     {recipe.mealType.toUpperCase()}
                                   </Typography>
                                 </Box>
                                 
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                  <Box
-                                    sx={{
-                                      backgroundColor: '#4CAF50',
-                                      borderRadius: '50%',
-                                      width: 24,
-                                      height: 24,
-                                      display: 'flex',
-                                      alignItems: 'center',
-                                      justifyContent: 'center'
-                                    }}
-                                  >
-                                    <Typography sx={{ fontSize: '0.7rem', fontWeight: 'bold', color: 'white' }}>
-                                      {recipe.servings}
-                                    </Typography>
-                                  </Box>
+                                <Box
+                                  sx={{
+                                    backgroundColor: '#4CAF50',
+                                    borderRadius: '20px',
+                                    padding: '4px 12px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: 0.5
+                                  }}
+                                >
+                                  <Typography sx={{ fontSize: '0.7rem', fontWeight: 'bold', color: 'white' }}>
+                                    {recipe.servings}
+                                  </Typography>
                                   <Typography
-                                    variant="body1"
                                     sx={{
                                       color: 'white',
-                                      textShadow: '1px 1px 2px rgba(0,0,0,0.8)',
                                       fontWeight: 'medium',
-                                      fontSize: '1rem'
+                                      fontSize: '0.8rem'
                                     }}
                                   >
-                                    {recipe.servings} serving{recipe.servings > 1 ? 's' : ''}
+                                    serving{recipe.servings > 1 ? 's' : ''}
                                   </Typography>
                                 </Box>
                                 
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                  <Box
-                                    sx={{
-                                      backgroundColor: '#2196F3',
-                                      borderRadius: '50%',
-                                      width: 24,
-                                      height: 24,
-                                      display: 'flex',
-                                      alignItems: 'center',
-                                      justifyContent: 'center'
-                                    }}
-                                  >
-                                    <Typography sx={{ fontSize: '0.7rem', fontWeight: 'bold', color: 'white' }}>
-                                      ⏱
-                                    </Typography>
-                                  </Box>
+                                <Box
+                                  sx={{
+                                    backgroundColor: '#2196F3',
+                                    borderRadius: '20px',
+                                    padding: '4px 12px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: 0.5
+                                  }}
+                                >
+                                  <Typography sx={{ fontSize: '0.7rem', fontWeight: 'bold', color: 'white' }}>
+                                    ⏱
+                                  </Typography>
                                   <Typography
-                                    variant="body1"
                                     sx={{
                                       color: 'white',
-                                      textShadow: '1px 1px 2px rgba(0,0,0,0.8)',
                                       fontWeight: 'medium',
-                                      fontSize: '1rem'
+                                      fontSize: '0.8rem'
                                     }}
                                   >
                                     {recipe.totalTime || ((recipe.prepTime || 0) + (recipe.cookTime || 0)) || 45} min
                                   </Typography>
                                 </Box>
                               </Box>
-                            </Box>
 
-                            {/* Description Section */}
-                            <Box
-                              sx={{
-                                background: 'linear-gradient(135deg, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.5) 100%)',
-                                borderRadius: 3,
-                                padding: 3,
-                                backdropFilter: 'blur(10px)',
-                                border: '1px solid rgba(255,255,255,0.1)',
-                                maxWidth: '90%'
-                              }}
-                            >
-                              <Typography
-                                variant="body1"
+                              {/* Description - Moved Down, More Compact */}
+                              <Box
                                 sx={{
-                                  color: 'white',
-                                  textShadow: '1px 1px 2px rgba(0,0,0,0.8)',
-                                  lineHeight: 1.6,
-                                  fontSize: '1rem',
-                                  fontStyle: 'italic'
+                                  backgroundColor: 'rgba(0, 0, 0, 0.4)',
+                                  borderRadius: 2,
+                                  padding: 1.5,
+                                  maxWidth: '70%',
+                                  backdropFilter: 'blur(5px)'
                                 }}
                               >
-                                {recipe.description || 'A delicious and nutritious recipe perfect for any meal.'}
-                              </Typography>
+                                <Typography
+                                  variant="body2"
+                                  sx={{
+                                    color: 'white',
+                                    textShadow: '1px 1px 2px rgba(0,0,0,0.8)',
+                                    lineHeight: 1.4,
+                                    fontSize: '0.85rem',
+                                    fontStyle: 'italic'
+                                  }}
+                                >
+                                  {recipe.description || 'A delicious and nutritious recipe perfect for any meal.'}
+                                </Typography>
+                              </Box>
                             </Box>
                           </Box>
                         )}
