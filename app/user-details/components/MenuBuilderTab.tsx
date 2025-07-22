@@ -77,9 +77,10 @@ import { formatEggDisplay } from '@/lib/utils/unitConversion';
 // Utility function to convert metric to user-friendly units
 const formatIngredientAmount = (amount: number, unit: string, ingredientName: string): string => {
   const unitLower = unit.toLowerCase();
+  const ingredientLower = ingredientName.toLowerCase();
   
   // Handle eggs specifically
-  if (ingredientName.toLowerCase().includes('egg') && unitLower === 'g') {
+  if (ingredientLower.includes('egg') && unitLower === 'g') {
     const eggQuantity = Math.round(amount / 50);
     if (eggQuantity > 0) {
       return `${eggQuantity} ${eggQuantity === 1 ? 'egg' : 'eggs'}`;
@@ -88,11 +89,13 @@ const formatIngredientAmount = (amount: number, unit: string, ingredientName: st
   
   // Handle volume conversions (ml)
   if (unitLower === 'ml') {
-    if (amount >= 236) { // 1 cup = 236.588 ml
+    // Convert to cups first (1 cup = 236.588 ml)
+    if (amount >= 236) {
       const cups = amount / 236.588;
       if (cups >= 1) {
         const wholeCups = Math.floor(cups);
         const remainder = cups - wholeCups;
+        
         if (remainder === 0) {
           return `${wholeCups} cup${wholeCups > 1 ? 's' : ''}`;
         } else if (remainder < 0.125) {
@@ -102,65 +105,66 @@ const formatIngredientAmount = (amount: number, unit: string, ingredientName: st
         } else if (remainder < 0.375) {
           return `${wholeCups} 1/3 cup${wholeCups > 1 ? 's' : ''}`;
         } else if (remainder < 0.5) {
-          return `${wholeCups} 3/8 cup${wholeCups > 1 ? 's' : ''}`;
-        } else if (remainder < 0.625) {
           return `${wholeCups} 1/2 cup${wholeCups > 1 ? 's' : ''}`;
         } else if (remainder < 0.75) {
-          return `${wholeCups} 5/8 cup${wholeCups > 1 ? 's' : ''}`;
-        } else if (remainder < 0.875) {
           return `${wholeCups} 3/4 cup${wholeCups > 1 ? 's' : ''}`;
-  } else {
+        } else {
           return `${wholeCups + 1} cup${wholeCups + 1 > 1 ? 's' : ''}`;
-        }
-      } else {
-        // Less than 1 cup
-        if (cups >= 0.5) {
-          return '1/2 cup';
-        } else if (cups >= 0.33) {
-          return '1/3 cup';
-        } else if (cups >= 0.25) {
-          return '1/4 cup';
-        } else if (cups >= 0.125) {
-          return '1/8 cup';
         }
       }
     }
     
-    // Convert to tablespoons and teaspoons (only if less than 1/8 cup)
-    if (amount >= 15 && amount < 30) { // 1 tbsp = 14.787 ml, 1/8 cup = 30ml
+    // Less than 1 cup - convert to fractions
+    if (amount >= 118) { // 1/2 cup = 118.294 ml
+      return '1/2 cup';
+    } else if (amount >= 79) { // 1/3 cup = 78.863 ml
+      return '1/3 cup';
+    } else if (amount >= 59) { // 1/4 cup = 59.147 ml
+      return '1/4 cup';
+    } else if (amount >= 30) { // 1/8 cup = 29.574 ml
+      return '1/8 cup';
+    }
+    
+    // Convert to tablespoons (1 tbsp = 14.787 ml)
+    if (amount >= 15) {
       const tbsp = Math.round(amount / 14.787);
       if (tbsp === 1) {
         return '1 tbsp';
       } else {
         return `${tbsp} tbsp`;
       }
-    } else if (amount >= 5 && amount < 15) { // 1 tsp = 4.929 ml, 1 tbsp = 15ml
+    }
+    
+    // Convert to teaspoons (1 tsp = 4.929 ml)
+    if (amount >= 5) {
       const tsp = Math.round(amount / 4.929);
       if (tsp === 1) {
         return '1 tsp';
       } else {
         return `${tsp} tsp`;
       }
-    } else if (amount >= 1 && amount < 5) {
-      // Very small amounts
+    }
+    
+    // Very small amounts
+    if (amount >= 1) {
       return `${Math.round(amount)} ml`;
     }
   }
   
   // Handle weight conversions (grams)
   if (unitLower === 'g') {
-    // For flour, sugar, salt, baking ingredients - convert to cups
-    if (ingredientName.toLowerCase().includes('flour') || 
-        ingredientName.toLowerCase().includes('sugar') ||
-        ingredientName.toLowerCase().includes('salt') ||
-        ingredientName.toLowerCase().includes('baking') ||
-        ingredientName.toLowerCase().includes('powder') ||
-        ingredientName.toLowerCase().includes('soda')) {
+    // For dry ingredients that are commonly measured in cups
+    const dryIngredients = ['flour', 'sugar', 'salt', 'baking', 'powder', 'soda', 'cocoa', 'cornstarch', 'breadcrumbs', 'oatmeal', 'rice'];
+    const isDryIngredient = dryIngredients.some(dry => ingredientLower.includes(dry));
+    
+    if (isDryIngredient) {
+      // Convert to cups (approximately 120g per cup for most dry ingredients)
+      const cups = amount / 120;
       
-      const cups = amount / 120; // ~120g per cup for most dry ingredients
       if (cups >= 1) {
         const wholeCups = Math.floor(cups);
         const remainder = cups - wholeCups;
+        
         if (remainder === 0) {
           return `${wholeCups} cup${wholeCups > 1 ? 's' : ''}`;
         } else if (remainder < 0.125) {
@@ -170,12 +174,8 @@ const formatIngredientAmount = (amount: number, unit: string, ingredientName: st
         } else if (remainder < 0.375) {
           return `${wholeCups} 1/3 cup${wholeCups > 1 ? 's' : ''}`;
         } else if (remainder < 0.5) {
-          return `${wholeCups} 3/8 cup${wholeCups > 1 ? 's' : ''}`;
-        } else if (remainder < 0.625) {
           return `${wholeCups} 1/2 cup${wholeCups > 1 ? 's' : ''}`;
         } else if (remainder < 0.75) {
-          return `${wholeCups} 5/8 cup${wholeCups > 1 ? 's' : ''}`;
-        } else if (remainder < 0.875) {
           return `${wholeCups} 3/4 cup${wholeCups > 1 ? 's' : ''}`;
         } else {
           return `${wholeCups + 1} cup${wholeCups + 1 > 1 ? 's' : ''}`;
@@ -194,24 +194,63 @@ const formatIngredientAmount = (amount: number, unit: string, ingredientName: st
       }
     }
     
-    // For other ingredients, try to convert to tablespoons/teaspoons (only if less than 1/8 cup)
-    if (amount >= 15 && amount < 30) { // 1 tbsp ≈ 15g, 1/8 cup ≈ 15g
-      const tbsp = Math.round(amount / 15);
-      if (tbsp === 1) {
-        return '1 tbsp';
-      } else {
-        return `${tbsp} tbsp`;
+    // For liquid ingredients (butter, oil, etc.)
+    const liquidIngredients = ['butter', 'oil', 'milk', 'cream', 'water', 'broth', 'juice'];
+    const isLiquidIngredient = liquidIngredients.some(liquid => ingredientLower.includes(liquid));
+    
+    if (isLiquidIngredient) {
+      // Convert to tablespoons/teaspoons for smaller amounts
+      if (amount >= 15) {
+        const tbsp = Math.round(amount / 15);
+        if (tbsp === 1) {
+          return '1 tbsp';
+        } else {
+          return `${tbsp} tbsp`;
+        }
+      } else if (amount >= 5) {
+        const tsp = Math.round(amount / 5);
+        if (tsp === 1) {
+          return '1 tsp';
+        } else {
+          return `${tsp} tsp`;
+        }
       }
-    } else if (amount >= 5 && amount < 15) { // 1 tsp ≈ 5g, 1 tbsp ≈ 15g
+    }
+    
+    // For spices and small amounts
+    if (amount < 5) {
+      return 'pinch';
+    } else if (amount < 15) {
       const tsp = Math.round(amount / 5);
       if (tsp === 1) {
         return '1 tsp';
       } else {
         return `${tsp} tsp`;
       }
-    } else if (amount >= 1 && amount < 5) {
-      // Very small amounts - use "pinch"
-      return 'pinch';
+    } else if (amount < 30) {
+      const tbsp = Math.round(amount / 15);
+      if (tbsp === 1) {
+        return '1 tbsp';
+      } else {
+        return `${tbsp} tbsp`;
+      }
+    }
+  }
+  
+  // Handle other units
+  if (unitLower === 'kg') {
+    if (amount >= 1) {
+      return `${Math.round(amount)} kg`;
+    } else {
+      return `${Math.round(amount * 1000)} g`;
+    }
+  }
+  
+  if (unitLower === 'l' || unitLower === 'liter') {
+    if (amount >= 1) {
+      return `${Math.round(amount)} L`;
+    } else {
+      return `${Math.round(amount * 1000)} ml`;
     }
   }
   
