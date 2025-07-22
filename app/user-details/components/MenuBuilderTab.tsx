@@ -154,7 +154,7 @@ const formatIngredientAmount = (amount: number, unit: string, ingredientName: st
   // Handle weight conversions (grams)
   if (unitLower === 'g') {
     // For dry ingredients that are commonly measured in cups
-    const dryIngredients = ['flour', 'sugar', 'salt', 'baking', 'powder', 'soda', 'cocoa', 'cornstarch', 'breadcrumbs', 'oatmeal', 'rice'];
+    const dryIngredients = ['flour', 'sugar', 'salt', 'baking', 'powder', 'soda', 'cocoa', 'cornstarch', 'breadcrumbs', 'oatmeal', 'rice', 'pasta', 'beans', 'lentils', 'quinoa', 'couscous'];
     const isDryIngredient = dryIngredients.some(dry => ingredientLower.includes(dry));
     
     if (isDryIngredient) {
@@ -195,7 +195,7 @@ const formatIngredientAmount = (amount: number, unit: string, ingredientName: st
     }
     
     // For liquid ingredients (butter, oil, etc.)
-    const liquidIngredients = ['butter', 'oil', 'milk', 'cream', 'water', 'broth', 'juice'];
+    const liquidIngredients = ['butter', 'oil', 'milk', 'cream', 'water', 'broth', 'juice', 'paste', 'sauce'];
     const isLiquidIngredient = liquidIngredients.some(liquid => ingredientLower.includes(liquid));
     
     if (isLiquidIngredient) {
@@ -213,6 +213,84 @@ const formatIngredientAmount = (amount: number, unit: string, ingredientName: st
           return '1 tsp';
         } else {
           return `${tsp} tsp`;
+        }
+      }
+    }
+    
+    // For meat and protein ingredients
+    const meatIngredients = ['turkey', 'chicken', 'beef', 'pork', 'lamb', 'fish', 'shrimp', 'tofu', 'tempeh'];
+    const isMeatIngredient = meatIngredients.some(meat => ingredientLower.includes(meat));
+    
+    if (isMeatIngredient) {
+      // Convert to pounds/ounces for larger amounts
+      if (amount >= 454) { // 1 pound = 454g
+        const pounds = amount / 454;
+        if (pounds >= 1) {
+          const wholePounds = Math.floor(pounds);
+          const remainder = pounds - wholePounds;
+          if (remainder === 0) {
+            return `${wholePounds} lb${wholePounds > 1 ? 's' : ''}`;
+          } else {
+            const ounces = Math.round(remainder * 16);
+            return `${wholePounds} lb ${ounces} oz`;
+          }
+        }
+      } else {
+        // Less than 1 pound, convert to ounces
+        const ounces = Math.round(amount / 28.35); // 1 oz = 28.35g
+        if (ounces === 1) {
+          return '1 oz';
+        } else {
+          return `${ounces} oz`;
+        }
+      }
+    }
+    
+    // For vegetables and fruits
+    const vegetableIngredients = ['onion', 'garlic', 'pepper', 'tomato', 'carrot', 'celery', 'mushroom', 'spinach', 'lettuce', 'cucumber', 'zucchini', 'squash', 'potato', 'sweet potato'];
+    const isVegetableIngredient = vegetableIngredients.some(veg => ingredientLower.includes(veg));
+    
+    if (isVegetableIngredient) {
+      // For smaller amounts, convert to tablespoons/teaspoons
+      if (amount < 30) {
+        if (amount >= 15) {
+          const tbsp = Math.round(amount / 15);
+          if (tbsp === 1) {
+            return '1 tbsp';
+          } else {
+            return `${tbsp} tbsp`;
+          }
+        } else if (amount >= 5) {
+          const tsp = Math.round(amount / 5);
+          if (tsp === 1) {
+            return '1 tsp';
+          } else {
+            return `${tsp} tsp`;
+          }
+        }
+      } else {
+        // For larger amounts, convert to cups
+        const cups = amount / 120; // Approximate for chopped vegetables
+        if (cups >= 1) {
+          const wholeCups = Math.floor(cups);
+          const remainder = cups - wholeCups;
+          if (remainder === 0) {
+            return `${wholeCups} cup${wholeCups > 1 ? 's' : ''}`;
+          } else if (remainder < 0.25) {
+            return `${wholeCups} cup${wholeCups > 1 ? 's' : ''}`;
+          } else if (remainder < 0.5) {
+            return `${wholeCups} 1/2 cup${wholeCups > 1 ? 's' : ''}`;
+          } else if (remainder < 0.75) {
+            return `${wholeCups} 3/4 cup${wholeCups > 1 ? 's' : ''}`;
+          } else {
+            return `${wholeCups + 1} cup${wholeCups + 1 > 1 ? 's' : ''}`;
+          }
+        } else {
+          if (cups >= 0.5) {
+            return '1/2 cup';
+          } else if (cups >= 0.25) {
+            return '1/4 cup';
+          }
         }
       }
     }
