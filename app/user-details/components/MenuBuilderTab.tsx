@@ -2094,72 +2094,18 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
       )}
 
       {/* Recipes List */}
-      <Grid container spacing={3}>
+      <Grid container spacing={2}>
         {recipes.map((recipe) => (
           <Grid item xs={12} md={6} lg={4} key={recipe.id}>
-            <Card>
-              <CardContent>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
-                  <Typography variant="h6" component="div">
-                    {recipe.name}
-                  </Typography>
-                  <Box>
-                    <IconButton
-                      size="small"
-                      onClick={() => toggleFavorite(recipe.id)}
-                      color={recipe.isFavorite ? 'primary' : 'default'}
-                    >
-                      {recipe.isFavorite ? <FavoriteIcon /> : <FavoriteBorderIcon />}
-                    </IconButton>
-                    <IconButton
-                      size="small"
-                      onClick={() => regenerateRecipe(recipe.id)}
-                      disabled={isGenerating}
-                    >
-                      <RefreshIcon />
-                    </IconButton>
-                    <IconButton
-                      size="small"
-                      color="error"
-                      onClick={() => deleteRecipe(recipe.id)}
-                    >
-                      <DeleteIcon />
-                    </IconButton>
-                  </Box>
-                </Box>
-
-                <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
-                  <Chip
-                    icon={<RestaurantIcon />}
-                    label={recipe.mealType}
-                    size="small"
-                    color="primary"
-                    variant="outlined"
-                  />
-                  <Chip
-                    icon={<LocalDiningIcon />}
-                    label={`${recipe.servings} servings`}
-                    size="small"
-                    variant="outlined"
-                  />
-                  {recipe.totalTime && (
-                    <Chip
-                      icon={<TimerIcon />}
-                      label={`${recipe.totalTime} min`}
-                      size="small"
-                      variant="outlined"
-                    />
-                  )}
-                </Box>
-
-                {recipe.description && (
-                  <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                    {recipe.description}
-                  </Typography>
-                )}
-
-                {/* Image and Nutrition Section */}
-                <Box sx={{ position: 'relative', mb: 2 }}>
+            <Box sx={{ 
+              position: 'relative',
+              borderRadius: '12px',
+              overflow: 'hidden',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+              margin: '8px'
+            }}>
+              {/* Image and Nutrition Section */}
+              <Box sx={{ position: 'relative' }}>
                   {recipe.photoUrl ? (
                     <Box sx={{ 
                       position: 'relative',
@@ -2239,6 +2185,8 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                                   justifyContent: 'center',
                                   cursor: 'pointer',
                                   transition: 'all 0.3s ease',
+                                  borderTopLeftRadius: '12px',
+                                  borderBottomLeftRadius: '12px',
                                   '&:hover': {
                                     background: 'rgba(0, 0, 0, 0.8)'
                                   }
@@ -2283,6 +2231,8 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                                   justifyContent: 'center',
                                   cursor: 'pointer',
                                   transition: 'all 0.3s ease',
+                                  borderTopLeftRadius: '12px',
+                                  borderBottomLeftRadius: '12px',
                                   '&:hover': {
                                     background: 'rgba(0, 0, 0, 0.8)'
                                   }
@@ -2327,6 +2277,8 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                                   justifyContent: 'center',
                                   cursor: 'pointer',
                                   transition: 'all 0.3s ease',
+                                  borderTopLeftRadius: '12px',
+                                  borderBottomLeftRadius: '12px',
                                   '&:hover': {
                                     background: 'rgba(0, 0, 0, 0.8)'
                                   }
@@ -2397,8 +2349,8 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                                   border: '2px solid rgba(255,255,255,0.7)',
                                   borderRadius: 1,
                                   overflow: 'auto',
-                                  minWidth: '450px',
-                                  maxWidth: '500px',
+                                  minWidth: '350px',
+                                  maxWidth: '400px',
                                   backgroundColor: 'rgba(255,255,255,0.1)',
                                   maxHeight: '300px',
                                   alignSelf: 'center',
@@ -2888,9 +2840,7 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                   </Alert>
                 )}
 
-
-              </CardContent>
-            </Card>
+              </Box>
           </Grid>
         ))}
       </Grid>
