@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   Container,
   Card,
@@ -19,173 +19,40 @@ import {
   ListItemSecondaryAction,
 } from '@mui/material';
 import { Save, Notifications, Security, Language, Palette, Restaurant } from '@mui/icons-material';
-
-interface Settings {
-  notifications: {
-    email: boolean;
-    push: boolean;
-    mealReminders: boolean;
-    goalReminders: boolean;
-  };
-  privacy: {
-    profileVisible: boolean;
-    leaderboardVisible: boolean;
-    dataSharing: boolean;
-  };
-  appearance: {
-    theme: 'light' | 'dark' | 'auto';
-    language: string;
-  };
-  recipe: {
-    detailedIngredientInfo: boolean;
-  };
-}
+import { useUserSettings } from '@/hooks/useUserSettings';
 
 export default function SettingsPage() {
-  const [settings, setSettings] = useState<Settings>({
-    notifications: {
-      email: true,
-      push: true,
-      mealReminders: true,
-      goalReminders: true,
-    },
-    privacy: {
-      profileVisible: true,
-      leaderboardVisible: true,
-      dataSharing: false,
-    },
-    appearance: {
-      theme: 'auto',
-      language: 'en',
-    },
-    recipe: {
-      detailedIngredientInfo: true,
-    },
-  });
-  const [loading, setLoading] = useState(true);
+  const { settings, loading, error, saveSettings, updateSetting } = useUserSettings();
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-
-  useEffect(() => {
-    loadSettings();
-  }, []);
-
-  const loadSettings = async () => {
-    try {
-      setLoading(true);
-      const token = localStorage.getItem('accessToken');
-      
-      if (!token) {
-        setError('Not authenticated');
-        return;
-      }
-
-      const response = await fetch('/api/settings/user', {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        // Merge with default settings to ensure all properties exist
-        setSettings({
-          notifications: {
-            email: true,
-            push: true,
-            mealReminders: true,
-            goalReminders: true,
-            ...data.settings?.notifications
-          },
-          privacy: {
-            profileVisible: true,
-            leaderboardVisible: true,
-            dataSharing: false,
-            ...data.settings?.privacy
-          },
-          appearance: {
-            theme: 'auto',
-            language: 'en',
-            ...data.settings?.appearance
-          },
-          recipe: {
-            detailedIngredientInfo: true,
-            ...data.settings?.recipe
-          }
-        });
-      }
-    } catch (error) {
-      console.error('Error loading settings:', error);
-      setError('Failed to load settings');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleSave = async () => {
     try {
       setSaving(true);
-      setError(null);
       setSuccess(null);
-
-      const token = localStorage.getItem('accessToken');
-      if (!token) {
-        setError('Not authenticated');
-        return;
-      }
-
-      const response = await fetch('/api/settings/user', {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify(settings),
-      });
-
-      if (response.ok) {
-        setSuccess('Settings saved successfully');
-        // Also save to localStorage for immediate access
-        localStorage.setItem('userSettings', JSON.stringify(settings));
-      } else {
-        const errorData = await response.json();
-        setError(errorData.error || 'Failed to save settings');
-      }
+      await saveSettings(settings);
+      setSuccess('Settings saved successfully');
     } catch (error) {
       console.error('Error saving settings:', error);
-      setError('Failed to save settings');
     } finally {
       setSaving(false);
     }
   };
 
-  const handleNotificationChange = (key: keyof Settings['notifications']) => {
-    setSettings(prev => ({
-      ...prev,
-      notifications: {
-        ...prev.notifications,
-        [key]: !prev.notifications[key],
-      },
-    }));
+  const handleNotificationChange = (key: keyof typeof settings.notifications) => {
+    updateSetting('notifications', key, !settings.notifications[key]);
   };
 
-  const handlePrivacyChange = (key: keyof Settings['privacy']) => {
-    setSettings(prev => ({
-      ...prev,
-      privacy: {
-        ...prev.privacy,
-        [key]: !prev.privacy[key],
-      },
-    }));
+  const handlePrivacyChange = (key: keyof typeof settings.privacy) => {
+    updateSetting('privacy', key, !settings.privacy[key]);
   };
 
-  const handleRecipeChange = (key: keyof Settings['recipe']) => {
-    setSettings(prev => ({
-      ...prev,
-      recipe: {
-        ...prev.recipe,
-        [key]: !prev.recipe[key],
-      },
-    }));
+  const handleRecipeChange = (key: keyof typeof settings.recipe) => {
+    updateSetting('recipe', key, !settings.recipe[key]);
+  };
+
+  const handleUnitsChange = (key: keyof typeof settings.units) => {
+    updateSetting('units', key, !settings.units[key]);
   };
 
   if (loading) {
@@ -348,6 +215,31 @@ export default function SettingsPage() {
                     edge="end"
                     checked={settings.recipe.detailedIngredientInfo}
                     onChange={() => handleRecipeChange('detailedIngredientInfo')}
+                  />
+                </ListItemSecondaryAction>
+              </ListItem>
+            </List>
+          </Box>
+
+          <Divider sx={{ my: 3 }} />
+
+          {/* Units Section */}
+          <Box sx={{ mb: 3 }}>
+            <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+              <Language sx={{ mr: 1 }} />
+              Units & Measurements
+            </Typography>
+            <List>
+              <ListItem>
+                <ListItemText
+                  primary="Use Metric Units"
+                  secondary="Display weights in kg/g and volumes in L/ml instead of lbs/oz and cups"
+                />
+                <ListItemSecondaryAction>
+                  <Switch
+                    edge="end"
+                    checked={settings.units.useMetricUnits}
+                    onChange={() => handleUnitsChange('useMetricUnits')}
                   />
                 </ListItemSecondaryAction>
               </ListItem>

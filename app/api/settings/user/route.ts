@@ -17,8 +17,12 @@ export async function GET(request: NextRequest) {
     const token = authHeader.substring(7);
     const authInfo = AuthService.verifyAccessToken(token);
 
-    // For now, return default settings
-    // In a real app, you'd store user settings in the database
+    // Get user settings from database
+    const userSettings = await prisma.userSettings.findUnique({
+      where: { userId: authInfo.userId },
+    });
+
+    // Return settings with defaults
     const settings = {
       notifications: {
         email: true,
@@ -36,7 +40,10 @@ export async function GET(request: NextRequest) {
         language: 'en',
       },
       recipe: {
-        detailedIngredientInfo: true,
+        detailedIngredientInfo: userSettings?.showExtraIngredientData ?? true,
+      },
+      units: {
+        useMetricUnits: userSettings?.useMetricUnits ?? false,
       },
     };
 
@@ -66,8 +73,21 @@ export async function PUT(request: NextRequest) {
     const body = await request.json();
     const settings = body;
 
-    // For now, just return success
-    // In a real app, you'd save these settings to the database
+    // Save user settings to database
+    await prisma.userSettings.upsert({
+      where: { userId: authInfo.userId },
+      update: {
+        showExtraIngredientData: settings.recipe?.detailedIngredientInfo ?? true,
+        useMetricUnits: settings.units?.useMetricUnits ?? false,
+        updatedAt: new Date(),
+      },
+      create: {
+        userId: authInfo.userId,
+        showExtraIngredientData: settings.recipe?.detailedIngredientInfo ?? true,
+        useMetricUnits: settings.units?.useMetricUnits ?? false,
+      },
+    });
+
     console.log('User settings updated:', settings);
 
     return NextResponse.json({
