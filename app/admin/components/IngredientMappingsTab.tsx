@@ -214,13 +214,6 @@ export default function IngredientMappingsTab() {
         <Typography variant="h4" component="h2">
           Ingredient Mappings
         </Typography>
-        <Button 
-          variant="contained" 
-          startIcon={<AddIcon />}
-          onClick={() => setShowForm(true)}
-        >
-          Add Mapping
-        </Button>
       </Box>
 
       {/* Search */}
@@ -235,82 +228,7 @@ export default function IngredientMappingsTab() {
         />
       </Box>
 
-      {/* Form */}
-      {showForm && (
-        <Card>
-          <CardContent>
-            <Typography variant="h6" gutterBottom>
-              {editingMapping ? 'Edit Mapping' : 'Add New Mapping'}
-            </Typography>
-            <Grid container spacing={2}>
-              <Grid item xs={12} md={6}>
-                <TextField
-                  fullWidth
-                  label="Keyword"
-                  value={formData.keyword}
-                  onChange={(e) => handleKeywordChange(e.target.value)}
-                  placeholder="e.g., salt, black pepper"
-                />
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <FormControl fullWidth>
-                  <InputLabel>Ingredient</InputLabel>
-                  <Select
-                    value={formData.ingredientId}
-                    onChange={(e) => setFormData({ ...formData, ingredientId: e.target.value })}
-                    label="Ingredient"
-                    disabled={!formData.keyword.trim()}
-                    displayEmpty
-                  >
-                    <MenuItem value="" disabled>
-                      {formData.keyword.trim() ? 'Select an ingredient...' : 'Enter a keyword first'}
-                    </MenuItem>
-                    {filteredIngredients.map((ingredient) => (
-                      <MenuItem key={ingredient.id} value={ingredient.id}>
-                        <Box>
-                          <Typography variant="body2">
-                            {ingredient.name}
-                          </Typography>
-                          {ingredient.category && (
-                            <Typography variant="caption" color="text.secondary">
-                              {ingredient.category}
-                            </Typography>
-                          )}
-                        </Box>
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Grid>
-              <Grid item xs={12}>
-                <FormControlLabel
-                  control={
-              <Switch
-                checked={formData.isActive}
-                      onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
-              />
-                  }
-                  label="Active"
-                />
-              </Grid>
-              <Grid item xs={12}>
-                <Box display="flex" gap={1}>
-              <Button
-                    variant="contained"
-                onClick={editingMapping ? handleUpdateMapping : handleCreateMapping}
-                disabled={!formData.keyword || !formData.ingredientId}
-              >
-                {editingMapping ? 'Update' : 'Create'}
-              </Button>
-                  <Button variant="outlined" onClick={handleCancel}>
-                Cancel
-              </Button>
-                </Box>
-              </Grid>
-            </Grid>
-          </CardContent>
-        </Card>
-      )}
+
 
       {/* Mappings List */}
       <Box display="flex" flexDirection="column" gap={2}>

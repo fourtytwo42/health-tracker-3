@@ -20,7 +20,7 @@ import {
   Alert,
   Collapse
 } from '@mui/material';
-import { Edit as EditIcon, Delete as DeleteIcon, SmartToy as AIIcon } from '@mui/icons-material';
+import { Edit as EditIcon, Delete as DeleteIcon, SmartToy as AIIcon, Link as LinkIcon } from '@mui/icons-material';
 
 interface Ingredient {
   id: string;
@@ -212,6 +212,39 @@ export default function IngredientsTab({
     setShowAiResult(false);
   };
 
+  // Add ingredient mapping
+  const addIngredientMapping = async (ingredientId: string, ingredientName: string) => {
+    if (!searchTerm.trim()) {
+      alert('Please enter a search term first');
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/ingredients/mappings', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
+        },
+        body: JSON.stringify({
+          keyword: searchTerm.trim(),
+          ingredientId: ingredientId,
+          isActive: true
+        })
+      });
+
+      const result = await response.json();
+      if (result.success) {
+        alert(`Mapping created: "${searchTerm}" → "${ingredientName}"`);
+      } else {
+        alert('Failed to create mapping: ' + (result.error || 'Unknown error'));
+      }
+    } catch (error) {
+      console.error('Error creating mapping:', error);
+      alert('Failed to create mapping');
+    }
+  };
+
   return (
     <Box sx={{ p: 3 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
@@ -389,7 +422,15 @@ export default function IngredientsTab({
                     <Typography variant="h6" component="div">
                       {aiSearchResult.bestMatch.name}
                     </Typography>
-                    <Box sx={{ display: 'flex', gap: 1 }}>
+                    <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                      <IconButton
+                        size="small"
+                        color="primary"
+                        onClick={() => addIngredientMapping(aiSearchResult.bestMatch.id, aiSearchResult.bestMatch.name)}
+                        title={`Map "${searchTerm}" to ${aiSearchResult.bestMatch.name}`}
+                      >
+                        <LinkIcon fontSize="small" />
+                      </IconButton>
                       <Chip 
                         label={aiSearchResult.bestMatch.category || 'Unknown'} 
                         size="small" 
@@ -665,6 +706,14 @@ export default function IngredientsTab({
                         {ingredient.name}
                       </Typography>
                       <Box sx={{ display: 'flex', gap: 0.5 }}>
+                        <IconButton
+                          size="small"
+                          color="primary"
+                          onClick={() => addIngredientMapping(ingredient.id, ingredient.name)}
+                          title={`Map "${searchTerm}" to ${ingredient.name}`}
+                        >
+                          <LinkIcon fontSize="small" />
+                        </IconButton>
                         <IconButton
                           size="small"
                           onClick={() => openIngredientDialog(ingredient)}
