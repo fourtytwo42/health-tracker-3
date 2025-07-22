@@ -2234,7 +2234,7 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                             <Box
                               sx={{
                                 width: '100%',
-                                maxWidth: '800px',
+                                maxWidth: '1000px',
                                 maxHeight: '90%',
                                 overflow: 'auto',
                                 '&::-webkit-scrollbar': {
@@ -2254,19 +2254,41 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                                   }
                                 }}
                               >
-                                <Typography variant="h6" gutterBottom sx={{ fontSize: '1.5rem', fontWeight: 'bold' }}>
+                                <Typography 
+                                  variant="h6" 
+                                  gutterBottom 
+                                  sx={{ 
+                                    fontSize: '2rem', 
+                                    fontWeight: 'bold',
+                                    textAlign: 'center',
+                                    mb: 3
+                                  }}
+                                >
                                   Instructions
                                 </Typography>
                                 <Typography
                                   variant="body1"
                                   sx={{
                                     whiteSpace: 'pre-wrap',
-                                    lineHeight: 1.8,
-                                    fontSize: '1.1rem'
+                                    lineHeight: 1.6,
+                                    fontSize: '0.95rem'
                                   }}
-                                >
-                                  {recipe.instructions}
-                                </Typography>
+                                  dangerouslySetInnerHTML={{
+                                    __html: recipe.instructions
+                                      .split('\n')
+                                      .map(line => {
+                                        // Match step patterns like "1.", "2.", "Step 1:", "Step 2:", etc.
+                                        const stepMatch = line.match(/^(\s*)(\d+\.|Step\s+\d+:?)(\s*)(.*)/i);
+                                        if (stepMatch) {
+                                          const [, leadingSpace, stepNumber, trailingSpace, stepText] = stepMatch;
+                                          return `${leadingSpace}<strong>${stepNumber}${trailingSpace}${stepText}</strong>`;
+                                        }
+                                        return line;
+                                      })
+                                      .join('\n')
+                                      .replace(/\.\s*/g, '.<br><br>')
+                                  }}
+                                />
                               </Box>
                             </Box>
                           )}
