@@ -2520,7 +2520,8 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                               flexDirection: 'column',
                               justifyContent: 'space-between',
                               padding: 2,
-                              zIndex: 20
+                              zIndex: 30,
+                              pointerEvents: 'auto'
                             }}
                           >
                             {/* Top Section - Title and Action Icons */}
@@ -2640,7 +2641,7 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                                   borderRadius: 2,
                                   padding: 0.5,
                                   backdropFilter: 'blur(5px)',
-                                  zIndex: 30,
+                                  zIndex: 50,
                                   pointerEvents: 'auto',
                                   alignSelf: 'flex-start',
                                   position: 'relative'
@@ -2658,7 +2659,7 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                                     },
                                     transition: 'all 0.2s ease',
                                     pointerEvents: 'auto',
-                                    zIndex: 40,
+                                    zIndex: 60,
                                     position: 'relative'
                                   }}
                                 >
@@ -2675,7 +2676,7 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                                     },
                                     transition: 'all 0.2s ease',
                                     pointerEvents: 'auto',
-                                    zIndex: 40,
+                                    zIndex: 60,
                                     position: 'relative'
                                   }}
                                 >
@@ -2692,7 +2693,7 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                                     },
                                     transition: 'all 0.2s ease',
                                     pointerEvents: 'auto',
-                                    zIndex: 40,
+                                    zIndex: 60,
                                     position: 'relative'
                                   }}
                                 >
