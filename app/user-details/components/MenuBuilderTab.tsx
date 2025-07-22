@@ -2277,11 +2277,11 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                                     __html: recipe.instructions
                                       .split('\n')
                                       .map(line => {
-                                        // Match step patterns like "1.", "2.", "Step 1:", "Step 2:", etc.
-                                        const stepMatch = line.match(/^(\s*)(\d+\.|Step\s+\d+:?)(\s*)(.*)/i);
+                                        // Match "Step X:" pattern and make only that part bold
+                                        const stepMatch = line.match(/^(\s*)(Step\s+\d+:?)(\s*)(.*)/i);
                                         if (stepMatch) {
                                           const [, leadingSpace, stepNumber, trailingSpace, stepText] = stepMatch;
-                                          return `${leadingSpace}<strong>${stepNumber}${trailingSpace}${stepText}</strong>`;
+                                          return `${leadingSpace}<strong>${stepNumber}</strong>${trailingSpace}${stepText}`;
                                         }
                                         return line;
                                       })
