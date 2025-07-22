@@ -2233,14 +2233,10 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                           {expandedInstructions[recipe.id] && (
                             <Box
                               sx={{
-                                background: 'rgba(255, 255, 255, 0.95)',
-                                borderRadius: 2,
-                                padding: 3,
                                 width: '100%',
-                                maxWidth: '600px',
+                                maxWidth: '800px',
                                 maxHeight: '90%',
                                 overflow: 'auto',
-                                backdropFilter: 'blur(10px)',
                                 '&::-webkit-scrollbar': {
                                   display: 'none'
                                 },
@@ -2248,18 +2244,30 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                                 msOverflowStyle: 'none'
                               }}
                             >
-                              <Typography variant="h6" gutterBottom>
-                                Instructions
-                              </Typography>
-                              <Typography
-                                variant="body1"
+                              <Box
                                 sx={{
-                                  whiteSpace: 'pre-wrap',
-                                  lineHeight: 1.6
+                                  color: 'white',
+                                  textShadow: '1px 1px 2px rgba(0, 0, 0, 0.8)',
+                                  '& .MuiTypography-root': {
+                                    color: 'white',
+                                    textShadow: '1px 1px 2px rgba(0, 0, 0, 0.8)'
+                                  }
                                 }}
                               >
-                                {recipe.instructions}
-                              </Typography>
+                                <Typography variant="h6" gutterBottom sx={{ fontSize: '1.5rem', fontWeight: 'bold' }}>
+                                  Instructions
+                                </Typography>
+                                <Typography
+                                  variant="body1"
+                                  sx={{
+                                    whiteSpace: 'pre-wrap',
+                                    lineHeight: 1.8,
+                                    fontSize: '1.1rem'
+                                  }}
+                                >
+                                  {recipe.instructions}
+                                </Typography>
+                              </Box>
                             </Box>
                           )}
 
