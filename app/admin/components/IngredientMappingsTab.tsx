@@ -54,7 +54,6 @@ export default function IngredientMappingsTab() {
     isActive: true
   });
   const [filteredIngredients, setFilteredIngredients] = useState<Ingredient[]>([]);
-  const [showIngredientDropdown, setShowIngredientDropdown] = useState(false);
 
   // Fetch mappings and ingredients
   useEffect(() => {
@@ -167,7 +166,6 @@ export default function IngredientMappingsTab() {
     });
     setShowForm(true);
     setFilteredIngredients([]);
-    setShowIngredientDropdown(false);
   };
 
   const handleCancel = () => {
@@ -175,14 +173,12 @@ export default function IngredientMappingsTab() {
     setFormData({ keyword: '', ingredientId: '', isActive: true });
     setShowForm(false);
     setFilteredIngredients([]);
-    setShowIngredientDropdown(false);
   };
 
   // Filter ingredients based on keyword
   const filterIngredientsByKeyword = (keyword: string) => {
     if (!keyword.trim()) {
       setFilteredIngredients([]);
-      setShowIngredientDropdown(false);
       return;
     }
 
@@ -192,34 +188,12 @@ export default function IngredientMappingsTab() {
     ).slice(0, 10); // Limit to 10 suggestions
 
     setFilteredIngredients(filtered);
-    setShowIngredientDropdown(filtered.length > 0);
   };
 
   const handleKeywordChange = (keyword: string) => {
     setFormData({ ...formData, keyword });
     filterIngredientsByKeyword(keyword);
   };
-
-  const handleIngredientSelect = (ingredient: Ingredient) => {
-    setFormData({ ...formData, ingredientId: ingredient.id });
-    setShowIngredientDropdown(false);
-    setFilteredIngredients([]);
-  };
-
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      const target = event.target as Element;
-      if (!target.closest('.ingredient-dropdown-container')) {
-        setShowIngredientDropdown(false);
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, []);
 
   const filteredMappings = mappings.filter(mapping =>
     mapping.keyword.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -279,48 +253,21 @@ export default function IngredientMappingsTab() {
                 />
               </Grid>
               <Grid item xs={12} md={6}>
-                <Box position="relative" className="ingredient-dropdown-container">
-                  <TextField
-                    fullWidth
+                <FormControl fullWidth>
+                  <InputLabel>Ingredient</InputLabel>
+                  <Select
+                    value={formData.ingredientId}
+                    onChange={(e) => setFormData({ ...formData, ingredientId: e.target.value })}
                     label="Ingredient"
-                    value={ingredients.find(i => i.id === formData.ingredientId)?.name || ''}
-                    placeholder="Start typing to see ingredient suggestions..."
-                    onChange={(e) => handleKeywordChange(e.target.value)}
-                    onFocus={() => {
-                      if (formData.keyword.trim()) {
-                        filterIngredientsByKeyword(formData.keyword);
-                      }
-                    }}
-                  />
-                  {showIngredientDropdown && (
-                    <Paper
-                      sx={{
-                        position: 'absolute',
-                        top: '100%',
-                        left: 0,
-                        right: 0,
-                        zIndex: 1000,
-                        maxHeight: 200,
-                        overflow: 'auto',
-                        boxShadow: 3,
-                        border: '1px solid',
-                        borderColor: 'divider'
-                      }}
-                    >
-                      {filteredIngredients.map((ingredient) => (
-                        <Box
-                          key={ingredient.id}
-                          sx={{
-                            p: 1,
-                            cursor: 'pointer',
-                            '&:hover': {
-                              backgroundColor: 'action.hover'
-                            },
-                            borderBottom: '1px solid',
-                            borderColor: 'divider'
-                          }}
-                          onClick={() => handleIngredientSelect(ingredient)}
-                        >
+                    disabled={!formData.keyword.trim()}
+                    displayEmpty
+                  >
+                    <MenuItem value="" disabled>
+                      {formData.keyword.trim() ? 'Select an ingredient...' : 'Enter a keyword first'}
+                    </MenuItem>
+                    {filteredIngredients.map((ingredient) => (
+                      <MenuItem key={ingredient.id} value={ingredient.id}>
+                        <Box>
                           <Typography variant="body2">
                             {ingredient.name}
                           </Typography>
@@ -330,10 +277,10 @@ export default function IngredientMappingsTab() {
                             </Typography>
                           )}
                         </Box>
-                      ))}
-                    </Paper>
-                  )}
-                </Box>
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
               </Grid>
               <Grid item xs={12}>
                 <FormControlLabel
