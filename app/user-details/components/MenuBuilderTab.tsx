@@ -2244,6 +2244,20 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                                 msOverflowStyle: 'none'
                               }}
                             >
+                              <Typography 
+                                variant="h6" 
+                                gutterBottom 
+                                sx={{ 
+                                  fontWeight: 'bold',
+                                  fontSize: '1.2rem',
+                                  mb: 0.5,
+                                  color: 'white',
+                                  textShadow: '2px 2px 4px rgba(0,0,0,0.9)',
+                                  textAlign: 'center'
+                                }}
+                              >
+                                Instructions
+                              </Typography>
                               <Box
                                 sx={{
                                   border: '2px solid rgba(255,255,255,0.7)',
@@ -2262,55 +2276,32 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                                   msOverflowStyle: 'none'
                                 }}
                               >
-                                <Box
+                                <Typography
+                                  variant="body1"
                                   sx={{
+                                    whiteSpace: 'pre-wrap',
+                                    lineHeight: 1.6,
+                                    fontSize: '0.95rem',
                                     color: 'white',
-                                    textShadow: '1px 1px 2px rgba(0, 0, 0, 0.8)',
-                                    '& .MuiTypography-root': {
-                                      color: 'white',
-                                      textShadow: '1px 1px 2px rgba(0, 0, 0, 0.8)'
-                                    }
+                                    textShadow: '1px 1px 2px rgba(0, 0, 0, 0.8)'
                                   }}
-                                >
-                                  <Typography 
-                                    variant="h6" 
-                                    gutterBottom 
-                                    sx={{ 
-                                      fontWeight: 'bold',
-                                      fontSize: '1.2rem',
-                                      mb: 0.5,
-                                      color: 'white',
-                                      textShadow: '2px 2px 4px rgba(0,0,0,0.9)',
-                                      textAlign: 'center'
-                                    }}
-                                  >
-                                    Instructions
-                                  </Typography>
-                                  <Typography
-                                    variant="body1"
-                                    sx={{
-                                      whiteSpace: 'pre-wrap',
-                                      lineHeight: 1.6,
-                                      fontSize: '0.95rem'
-                                    }}
-                                    dangerouslySetInnerHTML={{
-                                      __html: recipe.instructions
-                                        .split('\n')
-                                        .map(line => {
-                                          // Match "Step X:" pattern and make only that part bold
-                                          const stepMatch = line.match(/^(\s*)(Step\s+\d+:?)(\s*)(.*)/i);
-                                          if (stepMatch) {
-                                            const [, leadingSpace, stepNumber, trailingSpace, stepText] = stepMatch;
-                                            return `${leadingSpace}<strong>${stepNumber}</strong>${trailingSpace}${stepText}`;
-                                          }
-                                          return line;
-                                        })
-                                        .join('\n')
-                                        .replace(/\.\s*(?=.*Step\s+\d+:?)/gi, '.<br><br>')
-                                        .replace(/\.\s*/g, '. ')
-                                    }}
-                                  />
-                                </Box>
+                                  dangerouslySetInnerHTML={{
+                                    __html: recipe.instructions
+                                      .split('\n')
+                                      .map(line => {
+                                        // Match "Step X:" pattern and make only that part bold
+                                        const stepMatch = line.match(/^(\s*)(Step\s+\d+:?)(\s*)(.*)/i);
+                                        if (stepMatch) {
+                                          const [, leadingSpace, stepNumber, trailingSpace, stepText] = stepMatch;
+                                          return `${leadingSpace}<strong>${stepNumber}</strong>${trailingSpace}${stepText}`;
+                                        }
+                                        return line;
+                                      })
+                                      .join('\n')
+                                      .replace(/\.\s*(?=.*Step\s+\d+:?)/gi, '.<br><br>')
+                                      .replace(/\.\s*/g, '. ')
+                                  }}
+                                />
                               </Box>
                             </Box>
                           )}
