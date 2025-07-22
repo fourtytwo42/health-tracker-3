@@ -2524,32 +2524,114 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                             }}
                           >
                             {/* Top Section - Title and Action Icons */}
-                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                              {/* Recipe Title */}
-                              <Box
-                                sx={{
-                                  backgroundColor: 'rgba(0, 0, 0, 0.5)',
-                                  borderRadius: 2,
-                                  padding: 1.5,
-                                  maxWidth: '60%',
-                                  backdropFilter: 'blur(5px)'
-                                }}
-                              >
-                                <Typography
-                                  variant="h4"
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', width: '100%' }}>
+                              {/* Recipe Title and Badges */}
+                              <Box sx={{ maxWidth: '60%' }}>
+                                <Box
                                   sx={{
-                                    fontWeight: 'bold',
-                                    color: 'white',
-                                    textShadow: '2px 2px 4px rgba(0,0,0,0.8)',
-                                    fontSize: '1.5rem',
-                                    lineHeight: 1.2
+                                    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+                                    borderRadius: 2,
+                                    padding: 1.2,
+                                    backdropFilter: 'blur(5px)',
+                                    mb: 0.5
                                   }}
                                 >
-                                  {recipe.name}
-                                </Typography>
+                                  <Typography
+                                    variant="h5"
+                                    sx={{
+                                      fontWeight: 'bold',
+                                      color: 'white',
+                                      textShadow: '2px 2px 4px rgba(0,0,0,0.8)',
+                                      fontSize: '1.1rem',
+                                      lineHeight: 1.2
+                                    }}
+                                  >
+                                    {recipe.name}
+                                  </Typography>
+                                </Box>
+                                {/* Badges Row (only this, remove any other badge rows below) */}
+                                <Box sx={{ display: 'flex', gap: 0.5, mb: 0.5 }}>
+                                  <Box
+                                    sx={{
+                                      backgroundColor: '#ffd700',
+                                      borderRadius: '16px',
+                                      padding: '2px 8px',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      gap: 0.5,
+                                      fontSize: '0.7rem',
+                                      minWidth: 0
+                                    }}
+                                  >
+                                    <Typography sx={{ fontSize: '0.65rem', fontWeight: 'bold', color: '#000' }}>
+                                      {recipe.mealType.charAt(0)}
+                                    </Typography>
+                                    <Typography
+                                      sx={{
+                                        fontWeight: 'bold',
+                                        color: '#000',
+                                        fontSize: '0.7rem',
+                                        letterSpacing: 0.5
+                                      }}
+                                    >
+                                      {recipe.mealType.toUpperCase()}
+                                    </Typography>
+                                  </Box>
+                                  <Box
+                                    sx={{
+                                      backgroundColor: '#4CAF50',
+                                      borderRadius: '16px',
+                                      padding: '2px 8px',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      gap: 0.5,
+                                      fontSize: '0.7rem',
+                                      minWidth: 0
+                                    }}
+                                  >
+                                    <Typography sx={{ fontSize: '0.65rem', fontWeight: 'bold', color: 'white' }}>
+                                      {recipe.servings}
+                                    </Typography>
+                                    <Typography
+                                      sx={{
+                                        color: 'white',
+                                        fontWeight: 'medium',
+                                        fontSize: '0.7rem',
+                                        letterSpacing: 0.5
+                                      }}
+                                    >
+                                      serving{recipe.servings > 1 ? 's' : ''}
+                                    </Typography>
+                                  </Box>
+                                  <Box
+                                    sx={{
+                                      backgroundColor: '#2196F3',
+                                      borderRadius: '16px',
+                                      padding: '2px 8px',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      gap: 0.5,
+                                      fontSize: '0.7rem',
+                                      minWidth: 0
+                                    }}
+                                  >
+                                    <Typography sx={{ fontSize: '0.65rem', fontWeight: 'bold', color: 'white' }}>
+                                      ⏱
+                                    </Typography>
+                                    <Typography
+                                      sx={{
+                                        color: 'white',
+                                        fontWeight: 'medium',
+                                        fontSize: '0.7rem',
+                                        letterSpacing: 0.5
+                                      }}
+                                    >
+                                      {recipe.totalTime || ((recipe.prepTime || 0) + (recipe.cookTime || 0)) || 45} min
+                                    </Typography>
+                                  </Box>
+                                </Box>
                               </Box>
-
-                              {/* Action Icons - Separate Section */}
+                              {/* Action Icons - Separate Section, ensure clickable */}
                               <Box
                                 sx={{
                                   display: 'flex',
@@ -2557,7 +2639,11 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                                   backgroundColor: 'rgba(0, 0, 0, 0.5)',
                                   borderRadius: 2,
                                   padding: 0.5,
-                                  backdropFilter: 'blur(5px)'
+                                  backdropFilter: 'blur(5px)',
+                                  zIndex: 30,
+                                  pointerEvents: 'auto',
+                                  alignSelf: 'flex-start',
+                                  position: 'relative'
                                 }}
                               >
                                 <IconButton
@@ -2570,7 +2656,10 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                                       backgroundColor: recipe.isFavorite ? 'rgba(255,107,107,0.3)' : 'rgba(255,255,255,0.1)',
                                       transform: 'scale(1.1)'
                                     },
-                                    transition: 'all 0.2s ease'
+                                    transition: 'all 0.2s ease',
+                                    pointerEvents: 'auto',
+                                    zIndex: 40,
+                                    position: 'relative'
                                   }}
                                 >
                                   {recipe.isFavorite ? <FavoriteIcon /> : <FavoriteBorderIcon />}
@@ -2584,7 +2673,10 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                                       backgroundColor: 'rgba(255,255,255,0.1)',
                                       transform: 'scale(1.1)'
                                     },
-                                    transition: 'all 0.2s ease'
+                                    transition: 'all 0.2s ease',
+                                    pointerEvents: 'auto',
+                                    zIndex: 40,
+                                    position: 'relative'
                                   }}
                                 >
                                   <PrintIcon />
@@ -2598,7 +2690,10 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
                                       backgroundColor: 'rgba(255,107,107,0.2)',
                                       transform: 'scale(1.1)'
                                     },
-                                    transition: 'all 0.2s ease'
+                                    transition: 'all 0.2s ease',
+                                    pointerEvents: 'auto',
+                                    zIndex: 40,
+                                    position: 'relative'
                                   }}
                                 >
                                   <DeleteIcon />
