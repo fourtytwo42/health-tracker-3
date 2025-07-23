@@ -59,6 +59,10 @@ export async function POST(request: NextRequest) {
     );
 
     const llmRouter = LLMRouter.getInstance();
+    
+    // Wait for LLM providers to be fully initialized
+    await llmRouter.waitForInitialization();
+    
     const response = await llmRouter.generateResponse({
       prompt: `System: ${systemMessage?.content || getDefaultWorkoutSystemPrompt()}\n\nUser: ${prompt}`,
       temperature: 0.7,
@@ -317,6 +321,74 @@ Return a valid JSON object with the following structure:
 }`;
 }
 
+function extractWorkoutJsonFromResponse(response: string): string | null {
+  // Strategy 1: Look for JSON code blocks (```json ... ```)
+  const codeBlockMatch = response.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/);
+  if (codeBlockMatch) {
+    console.log('Found JSON in code block');
+    return codeBlockMatch[1];
+  }
+  
+  // Strategy 2: Look for JSON after common prefixes
+  const afterPrefixMatch = response.match(/(?:Here is|Here's|Generated workout|Workout:)[\s\S]*?(\{[\s\S]*?\})/);
+  if (afterPrefixMatch) {
+    console.log('Found JSON after prefix');
+    return afterPrefixMatch[1];
+  }
+  
+  // Strategy 3: Find the outermost JSON object by counting braces
+  const firstBrace = response.indexOf('{');
+  if (firstBrace === -1) return null;
+  
+  let braceCount = 0;
+  let lastBrace = -1;
+  
+  for (let i = firstBrace; i < response.length; i++) {
+    const char = response[i];
+    if (char === '{') {
+      braceCount++;
+    } else if (char === '}') {
+      braceCount--;
+      if (braceCount === 0) {
+        lastBrace = i;
+        break;
+      }
+    }
+  }
+  
+  if (lastBrace !== -1) {
+    console.log('Found JSON with brace counting');
+    return response.substring(firstBrace, lastBrace + 1);
+  }
+  
+  return null;
+}
+
+function cleanWorkoutJsonString(jsonString: string): string {
+  // Remove any text before the first {
+  const startIndex = jsonString.indexOf('{');
+  if (startIndex > 0) {
+    jsonString = jsonString.substring(startIndex);
+  }
+  
+  // Remove any text after the last }
+  const endIndex = jsonString.lastIndexOf('}');
+  if (endIndex < jsonString.length - 1) {
+    jsonString = jsonString.substring(0, endIndex + 1);
+  }
+  
+  // Fix common JSON issues
+  jsonString = jsonString
+    // Fix unquoted property names
+    .replace(/([{,]\s*)([a-zA-Z_][a-zA-Z0-9_]*)\s*:/g, '$1"$2":')
+    // Fix trailing commas
+    .replace(/,(\s*[}\]])/g, '$1')
+    // Fix missing quotes around string values
+    .replace(/:\s*([a-zA-Z][a-zA-Z0-9\s]*[a-zA-Z0-9])(\s*[,}])/g, ':"$1"$2');
+  
+  return jsonString;
+}
+
 function parseWorkoutResponse(
   response: string,
   userId: string,
@@ -324,13 +396,27 @@ function parseWorkoutResponse(
   generateImage: boolean
 ): any {
   try {
-    // Extract JSON from response
-    const jsonMatch = response.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
+    console.log('Raw workout response:', response);
+    
+    // Extract JSON using the same methodology as MCP handler
+    const jsonString = extractWorkoutJsonFromResponse(response);
+    if (!jsonString) {
       throw new Error('No JSON found in response');
     }
 
-    const workoutData = JSON.parse(jsonMatch[0]);
+    console.log('Extracted JSON string:', jsonString);
+    
+    // Try to parse the JSON directly first
+    let workoutData;
+    try {
+      workoutData = JSON.parse(jsonString);
+    } catch (parseError) {
+      console.log('Direct JSON parse failed, trying cleanup...');
+      // Clean up common JSON issues
+      const cleanedJson = cleanWorkoutJsonString(jsonString);
+      console.log('Cleaned JSON string:', cleanedJson);
+      workoutData = JSON.parse(cleanedJson);
+    }
 
     return {
       userId,
