@@ -1,29 +1,23 @@
 'use client';
 
-import React, { useState, useCallback } from 'react';
+import React, { useState } from 'react';
 import {
   Box,
   Typography,
   IconButton,
   Tooltip,
-  Chip,
   useTheme,
   useMediaQuery,
-  Fade,
-  Slide,
-  Zoom
 } from '@mui/material';
-import {
-  Favorite as FavoriteIcon,
-  FavoriteBorder as FavoriteBorderIcon,
-  Refresh as RefreshIcon,
-  Print as PrintIcon,
-  Delete as DeleteIcon,
-  Restaurant as RestaurantIcon,
-  Timer as TimerIcon,
-  People as PeopleIcon
-} from '@mui/icons-material';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
+import FavoriteIcon from '@mui/icons-material/Favorite';
+import FavoriteBorderIcon from '@mui/icons-material/FavoriteBorder';
+import DeleteIcon from '@mui/icons-material/Delete';
+import PrintIcon from '@mui/icons-material/Print';
+
+/* ------------------------------------------------------------------ */
+/*  Types                                                             */
+/* ------------------------------------------------------------------ */
 
 interface Recipe {
   id: string;
@@ -85,137 +79,116 @@ interface Recipe {
 interface RecipeCardProps {
   recipe: Recipe;
   onToggleFavorite: (recipeId: string) => void;
-  onRegenerate: (recipeId: string) => void;
   onDelete: (recipeId: string) => void;
   onPrint: (recipe: Recipe) => void;
-  onReplaceIngredient: (recipeId: string, ingredientId: string, newIngredientId: string) => void;
-  onAdjustNutrition: (recipeId: string) => void;
-  onIngredientPreference: (ingredientId: string, preference: 'like' | 'dislike' | 'allergy' | 'intolerance') => void;
 }
 
-export default function RecipeCard({ 
-  recipe, 
-  onToggleFavorite, 
-  onRegenerate, 
-  onDelete, 
+/* ------------------------------------------------------------------ */
+/*  Constants & Helpers                                               */
+/* ------------------------------------------------------------------ */
+
+const ALL_TABS = ['Instructions', 'Ingredients', 'Nutrition'] as const;
+
+const clampFont = (
+  base: number,
+  length: number,
+  longThresh: number,
+  veryLongThresh: number
+): number => {
+  if (length > veryLongThresh) return base * 0.8;
+  if (length > longThresh) return base * 0.9;
+  return base;
+};
+
+const formatIngredientAmount = (
+  amount: number,
+  unit: string,
+  name: string
+): string => {
+  const scaled = amount;
+  if (name.toLowerCase().includes('egg')) {
+    return `${Math.round(scaled)} egg${Math.round(scaled) !== 1 ? 's' : ''}`;
+  }
+  const u = unit.toLowerCase();
+  if (u === 'g' || u === 'gram') {
+    if (scaled >= 1000) return `${Math.round(scaled / 1000)} lb`;
+    if (scaled >= 28.35) return `${Math.round(scaled / 28.35)} oz`;
+    if (scaled >= 15) return `${Math.round(scaled / 15)} tbsp`;
+    if (scaled >= 5) return `${Math.round(scaled / 5)} tsp`;
+    return `${Math.round(scaled)} g`;
+  }
+  if (u === 'ml' || u === 'milliliter') {
+    if (scaled >= 240)
+      return `${Math.round(scaled / 240)} cup${Math.round(scaled / 240) !== 1 ? 's' : ''}`;
+    if (scaled >= 15) return `${Math.round(scaled / 15)} tbsp`;
+    if (scaled >= 5) return `${Math.round(scaled / 5)} tsp`;
+    return `${Math.round(scaled)} ml`;
+  }
+  return `${Math.round(scaled)} ${unit}`;
+};
+
+/* ------------------------------------------------------------------ */
+/*  Component                                                         */
+/* ------------------------------------------------------------------ */
+
+export default function RecipeCard({
+  recipe,
+  onToggleFavorite,
+  onDelete,
   onPrint,
 }: RecipeCardProps) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const isTablet = useMediaQuery(theme.breakpoints.down('md'));
-  
-  const [expandedInstructions, setExpandedInstructions] = useState(false);
-  const [expandedIngredients, setExpandedIngredients] = useState(false);
-  const [expandedNutrition, setExpandedNutrition] = useState(false);
-  const [nutritionWasOnLeft, setNutritionWasOnLeft] = useState(false);
-  const [nutritionShouldStayOnRight, setNutritionShouldStayOnRight] = useState(false);
+
+  const [leftTabs, setLeftTabs] = useState<string[]>([...ALL_TABS]);
+  const [rightTabs, setRightTabs] = useState<string[]>([]);
+  const [activeTab, setActiveTab] = useState<string | null>(null);
   const [isHovered, setIsHovered] = useState(false);
 
-  // Responsive sizing based on viewport
-  const cardAspectRatio = isMobile ? 1.2 : isTablet ? 1.4 : 1.6; // width/height ratio
-  const cardHeight = isMobile ? '280px' : isTablet ? '320px' : '360px';
-  const cardWidth = `calc(${cardHeight} * ${cardAspectRatio})`;
+  const cardHeight = isMobile ? 340 : isTablet ? 400 : 480;
+  const cardWidth = cardHeight * 1.6;
 
-  // Responsive typography scaling
-  const getResponsiveFontSize = (baseSize: number, mobileRatio = 0.8, tabletRatio = 0.9) => {
-    if (isMobile) return `${baseSize * mobileRatio}rem`;
-    if (isTablet) return `${baseSize * tabletRatio}rem`;
-    return `${baseSize}rem`;
+  const fs = (base: number, mob = 0.8, tab = 0.9) =>
+    `${base * (isMobile ? mob : isTablet ? tab : 1)}rem`;
+  const spacing = (v: number) =>
+    isMobile ? v * 0.6 : isTablet ? v * 0.8 : v;
+
+  const handleTabClick = (tab: string) => {
+    /* ---------------- LEFT‑SIDE CLICK: open tab ---------------- */
+    if (leftTabs.includes(tab)) {
+      const idx = leftTabs.indexOf(tab);
+      const moving = leftTabs.slice(idx); // tab + anything after it
+      setLeftTabs(leftTabs.slice(0, idx));
+      setRightTabs(prev => [...moving, ...prev]);
+      setActiveTab(tab);
+      return;
+    }
+
+    /* ---------------- RIGHT‑SIDE CLICK: close tab -------------- */
+    const idx = rightTabs.indexOf(tab);
+
+    // If it was the right‑most tab, close everything
+    if (idx === rightTabs.length - 1) {
+      setLeftTabs(prev => [...prev, ...rightTabs]);
+      setRightTabs([]);
+      setActiveTab(null);
+      return;
+    }
+
+    // Otherwise move the clicked tab (and any to its left) back
+    const moveBack = rightTabs.slice(0, idx + 1);
+    const newRight = rightTabs.slice(idx + 1);
+    setLeftTabs(prev => [...prev, ...moveBack]);
+    setRightTabs(newRight);
+    setActiveTab(newRight.length ? newRight[newRight.length - 1] : null); // hide closed tab
   };
 
-  // Responsive spacing
-  const getResponsiveSpacing = (baseSpacing: number) => {
-    if (isMobile) return baseSpacing * 0.6;
-    if (isTablet) return baseSpacing * 0.8;
-    return baseSpacing;
-  };
+  const isExpanded = activeTab !== null;
 
-  const toggleInstructionsExpansion = useCallback(() => {
-    const newExpandedInstructions = !expandedInstructions;
-    setExpandedInstructions(newExpandedInstructions);
-    
-    // If we're expanding instructions, collapse others
-    if (newExpandedInstructions) {
-      setExpandedIngredients(false);
-      setExpandedNutrition(false);
-      setNutritionWasOnLeft(false);
-      setNutritionShouldStayOnRight(false);
-    }
-    // If we're collapsing instructions, don't collapse others (let them stay on right)
-  }, [expandedInstructions]);
-
-  const toggleIngredientsExpansion = useCallback(() => {
-    // Check if Nutrition is currently on the left side
-    const nutritionOnLeft = !expandedNutrition && !expandedInstructions;
-    setNutritionWasOnLeft(nutritionOnLeft);
-    
-    setExpandedIngredients(!expandedIngredients);
-    
-    // If we're expanding ingredients
-    if (!expandedIngredients) {
-      // Only move Nutrition to right if it was on the left
-      if (nutritionOnLeft) {
-        setExpandedNutrition(true);
-        setNutritionShouldStayOnRight(true);
-      }
-    } else {
-      // If we're collapsing ingredients and Instructions is on right, also collapse Instructions
-      if (expandedInstructions) {
-        setExpandedInstructions(false);
-      }
-    }
-  }, [expandedIngredients, expandedNutrition, expandedInstructions]);
-
-  const toggleNutritionExpansion = useCallback(() => {
-    setExpandedNutrition(!expandedNutrition);
-    
-    // If we're collapsing nutrition and all 3 are on right, collapse all
-    if (expandedNutrition && expandedInstructions && expandedIngredients) {
-      setExpandedInstructions(false);
-      setExpandedIngredients(false);
-      setNutritionShouldStayOnRight(false);
-    }
-  }, [expandedNutrition, expandedInstructions, expandedIngredients]);
-
-  const formatIngredientAmount = (amount: number, unit: string, ingredientName: string): string => {
-    const scaledAmount = amount * (recipe.scalingFactor || 1);
-    
-    // Handle special cases
-    if (ingredientName.toLowerCase().includes('egg')) {
-      return `${Math.round(scaledAmount)} egg${Math.round(scaledAmount) !== 1 ? 's' : ''}`;
-    }
-
-    // Convert grams to user-friendly units
-    if (unit.toLowerCase() === 'g' || unit.toLowerCase() === 'gram') {
-      if (scaledAmount >= 1000) {
-        return `${Math.round(scaledAmount / 1000)} lb`;
-      } else if (scaledAmount >= 28.35) {
-        return `${Math.round(scaledAmount / 28.35)} oz`;
-      } else if (scaledAmount >= 15) {
-        return `${Math.round(scaledAmount / 15)} tbsp`;
-      } else if (scaledAmount >= 5) {
-        return `${Math.round(scaledAmount / 5)} tsp`;
-      } else {
-        return `${Math.round(scaledAmount)} g`;
-      }
-    }
-
-    // Convert ml to cups/tablespoons
-    if (unit.toLowerCase() === 'ml' || unit.toLowerCase() === 'milliliter') {
-      if (scaledAmount >= 240) {
-        return `${Math.round(scaledAmount / 240)} cup${Math.round(scaledAmount / 240) !== 1 ? 's' : ''}`;
-      } else if (scaledAmount >= 15) {
-        return `${Math.round(scaledAmount / 15)} tbsp`;
-      } else if (scaledAmount >= 5) {
-        return `${Math.round(scaledAmount / 5)} tsp`;
-      } else {
-        return `${Math.round(scaledAmount)} ml`;
-      }
-    }
-
-    // Default case
-    return `${Math.round(scaledAmount)} ${unit}`;
-  };
+  /* ------------------------------------------------------------------ */
+  /*  JSX                                                               */
+  /* ------------------------------------------------------------------ */
 
   return (
     <motion.div
@@ -225,11 +198,12 @@ export default function RecipeCard({
       transition={{ duration: 0.3 }}
       onHoverStart={() => setIsHovered(true)}
       onHoverEnd={() => setIsHovered(false)}
+      style={{ width: cardWidth, height: cardHeight }}
     >
       <Box
         sx={{
-          width: cardWidth,
-          height: cardHeight,
+          width: '100%',
+          height: '100%',
           position: 'relative',
           borderRadius: 3,
           overflow: 'hidden',
@@ -238,895 +212,459 @@ export default function RecipeCard({
           cursor: 'pointer',
         }}
       >
-        {/* Background Image */}
+        {/* Background */}
         <Box
           component="img"
-          src={recipe.photoUrl || 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjNjY2NjY2Ii8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxOCIgZmlsbD0iI2NjYyIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPk5vIEltYWdlPC90ZXh0Pjwvc3ZnPg=='}
+          src={
+            recipe.photoUrl ||
+            'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjNjY2NjY2Ii8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxOCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iI2NjYyIgZHk9Ii4zZW0iPk5vIEltYWdlPC90ZXh0Pjwvc3ZnPg=='
+          }
           alt={recipe.name}
           sx={{
+            position: 'absolute',
+            inset: 0,
             width: '100%',
             height: '100%',
             objectFit: 'cover',
-            position: 'absolute',
-            top: 0,
-            left: 0,
             zIndex: 1,
           }}
         />
 
-        {/* Overlay Gradient */}
-        <Box
-          sx={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            background: 'linear-gradient(135deg, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0.7) 100%)',
-            zIndex: 2,
-          }}
-        />
-
-        {/* Book-style Navigation - Left Side */}
-        <Box
-          sx={{
-            position: 'absolute',
-            left: 0,
-            top: 0,
-            bottom: 0,
-            display: 'flex',
-            flexDirection: 'row',
-            zIndex: 50,
-            pointerEvents: 'auto'
-          }}
-        >
-          {/* Instructions - On left only when not expanded AND not shown on right */}
-          {!expandedInstructions && !(expandedInstructions) && (
-            <Box
-              sx={{
-                width: '40px',
-                height: '100%',
-                background: 'rgba(0, 0, 0, 0.7)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                cursor: 'pointer',
-                transition: 'all 0.3s ease',
-                '&:hover': {
-                  background: 'rgba(0, 0, 0, 0.8)'
-                },
-                pointerEvents: 'auto'
-              }}
-              onClick={toggleInstructionsExpansion}
-            >
-              <Typography
-                variant="caption"
-                sx={{
-                  color: 'white',
-                  whiteSpace: 'nowrap',
-                  fontWeight: 'bold',
-                  fontSize: '0.7rem',
-                  transform: 'rotate(-90deg)',
-                  pointerEvents: 'none'
-                }}
-              >
-                Instructions
-              </Typography>
-            </Box>
-          )}
-
-          {/* Ingredients - On left only when not expanded AND not shown on right */}
-          {!expandedIngredients && !(expandedIngredients || expandedInstructions) && (
-            <Box
-              sx={{
-                width: '40px',
-                height: '100%',
-                background: 'rgba(0, 0, 0, 0.7)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                cursor: 'pointer',
-                transition: 'all 0.3s ease',
-                '&:hover': {
-                  background: 'rgba(0, 0, 0, 0.8)'
-                },
-                pointerEvents: 'auto'
-              }}
-              onClick={toggleIngredientsExpansion}
-            >
-              <Typography
-                variant="caption"
-                sx={{
-                  color: 'white',
-                  whiteSpace: 'nowrap',
-                  fontWeight: 'bold',
-                  fontSize: '0.7rem',
-                  transform: 'rotate(-90deg)',
-                  pointerEvents: 'none'
-                }}
-              >
-                Ingredients
-              </Typography>
-            </Box>
-          )}
-
-          {/* Nutrition - On left only when not expanded AND not shown on right */}
-          {!expandedNutrition && !(expandedNutrition || expandedInstructions || expandedIngredients) && (
-            <Box
-              sx={{
-                width: '40px',
-                height: '100%',
-                background: 'rgba(0, 0, 0, 0.7)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                cursor: 'pointer',
-                transition: 'all 0.3s ease',
-                '&:hover': {
-                  background: 'rgba(0, 0, 0, 0.8)'
-                },
-                pointerEvents: 'auto'
-              }}
-              onClick={toggleNutritionExpansion}
-            >
-              <Typography
-                variant="caption"
-                sx={{
-                  color: 'white',
-                  whiteSpace: 'nowrap',
-                  fontWeight: 'bold',
-                  fontSize: '0.7rem',
-                  transform: 'rotate(-90deg)',
-                  pointerEvents: 'none'
-                }}
-              >
-                Nutrition
-              </Typography>
-            </Box>
-          )}
-        </Box>
-
-        {/* Book-style Navigation - Right Side */}
-        {(expandedNutrition || expandedIngredients || expandedInstructions) && (
+        {/* Shade when expanded */}
+        {isExpanded && (
           <Box
             sx={{
               position: 'absolute',
-              right: 0,
+              inset: 0,
+              background: 'rgba(0,0,0,0.4)',
+              borderRadius: 3,
+              zIndex: 2,
+              pointerEvents: 'none',
+            }}
+          />
+        )}
+
+        {/* Left tabs */}
+        <Box
+          sx={{
+            position: 'absolute',
+            top: 0,
+            bottom: 0,
+            left: 0,
+            display: 'flex',
+            flexDirection: 'row',
+            zIndex: 50,
+          }}
+        >
+          {leftTabs.map(tab => (
+            <Box
+              key={tab}
+              sx={{
+                width: 40,
+                height: '100%',
+                background: 'rgba(0,0,0,0.7)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                '&:hover': { background: 'rgba(0,0,0,0.8)' },
+              }}
+              onClick={() => handleTabClick(tab)}
+            >
+              <Typography
+                variant="caption"
+                sx={{
+                  color: '#fff',
+                  fontWeight: 'bold',
+                  fontSize: '0.7rem',
+                  transform: 'rotate(-90deg)',
+                  whiteSpace: 'nowrap',
+                  pointerEvents: 'none',
+                }}
+              >
+                {tab}
+              </Typography>
+            </Box>
+          ))}
+        </Box>
+
+        {/* Right tabs */}
+        {rightTabs.length > 0 && (
+          <Box
+            sx={{
+              position: 'absolute',
               top: 0,
               bottom: 0,
-              display: 'flex',
-              flexDirection: 'row',
+              right: 0,
               zIndex: 40,
-              pointerEvents: 'auto'
             }}
           >
-            {/* Instructions - On right when instructions is active */}
-            {expandedInstructions && (
+            {rightTabs.map((tab, idx) => (
               <Box
+                key={tab}
                 sx={{
-                  width: '40px',
+                  position: 'absolute',
+                  top: 0,
+                  right: (rightTabs.length - 1 - idx) * 40,
+                  width: 40,
                   height: '100%',
-                  background: 'rgba(0, 0, 0, 0.8)',
+                  background: 'rgba(0,0,0,0.8)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   cursor: 'pointer',
-                  transition: 'all 0.3s ease',
-                  '&:hover': {
-                    background: 'rgba(0, 0, 0, 0.8)'
-                  },
-                  pointerEvents: 'auto'
+                  '&:hover': { background: 'rgba(0,0,0,0.8)' },
                 }}
-                onClick={toggleInstructionsExpansion}
+                onClick={() => handleTabClick(tab)}
               >
                 <Typography
                   variant="caption"
                   sx={{
-                    color: 'white',
-                    whiteSpace: 'nowrap',
+                    color: '#fff',
                     fontWeight: 'bold',
                     fontSize: '0.7rem',
                     transform: 'rotate(-90deg)',
-                    pointerEvents: 'none'
+                    whiteSpace: 'nowrap',
+                    pointerEvents: 'none',
+                  }}
+                >
+                  {tab}
+                </Typography>
+              </Box>
+            ))}
+          </Box>
+        )}
+
+        {/* Overlays */}
+        {ALL_TABS.map(overlay => (
+          <Box
+            key={overlay}
+            sx={{
+              position: 'absolute',
+              inset: 0,
+              left: activeTab === overlay ? 0 : '-100%',
+              display: activeTab === overlay ? 'flex' : 'none',
+              alignItems: 'center',
+              justifyContent: 'center',
+              p: 2,
+              pl: 'calc(40px + 2rem)',
+              transition: 'left 0.3s ease',
+              zIndex: 25,
+            }}
+          >
+            {/* Instructions */}
+            {overlay === 'Instructions' && (
+              <Box
+                sx={{
+                  width: '100%',
+                  height: '100%',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  p: 2,
+                }}
+              >
+                <Typography
+                  variant="h6"
+                  sx={{
+                    fontSize: fs(1.1),
+                    fontWeight: 'bold',
+                    color: '#fff',
+                    textShadow: '2px 2px 4px rgba(0,0,0,0.8)',
+                    mb: 2,
                   }}
                 >
                   Instructions
                 </Typography>
+                <Box
+                  sx={{
+                    width: '100%',
+                    maxHeight: 260,
+                    overflow: 'auto',
+                    p: 1.5,
+                    border: '2px solid rgba(255,255,255,0.7)',
+                    borderRadius: 1,
+                    background: 'rgba(255,255,255,0.1)',
+                    '&::-webkit-scrollbar': { display: 'none' },
+                    scrollbarWidth: 'none',
+                  }}
+                >
+                  <Typography
+                    variant="body1"
+                    sx={{
+                      whiteSpace: 'pre-wrap',
+                      lineHeight: 1.2,
+                      fontSize: fs(0.85),
+                      color: '#fff',
+                      textShadow: '1px 1px 2px rgba(0,0,0,0.8)',
+                    }}
+                    dangerouslySetInnerHTML={{
+                      __html: recipe.instructions
+                        .split('\n')
+                        .map(l => `<div>${l}</div>`)
+                        .join(''),
+                    }}
+                  />
+                </Box>
               </Box>
             )}
 
-            {/* Ingredients - On right when ingredients is active OR when instructions is active */}
-            {(expandedIngredients || expandedInstructions) && (
+            {/* Ingredients */}
+            {overlay === 'Ingredients' && (
               <Box
                 sx={{
-                  width: '40px',
+                  width: '100%',
                   height: '100%',
-                  background: expandedIngredients ? 'rgba(0, 0, 0, 0.8)' : 'rgba(0, 0, 0, 0.7)',
                   display: 'flex',
+                  flexDirection: 'column',
                   alignItems: 'center',
-                  justifyContent: 'center',
-                  cursor: 'pointer',
-                  transition: 'all 0.3s ease',
-                  '&:hover': {
-                    background: 'rgba(0, 0, 0, 0.8)'
-                  },
-                  pointerEvents: 'auto'
+                  p: 2,
                 }}
-                onClick={toggleIngredientsExpansion}
               >
                 <Typography
-                  variant="caption"
+                  variant="h6"
                   sx={{
-                    color: 'white',
-                    whiteSpace: 'nowrap',
+                    fontSize: fs(1.1),
                     fontWeight: 'bold',
-                    fontSize: '0.7rem',
-                    transform: 'rotate(-90deg)',
-                    pointerEvents: 'none'
+                    color: '#fff',
+                    textShadow: '2px 2px 4px rgba(0,0,0,0.8)',
+                    mb: 2,
                   }}
                 >
                   Ingredients
                 </Typography>
+                <Box
+                  sx={{
+                    width: '100%',
+                    maxHeight: 260,
+                    overflow: 'auto',
+                    p: 1.5,
+                    border: '2px solid rgba(255,255,255,0.7)',
+                    borderRadius: 1,
+                    background: 'rgba(255,255,255,0.1)',
+                    '&::-webkit-scrollbar': { display: 'none' },
+                    scrollbarWidth: 'none',
+                  }}
+                >
+                  {recipe.ingredients.map(ing => (
+                    <Box
+                      key={ing.id}
+                      sx={{
+                        p: 0.5,
+                        borderBottom: '1px solid rgba(255,255,255,0.3)',
+                        '&:last-child': { borderBottom: 'none' },
+                      }}
+                    >
+                      <Typography
+                        sx={{
+                          color: '#fff',
+                          fontSize: fs(0.85),
+                          fontWeight: 'bold',
+                        }}
+                      >
+                        {ing.notes || ing.ingredient.name}
+                      </Typography>
+                      <Typography
+                        sx={{
+                          color: 'rgba(255,255,255,0.8)',
+                          fontSize: fs(0.75),
+                        }}
+                      >
+                        {formatIngredientAmount(
+                          ing.amount,
+                          ing.unit,
+                          ing.ingredient.name
+                        )}
+                      </Typography>
+                    </Box>
+                  ))}
+                </Box>
               </Box>
             )}
 
-            {/* Nutrition - On right when nutrition is active OR when instructions is active OR when ingredients is active OR when it should stay on right */}
-            {(expandedNutrition || expandedInstructions || expandedIngredients || nutritionShouldStayOnRight) && (
+            {/* Nutrition */}
+            {overlay === 'Nutrition' && (
               <Box
                 sx={{
-                  width: '40px',
+                  width: '100%',
                   height: '100%',
-                  background: expandedNutrition ? 'rgba(0, 0, 0, 0.8)' : 'rgba(0, 0, 0, 0.7)',
                   display: 'flex',
+                  flexDirection: 'column',
                   alignItems: 'center',
-                  justifyContent: 'center',
-                  cursor: 'pointer',
-                  transition: 'all 0.3s ease',
-                  '&:hover': {
-                    background: 'rgba(0, 0, 0, 0.8)'
-                  },
-                  pointerEvents: 'auto'
+                  p: 2,
                 }}
-                onClick={toggleNutritionExpansion}
               >
                 <Typography
-                  variant="caption"
+                  variant="h6"
                   sx={{
-                    color: 'white',
-                    whiteSpace: 'nowrap',
+                    fontSize: fs(1.1),
                     fontWeight: 'bold',
-                    fontSize: '0.7rem',
-                    transform: 'rotate(-90deg)',
-                    pointerEvents: 'none'
+                    color: '#fff',
+                    textShadow: '2px 2px 4px rgba(0,0,0,0.8)',
+                    mb: 2,
                   }}
                 >
-                  Nutrition
+                  Nutrition Facts
                 </Typography>
+                <Box
+                  sx={{
+                    width: '100%',
+                    maxHeight: 260,
+                    overflow: 'auto',
+                    p: 1.5,
+                    border: '2px solid rgba(255,255,255,0.7)',
+                    borderRadius: 1,
+                    background: 'rgba(255,255,255,0.1)',
+                    '&::-webkit-scrollbar': { display: 'none' },
+                    scrollbarWidth: 'none',
+                  }}
+                >
+                  {[
+                    ['Calories', recipe.nutrition.caloriesPerServing],
+                    ['Fat', `${Math.round(recipe.nutrition.fatPerServing)}g`],
+                    ['Carbs', `${Math.round(recipe.nutrition.carbsPerServing)}g`],
+                    ['Protein', `${Math.round(recipe.nutrition.proteinPerServing)}g`],
+                    ['Fiber', `${Math.round(recipe.nutrition.fiberPerServing)}g`],
+                  ].map(([label, val]) => (
+                    <Box
+                      key={label}
+                      sx={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        borderBottom: '1px solid rgba(255,255,255,0.7)',
+                        pb: 0.5,
+                        mb: 0.5,
+                      }}
+                    >
+                      <Typography
+                        sx={{
+                          fontSize: fs(0.8),
+                          fontWeight: 'bold',
+                          color: '#fff',
+                        }}
+                      >
+                        {label}
+                      </Typography>
+                      <Typography sx={{ fontSize: fs(0.8), color: '#fff' }}>
+                        {val}
+                      </Typography>
+                    </Box>
+                  ))}
+                </Box>
               </Box>
             )}
           </Box>
-        )}
+        ))}
 
-        {/* Image Shading Overlay */}
-        <Box
-          sx={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            background: (expandedNutrition || expandedIngredients || expandedInstructions) ? 'rgba(0, 0, 0, 0.4)' : 'transparent',
-            transition: 'background 0.3s ease',
-            borderRadius: '8px',
-            zIndex: 10,
-            pointerEvents: 'none'
-          }}
-        />
-
-        {/* Instructions Content Overlay */}
-        <Box
-          sx={{
-            position: 'absolute',
-            top: 0,
-            left: expandedInstructions ? 0 : '-100%',
-            right: 0,
-            bottom: 0,
-            display: expandedInstructions && !expandedIngredients && !expandedNutrition ? 'flex' : 'none',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: 2,
-            paddingLeft: expandedInstructions ? 'calc(40px + 2rem)' : '0px',
-            transition: 'left 0.3s ease',
-            zIndex: 25
-          }}
-        >
-          <Box sx={{ 
-            width: '100%',
-            height: '100%',
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'center',
-            alignItems: 'center',
-            padding: 2
-          }}>
-            <Typography
-              variant="h6"
-              sx={{
-                fontSize: getResponsiveFontSize(1.1),
-                fontWeight: 'bold',
-                color: 'white',
-                textShadow: '2px 2px 4px rgba(0,0,0,0.8)',
-                mb: 2,
-              }}
-            >
-              Instructions
-            </Typography>
-            <Box sx={{ 
-              border: '2px solid rgba(255,255,255,0.7)',
-              borderRadius: 1,
-              overflow: 'auto',
-              width: '100%',
-              maxWidth: '100%',
-              backgroundColor: 'rgba(255,255,255,0.1)',
-              maxHeight: '220px',
-              alignSelf: 'center',
-              p: 1.5,
-              '&::-webkit-scrollbar': {
-                display: 'none'
-              },
-              scrollbarWidth: 'none',
-              msOverflowStyle: 'none'
-            }}>
-              <Typography
-                variant="body1"
-                sx={{
-                  whiteSpace: 'pre-wrap',
-                  lineHeight: 1.2,
-                  fontSize: getResponsiveFontSize(0.85),
-                  color: 'white',
-                  textShadow: '1px 1px 2px rgba(0, 0, 0, 0.8)'
-                }}
-                dangerouslySetInnerHTML={{
-                  __html: recipe.instructions
-                    .split('\n')
-                    .map(line => `<div>${line}</div>`)
-                    .join('')
-                }}
-              />
-            </Box>
-          </Box>
-        </Box>
-
-        {/* Ingredients Content Overlay */}
-        <Box
-          sx={{
-            position: 'absolute',
-            top: 0,
-            left: expandedIngredients ? 0 : '-100%',
-            right: 0,
-            bottom: 0,
-            display: expandedIngredients && !expandedInstructions && !expandedNutrition ? 'flex' : 'none',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: 2,
-            paddingLeft: expandedIngredients ? 'calc(40px + 2rem)' : '0px',
-            transition: 'left 0.3s ease',
-            zIndex: 25
-          }}
-        >
-          <Box sx={{ 
-            width: '100%',
-            height: '100%',
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'center',
-            alignItems: 'center',
-            padding: 2
-          }}>
-            <Typography
-              variant="h6"
-              sx={{
-                fontSize: getResponsiveFontSize(1.1),
-                fontWeight: 'bold',
-                color: 'white',
-                textShadow: '2px 2px 4px rgba(0,0,0,0.8)',
-                mb: 2,
-              }}
-            >
-              Ingredients
-            </Typography>
-            <Box sx={{ 
-              border: '2px solid rgba(255,255,255,0.7)',
-              borderRadius: 1,
-              overflow: 'auto',
-              width: '100%',
-              maxWidth: '100%',
-              backgroundColor: 'rgba(255,255,255,0.1)',
-              maxHeight: '220px',
-              alignSelf: 'center',
-              p: 1.5,
-              '&::-webkit-scrollbar': {
-                display: 'none'
-              },
-              scrollbarWidth: 'none',
-              msOverflowStyle: 'none'
-            }}>
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                {recipe.ingredients.map((ingredient, index) => (
-                  <Box key={ingredient.id} sx={{ 
-                    p: 0.5, 
-                    borderBottom: '1px solid rgba(255,255,255,0.3)',
-                    '&:last-child': { borderBottom: 'none' }
-                  }}>
-                    <Typography sx={{ 
-                      color: 'white', 
-                      textShadow: '1px 1px 2px rgba(0,0,0,0.8)',
-                      fontSize: getResponsiveFontSize(0.85),
-                      fontWeight: 'bold'
-                    }}>
-                      {ingredient.notes || ingredient.ingredient.name}
-                    </Typography>
-                    <Typography sx={{ 
-                      color: 'rgba(255,255,255,0.8)', 
-                      fontSize: getResponsiveFontSize(0.75),
-                      fontWeight: 'medium'
-                    }}>
-                      {formatIngredientAmount(ingredient.amount, ingredient.unit, ingredient.ingredient.name)}
-                    </Typography>
-                    {ingredient.notes && ingredient.notes !== ingredient.ingredient.name && (
-                      <Typography sx={{ 
-                        color: 'rgba(255,255,255,0.7)', 
-                        fontSize: getResponsiveFontSize(0.7),
-                        fontStyle: 'italic',
-                        mt: 0.5
-                      }}>
-                        {ingredient.ingredient.name}
-                      </Typography>
-                    )}
-                  </Box>
-                ))}
-              </Box>
-            </Box>
-          </Box>
-        </Box>
-
-        {/* Nutrition Content Overlay */}
-        <Box
-          sx={{
-            position: 'absolute',
-            top: 0,
-            left: expandedNutrition ? 0 : '-100%',
-            right: 0,
-            bottom: 0,
-            display: expandedNutrition && !expandedInstructions && !expandedIngredients ? 'flex' : 'none',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: 2,
-            paddingLeft: expandedNutrition ? 'calc(40px + 2rem)' : '0px',
-            transition: 'left 0.3s ease',
-            zIndex: 25
-          }}
-        >
-          <Box sx={{ 
-            width: '100%',
-            height: '100%',
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'center',
-            alignItems: 'center',
-            padding: 2
-          }}>
-            <Typography
-              variant="h6"
-              sx={{
-                fontSize: getResponsiveFontSize(1.1),
-                fontWeight: 'bold',
-                color: 'white',
-                textShadow: '2px 2px 4px rgba(0,0,0,0.8)',
-                mb: 2,
-                textAlign: 'center',
-              }}
-            >
-              Nutrition Facts
-            </Typography>
-            <Box sx={{ 
-              border: '2px solid rgba(255,255,255,0.7)',
-              borderRadius: 1,
-              overflow: 'auto',
-              width: '100%',
-              maxWidth: '100%',
-              backgroundColor: 'rgba(255,255,255,0.1)',
-              maxHeight: '220px',
-              alignSelf: 'center',
-              p: 1.5,
-              '&::-webkit-scrollbar': {
-                display: 'none'
-              },
-              scrollbarWidth: 'none',
-              msOverflowStyle: 'none'
-            }}>
-              <Box sx={{ mb: 2 }}>
-                <Typography
-                  variant="body2"
-                  sx={{
-                    fontSize: getResponsiveFontSize(0.8),
-                    fontWeight: 'bold',
-                    borderBottom: '2px solid white',
-                    pb: 0.5,
-                    mb: 1,
-                    color: 'white',
-                    textShadow: '1px 1px 2px rgba(0,0,0,0.6)',
-                  }}
-                >
-                  Serving Size: {recipe.servings} serving{recipe.servings > 1 ? 's' : ''}
-                </Typography>
-              </Box>
-
-              <Box sx={{ mb: 2 }}>
-                <Typography
-                  variant="body2"
-                  sx={{
-                    fontSize: getResponsiveFontSize(1.1),
-                    fontWeight: 'bold',
-                    mb: 1,
-                    color: 'white',
-                    textShadow: '1px 1px 2px rgba(0,0,0,0.6)',
-                  }}
-                >
-                  Amount Per Serving
-                </Typography>
-              </Box>
-
-              <Box sx={{ mb: 2 }}>
-                <Box sx={{ 
-                  display: 'flex', 
-                  justifyContent: 'space-between',
-                  borderBottom: '1px solid rgba(255,255,255,0.7)',
-                  pb: 0.5,
-                  mb: 0.5
-                }}>
-                  <Typography
-                    variant="body2"
-                    sx={{
-                      fontSize: getResponsiveFontSize(0.8),
-                      fontWeight: 'bold',
-                      color: 'white',
-                      textShadow: '1px 1px 2px rgba(0,0,0,0.6)',
-                    }}
-                  >
-                    Calories
-                  </Typography>
-                  <Typography
-                    variant="body2"
-                    sx={{
-                      fontSize: getResponsiveFontSize(0.8),
-                      fontWeight: 'bold',
-                      color: 'white',
-                      textShadow: '1px 1px 2px rgba(0,0,0,0.6)',
-                    }}
-                  >
-                    {Math.round(recipe.nutrition.caloriesPerServing)}
-                  </Typography>
-                </Box>
-                
-                <Box sx={{ 
-                  display: 'flex', 
-                  justifyContent: 'space-between',
-                  borderBottom: '1px solid rgba(255,255,255,0.7)',
-                  pb: 0.5,
-                  mb: 0.5
-                }}>
-                  <Typography
-                    variant="body2"
-                    sx={{
-                      fontSize: getResponsiveFontSize(0.8),
-                      color: 'white',
-                      textShadow: '1px 1px 2px rgba(0,0,0,0.6)',
-                    }}
-                  >
-                    Total Fat
-                  </Typography>
-                  <Typography
-                    variant="body2"
-                    sx={{
-                      fontSize: getResponsiveFontSize(0.8),
-                      color: 'white',
-                      textShadow: '1px 1px 2px rgba(0,0,0,0.6)',
-                    }}
-                  >
-                    {Math.round(recipe.nutrition.fatPerServing)}g
-                  </Typography>
-                </Box>
-                
-                <Box sx={{ 
-                  display: 'flex', 
-                  justifyContent: 'space-between',
-                  borderBottom: '1px solid rgba(255,255,255,0.7)',
-                  pb: 0.5,
-                  mb: 0.5
-                }}>
-                  <Typography
-                    variant="body2"
-                    sx={{
-                      fontSize: getResponsiveFontSize(0.8),
-                      color: 'white',
-                      textShadow: '1px 1px 2px rgba(0,0,0,0.6)',
-                    }}
-                  >
-                    Total Carbohydrates
-                  </Typography>
-                  <Typography
-                    variant="body2"
-                    sx={{
-                      fontSize: getResponsiveFontSize(0.8),
-                      color: 'white',
-                      textShadow: '1px 1px 2px rgba(0,0,0,0.6)',
-                    }}
-                  >
-                    {Math.round(recipe.nutrition.carbsPerServing)}g
-                  </Typography>
-                </Box>
-                
-                <Box sx={{ 
-                  display: 'flex', 
-                  justifyContent: 'space-between',
-                  borderBottom: '1px solid rgba(255,255,255,0.7)',
-                  pb: 0.5,
-                  mb: 0.5
-                }}>
-                  <Typography
-                    variant="body2"
-                    sx={{
-                      fontSize: getResponsiveFontSize(0.8),
-                      color: 'white',
-                      textShadow: '1px 1px 2px rgba(0,0,0,0.6)',
-                    }}
-                  >
-                    Protein
-                  </Typography>
-                  <Typography
-                    variant="body2"
-                    sx={{
-                      fontSize: getResponsiveFontSize(0.8),
-                      color: 'white',
-                      textShadow: '1px 1px 2px rgba(0,0,0,0.6)',
-                    }}
-                  >
-                    {Math.round(recipe.nutrition.proteinPerServing)}g
-                  </Typography>
-                </Box>
-                
-                <Box sx={{ 
-                  display: 'flex', 
-                  justifyContent: 'space-between',
-                  borderBottom: '1px solid rgba(255,255,255,0.7)',
-                  pb: 0.5,
-                  mb: 0.5
-                }}>
-                  <Typography
-                    variant="body2"
-                    sx={{
-                      fontSize: getResponsiveFontSize(0.8),
-                      color: 'white',
-                      textShadow: '1px 1px 2px rgba(0,0,0,0.6)',
-                    }}
-                  >
-                    Fiber
-                  </Typography>
-                  <Typography
-                    variant="body2"
-                    sx={{
-                      fontSize: getResponsiveFontSize(0.8),
-                      color: 'white',
-                      textShadow: '1px 1px 2px rgba(0,0,0,0.6)',
-                    }}
-                  >
-                    {Math.round(recipe.nutrition.fiberPerServing)}g
-                  </Typography>
-                </Box>
-                
-                <Box sx={{ 
-                  display: 'flex', 
-                  justifyContent: 'space-between',
-                  pb: 0.5
-                }}>
-                  <Typography
-                    variant="body2"
-                    sx={{
-                      fontSize: getResponsiveFontSize(0.8),
-                      color: 'white',
-                      textShadow: '1px 1px 2px rgba(0,0,0,0.6)',
-                    }}
-                  >
-                    Sugar
-                  </Typography>
-                  <Typography
-                    variant="body2"
-                    sx={{
-                      fontSize: getResponsiveFontSize(0.8),
-                      color: 'white',
-                      textShadow: '1px 1px 2px rgba(0,0,0,0.6)',
-                    }}
-                  >
-                    {Math.round(recipe.nutrition.sugarPerServing)}g
-                  </Typography>
-                </Box>
-              </Box>
-            </Box>
-          </Box>
-        </Box>
-
-        {/* Recipe Information Overlay - Shows when no columns are active */}
-        {!expandedInstructions && !expandedIngredients && !expandedNutrition && (
+        {/* Front page info */}
+        {!isExpanded && (
           <Box
             sx={{
               position: 'absolute',
-              left: 0,
-              right: 0,
-              top: 0,
-              bottom: 0,
+              inset: 0,
               display: 'flex',
               flexDirection: 'column',
               justifyContent: 'space-between',
-              padding: 2,
-              paddingLeft: 'calc(120px + 2rem)',
+              p: 2,
+              pl: 'calc(120px + 2rem)',
               zIndex: 30,
-              pointerEvents: 'auto'
             }}
           >
-            {/* Recipe Title */}
-            <Box>
-              <Typography
-                variant="h5"
-                sx={{
-                  fontWeight: 'bold',
-                  color: 'white',
-                  textShadow: '2px 2px 4px rgba(0,0,0,0.8)',
-                  fontSize: getResponsiveFontSize(1.1),
-                  lineHeight: 1.2,
-                  backgroundColor: 'rgba(0, 0, 0, 0.5)',
-                  borderRadius: 2,
-                  padding: 1.2,
-                  backdropFilter: 'blur(5px)',
-                }}
-              >
-                {recipe.name}
-              </Typography>
-            </Box>
+            <Typography
+              variant="h5"
+              sx={{
+                fontWeight: 'bold',
+                color: '#fff',
+                fontSize: fs(clampFont(1.1, recipe.name.length, 30, 50)),
+                background: 'rgba(0,0,0,0.5)',
+                borderRadius: 2,
+                p: '4px 8px',
+                lineHeight: 1.2,
+                maxWidth: '85%',
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+              }}
+            >
+              {recipe.name}
+            </Typography>
 
-            {/* Description */}
-            <Box>
+            {recipe.description && (
               <Typography
                 variant="body2"
                 sx={{
-                  color: 'white',
-                  textShadow: '1px 1px 2px rgba(0,0,0,0.8)',
-                  lineHeight: 1.4,
-                  fontSize: getResponsiveFontSize(0.85),
-                  fontStyle: 'italic',
-                  backgroundColor: 'rgba(0, 0, 0, 0.4)',
+                  color: '#fff',
+                  fontSize: fs(clampFont(0.85, recipe.description.length, 120, 200)),
+                  background: 'rgba(0,0,0,0.4)',
                   borderRadius: 2,
-                  padding: 1.5,
-                  backdropFilter: 'blur(5px)'
+                  p: '6px 10px',
+                  lineHeight: 1.35,
+                  maxWidth: '85%',
+                  display: '-webkit-box',
+                  WebkitLineClamp: 3,
+                  WebkitBoxOrient: 'vertical',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
                 }}
               >
-                {recipe.description || 'A delicious and nutritious recipe perfect for any meal.'}
+                {recipe.description}
               </Typography>
-            </Box>
+            )}
           </Box>
         )}
 
-        {/* Action Buttons */}
+        {/* Action buttons */}
         <Box
           sx={{
             position: 'absolute',
-            top: getResponsiveSpacing(1),
-            right: getResponsiveSpacing(1),
+            top: spacing(1),
+            right: spacing(1),
             display: 'flex',
             flexDirection: 'column',
             gap: 1,
-            zIndex: 30
+            zIndex: 30,
           }}
         >
-          <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
-            <IconButton
-              onClick={() => onToggleFavorite(recipe.id)}
-              sx={{
-                width: isMobile ? '32px' : '40px',
-                height: isMobile ? '32px' : '40px',
-                backgroundColor: 'rgba(0,0,0,0.5)',
-                color: recipe.isFavorite ? '#ff6b6b' : 'white',
-                backdropFilter: 'blur(10px)',
-                '&:hover': { backgroundColor: 'rgba(0,0,0,0.7)' },
-              }}
-            >
-              {recipe.isFavorite ? <FavoriteIcon /> : <FavoriteBorderIcon />}
-            </IconButton>
-          </motion.div>
-
-          <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
-            <Tooltip title="Regenerate Recipe">
-              <IconButton
-                onClick={() => onRegenerate(recipe.id)}
-                sx={{
-                  width: isMobile ? '32px' : '40px',
-                  height: isMobile ? '32px' : '40px',
-                  backgroundColor: 'rgba(0,0,0,0.5)',
-                  color: 'white',
-                  backdropFilter: 'blur(10px)',
-                  '&:hover': { backgroundColor: 'rgba(0,0,0,0.7)' },
-                }}
-              >
-                <RefreshIcon />
-              </IconButton>
-            </Tooltip>
-          </motion.div>
-
-          <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
-            <Tooltip title="Print Recipe">
-              <IconButton
-                onClick={() => onPrint(recipe)}
-                sx={{
-                  width: isMobile ? '32px' : '40px',
-                  height: isMobile ? '32px' : '40px',
-                  backgroundColor: 'rgba(0,0,0,0.5)',
-                  color: 'white',
-                  backdropFilter: 'blur(10px)',
-                  '&:hover': { backgroundColor: 'rgba(0,0,0,0.7)' },
-                }}
-              >
-                <PrintIcon />
-              </IconButton>
-            </Tooltip>
-          </motion.div>
-
-          <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
-            <Tooltip title="Delete Recipe">
-              <IconButton
-                onClick={() => onDelete(recipe.id)}
-                sx={{
-                  width: isMobile ? '32px' : '40px',
-                  height: isMobile ? '32px' : '40px',
-                  backgroundColor: 'rgba(0,0,0,0.5)',
-                  color: '#ff6b6b',
-                  backdropFilter: 'blur(10px)',
-                  '&:hover': { backgroundColor: 'rgba(0,0,0,0.7)' },
-                }}
-              >
-                <DeleteIcon />
-              </IconButton>
-            </Tooltip>
-          </motion.div>
+          {[
+            {
+              icon: recipe.isFavorite ? <FavoriteIcon /> : <FavoriteBorderIcon />,
+              onClick: () => onToggleFavorite(recipe.id),
+              color: recipe.isFavorite ? '#ff6b6b' : '#fff',
+              title: recipe.isFavorite ? 'Remove Favorite' : 'Add Favorite',
+            },
+            {
+              icon: <PrintIcon />,
+              onClick: () => onPrint(recipe),
+              color: '#fff',
+              title: 'Print Recipe',
+            },
+            {
+              icon: <DeleteIcon />,
+              onClick: () => onDelete(recipe.id),
+              color: '#fff',
+              title: 'Delete Recipe',
+            },
+          ].map(({ icon, onClick, color, title }) => (
+            <motion.div key={title} whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
+              <Tooltip title={title}>
+                <IconButton
+                  onClick={onClick}
+                  sx={{
+                    width: isMobile ? 32 : 40,
+                    height: isMobile ? 32 : 40,
+                    background: 'rgba(0,0,0,0.5)',
+                    color,
+                    backdropFilter: 'blur(10px)',
+                    '&:hover': { background: 'rgba(0,0,0,0.7)' },
+                  }}
+                >
+                  {icon}
+                </IconButton>
+              </Tooltip>
+            </motion.div>
+          ))}
         </Box>
-
-        {/* Scaling Indicator */}
-        {recipe.scalingFactor && recipe.scalingFactor !== 1 && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.5 }}
-          >
-            <Box
-              sx={{
-                position: 'absolute',
-                bottom: getResponsiveSpacing(1),
-                left: getResponsiveSpacing(1),
-                right: getResponsiveSpacing(1),
-                backgroundColor: 'rgba(0,0,0,0.7)',
-                color: 'white',
-                padding: 1,
-                borderRadius: 2,
-                textAlign: 'center',
-                fontSize: getResponsiveFontSize(0.7),
-                backdropFilter: 'blur(10px)',
-                zIndex: 4,
-              }}
-            >
-              Recipe adjusted by {Math.round((recipe.scalingFactor - 1) * 100)}%
-            </Box>
-          </motion.div>
-        )}
       </Box>
     </motion.div>
   );
-} 
+}
