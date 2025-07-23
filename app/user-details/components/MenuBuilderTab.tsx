@@ -296,6 +296,7 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
 
       if (response.ok) {
         const newRecipe = await response.json();
+        console.log('Generated recipe structure:', JSON.stringify(newRecipe, null, 2));
         setRecipes(prev => [newRecipe, ...prev]);
         setKeywords('');
         setMealType('DINNER');

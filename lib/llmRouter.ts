@@ -245,10 +245,13 @@ export class LLMRouter {
       // Get API key from database (or environment for backward compatibility)
       let apiKey = await this.settingService.getLLMProviderAPIKey(config.key);
       
+      console.log(`API key for ${config.key}: ${apiKey ? 'Found' : 'Not found'}`);
+      
       // Fallback to environment variables for backward compatibility
       if (!apiKey && config.apiKeyRequired) {
         const envKey = `${config.key.toUpperCase()}_API_KEY`;
         apiKey = process.env[envKey] || '';
+        console.log(`Fallback to env var ${envKey}: ${apiKey ? 'Found' : 'Not found'}`);
       }
 
       // Get provider-specific model or fall back to default
@@ -490,6 +493,8 @@ export class LLMRouter {
     // Get available providers in priority order
     const availableProviders = this.getAvailableProvidersInOrder();
     
+    console.log('Selected providers for request:', availableProviders.map(p => `${p.name} (${p.avgLatencyMs}ms)`));
+    
     if (availableProviders.length === 0) {
       throw new Error('No available LLM providers');
     }
@@ -601,13 +606,17 @@ export class LLMRouter {
       return [];
     }
 
+    console.log('Available providers:', availableProviders.map(p => `${p.name} (${p.avgLatencyMs}ms)`));
+
     // Get provider order from settings (admin dashboard priority)
     const providerOrder = this.settings?.providers ? 
       Object.entries(this.settings.providers)
         .filter(([_, config]) => (config as any).enabled)
         .sort(([_, a], [__, b]) => (a as any).priority - (b as any).priority)
         .map(([key, _]) => key) : 
-      ['ollama', 'openai', 'groq', 'anthropic', 'aws', 'azure'];
+      ['groq', 'ollama', 'openai', 'anthropic', 'aws', 'azure']; // Put Groq first by default
+
+    console.log('Provider order from settings:', providerOrder);
 
     // Map provider keys to names
     const keyToName: Record<string, string> = {
@@ -627,6 +636,7 @@ export class LLMRouter {
       const provider = availableProviders.find(p => p.name === providerName);
       if (provider) {
         sortedProviders.push(provider);
+        console.log(`Added provider to priority list: ${provider.name}`);
       }
     }
     
@@ -634,9 +644,11 @@ export class LLMRouter {
     availableProviders.forEach(provider => {
       if (!sortedProviders.find(p => p.name === provider.name)) {
         sortedProviders.push(provider);
+        console.log(`Added remaining provider: ${provider.name}`);
       }
     });
     
+    console.log('Final provider order:', sortedProviders.map(p => p.name));
     return sortedProviders;
   }
 

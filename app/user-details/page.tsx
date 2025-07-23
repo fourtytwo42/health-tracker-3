@@ -23,6 +23,7 @@ import ExercisePreferencesTab from './components/ExercisePreferencesTab';
 import CalendarTab from './components/CalendarTab';
 import HealthMetricsTab from './components/HealthMetricsTab';
 import MenuBuilderTab from './components/MenuBuilderTab';
+import WorkoutBuilderTab from './components/WorkoutBuilderTab';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -59,6 +60,7 @@ export default function UserDetailsPage() {
   const [error, setError] = useState<string | null>(null);
   const [userProfile, setUserProfile] = useState<any>(null);
   const [foodPreferences, setFoodPreferences] = useState<any[]>([]);
+  const [exercisePreferences, setExercisePreferences] = useState<any[]>([]);
 
   const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
@@ -66,12 +68,13 @@ export default function UserDetailsPage() {
 
   useEffect(() => {
     if (user) {
-      // Load user profile and food preferences for Menu Builder
+      // Load user profile and preferences for Menu Builder and Workout Builder
       const loadUserData = async () => {
         try {
-          const [profileResponse, preferencesResponse] = await Promise.all([
+          const [profileResponse, foodPreferencesResponse, exercisePreferencesResponse] = await Promise.all([
             fetch('/api/profile'),
-            fetch('/api/food-preferences')
+            fetch('/api/food-preferences'),
+            fetch('/api/exercise-preferences')
           ]);
 
           if (profileResponse.ok) {
@@ -79,9 +82,14 @@ export default function UserDetailsPage() {
             setUserProfile(profileData.profile);
           }
 
-          if (preferencesResponse.ok) {
-            const preferencesData = await preferencesResponse.json();
+          if (foodPreferencesResponse.ok) {
+            const preferencesData = await foodPreferencesResponse.json();
             setFoodPreferences(preferencesData.preferences || []);
+          }
+
+          if (exercisePreferencesResponse.ok) {
+            const exerciseData = await exercisePreferencesResponse.json();
+            setExercisePreferences(exerciseData.preferences || []);
           }
         } catch (error) {
           console.error('Error loading user data:', error);
@@ -137,7 +145,8 @@ export default function UserDetailsPage() {
             <Tab label="Food Preferences" {...a11yProps(2)} />
             <Tab label="Exercise Preferences" {...a11yProps(3)} />
             <Tab label="Menu Builder" {...a11yProps(4)} />
-            <Tab label="Calendar & Schedule" {...a11yProps(5)} />
+            <Tab label="Workout Builder" {...a11yProps(5)} />
+            <Tab label="Calendar & Schedule" {...a11yProps(6)} />
           </Tabs>
         </Box>
 
@@ -162,6 +171,10 @@ export default function UserDetailsPage() {
         </TabPanel>
 
         <TabPanel value={tabValue} index={5}>
+          <WorkoutBuilderTab userProfile={userProfile} exercisePreferences={exercisePreferences} />
+        </TabPanel>
+
+        <TabPanel value={tabValue} index={6}>
           <CalendarTab />
         </TabPanel>
       </Paper>

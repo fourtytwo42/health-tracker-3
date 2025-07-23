@@ -54,9 +54,16 @@ interface Recipe {
     amount: number;
     unit: string;
     notes?: string;
-    isOptional: boolean;
-    order: number;
-    ingredient: {
+    isOptional?: boolean;
+    order?: number;
+    name?: string;
+    calories?: number;
+    protein?: number;
+    carbs?: number;
+    fat?: number;
+    fiber?: number;
+    sugar?: number;
+    ingredient?: {
       id: string;
       name: string;
       category: string;
@@ -452,7 +459,7 @@ export default function RecipeCard({
                     '&::-webkit-scrollbar': { display: 'none' },
                   }}
                 >
-                  {recipe.ingredients.map(ing => (
+                  {(recipe.ingredients || []).map(ing => (
                     <Box key={ing.id}>
                       <Box
                         sx={{
@@ -475,7 +482,7 @@ export default function RecipeCard({
                             fontSize: fs(0.85),
                           }}
                         >
-                          {ing.notes || ing.ingredient.name}
+                          {ing.notes || (ing.ingredient?.name || ing.name || 'Unknown ingredient')}
                         </Typography>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                           <Typography
@@ -487,7 +494,7 @@ export default function RecipeCard({
                             {formatIngredientAmount(
                               ing.amount,
                               ing.unit,
-                              ing.ingredient.name,
+                              ing.ingredient?.name || ing.name || 'Unknown ingredient',
                               settings.units.useMetricUnits
                             )}
                           </Typography>
@@ -532,7 +539,7 @@ export default function RecipeCard({
                               </Typography>
                               <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
                                 <Chip
-                                  label={`${Math.round((ing.ingredient.calories * ing.amount) / 100)} cal`}
+                                  label={`${Math.round(((ing.ingredient?.calories || ing.calories || 0) * ing.amount) / 100)} cal`}
                                   size="small"
                                   sx={{ 
                                     fontSize: fs(0.65), 
@@ -547,7 +554,7 @@ export default function RecipeCard({
                                   }}
                                 />
                                 <Chip
-                                  label={`${Math.round((ing.ingredient.protein * ing.amount) / 100 * 10) / 10}g protein`}
+                                  label={`${Math.round(((ing.ingredient?.protein || ing.protein || 0) * ing.amount) / 100 * 10) / 10}g protein`}
                                   size="small"
                                   sx={{ 
                                     fontSize: fs(0.65), 
@@ -562,7 +569,7 @@ export default function RecipeCard({
                                   }}
                                 />
                                 <Chip
-                                  label={`${Math.round((ing.ingredient.carbs * ing.amount) / 100 * 10) / 10}g carbs`}
+                                  label={`${Math.round(((ing.ingredient?.carbs || ing.carbs || 0) * ing.amount) / 100 * 10) / 10}g carbs`}
                                   size="small"
                                   sx={{ 
                                     fontSize: fs(0.65), 
@@ -577,7 +584,7 @@ export default function RecipeCard({
                                   }}
                                 />
                                 <Chip
-                                  label={`${Math.round((ing.ingredient.fat * ing.amount) / 100 * 10) / 10}g fat`}
+                                  label={`${Math.round(((ing.ingredient?.fat || ing.fat || 0) * ing.amount) / 100 * 10) / 10}g fat`}
                                   size="small"
                                   sx={{ 
                                     fontSize: fs(0.65), 
@@ -591,9 +598,9 @@ export default function RecipeCard({
                                     }
                                   }}
                                 />
-                                {ing.ingredient.fiber > 0 && (
+                                {(ing.ingredient?.fiber || ing.fiber || 0) > 0 && (
                                   <Chip
-                                    label={`${Math.round((ing.ingredient.fiber * ing.amount) / 100 * 10) / 10}g fiber`}
+                                    label={`${Math.round(((ing.ingredient?.fiber || ing.fiber || 0) * ing.amount) / 100 * 10) / 10}g fiber`}
                                     size="small"
                                     sx={{ 
                                       fontSize: fs(0.65), 

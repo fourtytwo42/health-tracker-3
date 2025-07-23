@@ -33,6 +33,8 @@ model User {
   scheduledMeals      ScheduledMeal[]
   userDetails         UserDetails?
   userSettings        UserSettings?
+  workouts            Workout[]
+  workoutLogs         WorkoutLog[]
 
   @@map("users")
 }
@@ -107,6 +109,7 @@ model Exercise {
   isActive    Boolean  @default(true) @map("is_active")
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
+  workoutExercises WorkoutExercise[]
 
   @@map("exercises")
 }
@@ -476,4 +479,64 @@ model ScheduledActivity {
   user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("scheduled_activities")
+}
+
+model Workout {
+  id          String   @id @default(cuid())
+  userId      String   @map("user_id")
+  name        String
+  description String?
+  category    String
+  difficulty  String
+  duration    Int      // minutes
+  totalCalories Int?
+  targetMuscleGroups String? // JSON array
+  equipment   String?  // JSON array
+  instructions String? // JSON array
+  photoUrl    String?
+  isFavorite  Boolean  @default(false)
+  isPublic    Boolean  @default(false)
+  aiGenerated Boolean  @default(false)
+  originalQuery String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  exercises   WorkoutExercise[]
+  logs        WorkoutLog[]
+
+  @@map("workouts")
+}
+
+model WorkoutExercise {
+  id          String   @id @default(cuid())
+  workoutId   String   @map("workout_id")
+  exerciseId  String   @map("exercise_id")
+  sets        Int
+  reps        Int?
+  duration    Int?     // seconds
+  restPeriod  Int      @default(60) // seconds
+  order       Int
+  notes       String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  workout     Workout  @relation(fields: [workoutId], references: [id], onDelete: Cascade)
+  exercise    Exercise @relation(fields: [exerciseId], references: [id])
+
+  @@map("workout_exercises")
+}
+
+model WorkoutLog {
+  id          String   @id @default(cuid())
+  userId      String   @map("user_id")
+  workoutId   String   @map("workout_id")
+  completedAt DateTime @default(now()) @map("completed_at")
+  duration    Int      // actual minutes
+  calories    Int?
+  notes       String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workout     Workout  @relation(fields: [workoutId], references: [id], onDelete: Cascade)
+
+  @@map("workout_logs")
 }

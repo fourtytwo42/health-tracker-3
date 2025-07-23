@@ -42,6 +42,22 @@ export class MCPHandler {
     // Fix missing quotes around property names (only if they're missing)
     jsonString = jsonString.replace(/([{,]\s*)([a-zA-Z_][a-zA-Z0-9_]*)\s*:/g, '$1"$2":');
     
+    // Filter out any letters in the amount field and pull just the number
+    jsonString = jsonString.replace(/"amount":\s*"?([0-9]+(?:\.[0-9]+)?)[a-zA-Z]*"?/g, '"amount": $1');
+    
+    // Fix ingredient amounts that have units attached (e.g., "400g" -> "400")
+    jsonString = jsonString.replace(/"amount":\s*"?(\d+(?:\.\d+)?)(g|ml|kg|l|oz|lb|tbsp|tsp|cup|cups)"?/g, '"amount": $1');
+    
+    // Fix any remaining amounts with units in the entire JSON
+    jsonString = jsonString.replace(/"amount":\s*"?(\d+(?:\.\d+)?)(g|ml|kg|l|oz|lb|tbsp|tsp|cup|cups)"?/g, '"amount": $1');
+    
+    // Fix missing quotes around string values that should be quoted
+    jsonString = jsonString.replace(/:\s*([a-zA-Z][a-zA-Z0-9\s]+)(?=\s*[,}])/g, ': "$1"');
+    
+    // Fix boolean values that might be quoted
+    jsonString = jsonString.replace(/"true"/g, 'true');
+    jsonString = jsonString.replace(/"false"/g, 'false');
+    
     // More comprehensive trailing comma removal
     jsonString = jsonString.replace(/,(\s*[}\]])/g, '$1');
     jsonString = jsonString.replace(/,(\s*})/g, '$1');
@@ -63,6 +79,9 @@ export class MCPHandler {
     jsonString = jsonString.replace(/,\s*}/g, '}');
     // Remove trailing commas before closing brackets
     jsonString = jsonString.replace(/,\s*\]/g, ']');
+    
+    // Fix any remaining unquoted strings in arrays
+    jsonString = jsonString.replace(/\[\s*([a-zA-Z][a-zA-Z0-9\s]+)\s*\]/g, '["$1"]');
     
     // Additional cleanup for common JSON issues
     jsonString = jsonString.replace(/\s+/g, ' ').trim();
@@ -685,25 +704,27 @@ Timestamp: ${Date.now()}`;
   "ingredients": [
     {
       "name": "chicken breast",
-      "amount": 400,
-      "unit": "g",
+      "amount": 400, // Numeric only, no units or text
+      "unit": "g", // Only 'g' or 'ml' allowed
       "category": "Meat",
       "description": "Boneless chicken breast, commonly used for grilling and pan-frying"
     },
     {
       "name": "olive oil",
-      "amount": 15,
-      "unit": "ml",
+      "amount": 15, // Numeric only, no units or text
+      "unit": "ml", // Only 'g' or 'ml' allowed
       "category": "Oils",
       "description": "Extra virgin olive oil used for cooking and flavoring"
     }
   ],
   "instructions": [
-    "Season chicken with salt and pepper",
-    "Heat grill to medium-high",
-    "Grill chicken for 10 minutes per side"
+    "Season chicken with salt, pepper, and your choice of herbs (such as thyme or rosemary)",
+    "Heat grill to medium-high heat.",
+    "Grill chicken for 10 minutes per side, or until it reaches an internal temperature of 165°F (74°C)."
   ]
 }
+
+IMPORTANT: The 'amount' field must be a number only (no units, no text). The 'unit' field must be either 'g' or 'ml'. Do NOT include units or text in the 'amount' field. Only use 'g' or 'ml' for the 'unit' field. If the ingredient is a spice or seasoning, use 'g'.
 
 Please generate a recipe for: ${args.keywords} (${args.meal_type}) with ${args.servings} servings.
 Ensure your response is valid JSON with proper quotes, commas, and structure.
