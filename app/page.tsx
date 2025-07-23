@@ -27,6 +27,7 @@ import {
 import { motion } from 'framer-motion';
 import axios from 'axios';
 import { useRouter } from 'next/navigation';
+import { useAuth } from '@/context/AuthContext';
 
 interface AuthForm {
   username: string;
@@ -44,6 +45,7 @@ export default function HomePage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const router = useRouter();
+  const { login } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -56,10 +58,8 @@ export default function HomePage() {
 
       const { accessToken, refreshToken, user } = response.data;
 
-      // Store tokens
-      localStorage.setItem('accessToken', accessToken);
-      localStorage.setItem('refreshToken', refreshToken);
-      localStorage.setItem('user', JSON.stringify(user));
+      // Use AuthContext to handle login
+      login(accessToken, refreshToken);
 
       // Redirect to dashboard
       router.push('/dashboard');

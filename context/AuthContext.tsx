@@ -12,7 +12,7 @@ interface User {
 interface AuthContextType {
   user: User | null;
   loading: boolean;
-  login: (token: string) => void;
+  login: (token: string, refreshToken?: string) => void;
   logout: () => void;
 }
 
@@ -44,8 +44,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (response.ok) {
         const userData = await response.json();
         setUser(userData.user);
+      } else if (response.status === 401) {
+        // Token expired, try to refresh
+        await refreshToken();
       } else {
-        // Token is invalid, clear it
+        // Other error, clear tokens
         localStorage.removeItem('accessToken');
         localStorage.removeItem('refreshToken');
       }
@@ -58,8 +61,48 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const login = (token: string) => {
+  const refreshToken = async () => {
+    const refreshToken = localStorage.getItem('refreshToken');
+    if (!refreshToken) {
+      localStorage.removeItem('accessToken');
+      setUser(null);
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/auth/refresh', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ refreshToken }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        localStorage.setItem('accessToken', data.accessToken);
+        localStorage.setItem('refreshToken', data.refreshToken);
+        // Re-validate with new token
+        await validateToken(data.accessToken);
+      } else {
+        // Refresh failed, clear tokens
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('refreshToken');
+        setUser(null);
+      }
+    } catch (error) {
+      console.error('Error refreshing token:', error);
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('refreshToken');
+      setUser(null);
+    }
+  };
+
+  const login = (token: string, refreshToken?: string) => {
     localStorage.setItem('accessToken', token);
+    if (refreshToken) {
+      localStorage.setItem('refreshToken', refreshToken);
+    }
     validateToken(token);
   };
 

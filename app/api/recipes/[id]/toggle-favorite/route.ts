@@ -20,7 +20,7 @@ export async function POST(
       return NextResponse.json({ error: 'Recipe not found' }, { status: 404 });
     }
     
-    if (existingRecipe.userId !== user.id) {
+    if (existingRecipe.userId !== (user as any).id && existingRecipe.userId !== (user as any).userId) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 

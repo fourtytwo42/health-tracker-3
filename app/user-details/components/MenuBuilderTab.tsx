@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { authenticatedFetch } from '@/lib/utils/apiClient';
 import { useRouter } from 'next/navigation';
 import {
   Box,
@@ -142,9 +143,9 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
   
   // State for recipe generation
   const [keywords, setKeywords] = useState('');
-  const [mealType, setMealType] = useState('dinner');
-  const [servings, setServings] = useState(4);
-  const [calorieGoal, setCalorieGoal] = useState(500);
+  const [mealType, setMealType] = useState('DINNER');
+  const [servings, setServings] = useState(2);
+  const [calorieGoal, setCalorieGoal] = useState(750);
   const [generateImage, setGenerateImage] = useState(true);
   const [isGenerating, setIsGenerating] = useState(false);
 
@@ -164,11 +165,11 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
   const [targetCalories, setTargetCalories] = useState(0);
 
   const mealTypes = [
-    { value: 'breakfast', label: 'Breakfast' },
-    { value: 'lunch', label: 'Lunch' },
-    { value: 'dinner', label: 'Dinner' },
-    { value: 'snack', label: 'Snack' },
-    { value: 'dessert', label: 'Dessert' }
+    { value: 'BREAKFAST', label: 'Breakfast' },
+    { value: 'LUNCH', label: 'Lunch' },
+    { value: 'DINNER', label: 'Dinner' },
+    { value: 'SNACK', label: 'Snack' },
+    { value: 'DESSERT', label: 'Dessert' }
   ];
 
   // Helper functions for recipe adjustments
@@ -227,6 +228,7 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
 
   // Load user settings and recipes
   useEffect(() => {
+    console.log('useEffect triggered - selectedMealType:', selectedMealType);
     if (user) {
       loadUserSettings();
       loadRecipes();
@@ -250,7 +252,6 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
 
   const loadRecipes = async () => {
     try {
-      const token = localStorage.getItem('accessToken');
       const params = new URLSearchParams({
         page: currentPage.toString(),
         limit: '12',
@@ -258,12 +259,11 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
         mealType: selectedMealType !== 'all' ? selectedMealType : ''
       });
 
-      const response = await fetch(`/api/recipes?${params}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      const response = await authenticatedFetch(`/api/recipes?${params}`);
 
       if (response.ok) {
         const data = await response.json();
+        console.log('Meal type filter:', selectedMealType, 'Results:', data.recipes.length, 'Meal types in results:', data.recipes.map((r: any) => r.mealType));
         const adjustedRecipes = data.recipes.map(applyAdjustmentToRecipe);
         setRecipes(adjustedRecipes);
         setTotalPages(data.totalPages);
@@ -298,9 +298,9 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
         const newRecipe = await response.json();
         setRecipes(prev => [newRecipe, ...prev]);
         setKeywords('');
-        setMealType('dinner');
-        setServings(4);
-        setCalorieGoal(500);
+        setMealType('DINNER');
+        setServings(2);
+                  setCalorieGoal(750);
       } else {
         const error = await response.json();
         alert(`Error generating recipe: ${error.error}`);
@@ -322,11 +322,15 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
       });
 
       if (response.ok) {
-        setRecipes(prev => prev.map(recipe => 
-          recipe.id === recipeId 
-            ? { ...recipe, isFavorite: !recipe.isFavorite }
-            : recipe
-        ));
+        const data = await response.json();
+        setRecipes(prev => {
+          const updated = prev.map(recipe => 
+            recipe.id === recipeId 
+              ? data.recipe
+              : recipe
+          );
+          return updated;
+        });
       }
     } catch (error) {
       console.error('Error toggling favorite:', error);
@@ -344,9 +348,9 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
         },
         body: JSON.stringify({
           keywords: recipes.find(r => r.id === recipeId)?.originalQuery || '',
-          mealType: recipes.find(r => r.id === recipeId)?.mealType || 'dinner',
-          servings: recipes.find(r => r.id === recipeId)?.servings || 4,
-          calorieGoal: recipes.find(r => r.id === recipeId)?.nutrition?.totalCalories || 500,
+          mealType: recipes.find(r => r.id === recipeId)?.mealType || 'DINNER',
+                  servings: recipes.find(r => r.id === recipeId)?.servings || 2,
+        calorieGoal: recipes.find(r => r.id === recipeId)?.nutrition?.totalCalories || 750,
           generateImage: true
         })
       });
@@ -594,12 +598,8 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
             key={recipe.id}
             recipe={recipe}
             onToggleFavorite={toggleFavorite}
-            onRegenerate={regenerateRecipe}
             onDelete={deleteRecipe}
             onPrint={printRecipe}
-            onReplaceIngredient={replaceIngredient}
-            onAdjustNutrition={adjustNutrition}
-            onIngredientPreference={handleIngredientPreference}
           />
         ))}
       </Box>

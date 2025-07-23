@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   Box,
   Typography,
@@ -8,12 +8,22 @@ import {
   Tooltip,
   useTheme,
   useMediaQuery,
+  Collapse,
+  Card,
+  CardContent,
+  Grid,
+  Divider,
+  Chip,
 } from '@mui/material';
 import { motion } from 'framer-motion';
 import FavoriteIcon from '@mui/icons-material/Favorite';
 import FavoriteBorderIcon from '@mui/icons-material/FavoriteBorder';
 import DeleteIcon from '@mui/icons-material/Delete';
 import PrintIcon from '@mui/icons-material/Print';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import ExpandLessIcon from '@mui/icons-material/ExpandLess';
+import { useUserSettings } from '@/hooks/useUserSettings';
+import { formatIngredientAmount } from '@/lib/utils/unitConversion';
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                             */
@@ -88,44 +98,28 @@ interface RecipeCardProps {
 /* ------------------------------------------------------------------ */
 
 const ALL_TABS = ['Instructions', 'Ingredients', 'Nutrition'] as const;
+const TAB_W = 40;
 
+const getMealTypeLetter = (mealType: string): string => {
+  const type = mealType.toLowerCase();
+  if (type.includes('breakfast')) return 'B';
+  if (type.includes('lunch')) return 'L';
+  if (type.includes('dinner')) return 'D';
+  if (type.includes('snack')) return 'S';
+  if (type.includes('dessert')) return 'D';
+  return mealType.charAt(0).toUpperCase();
+};
+
+// clamp font size
 const clampFont = (
   base: number,
   length: number,
   longThresh: number,
   veryLongThresh: number
-): number => {
-  if (length > veryLongThresh) return base * 0.8;
-  if (length > longThresh) return base * 0.9;
-  return base;
-};
+): number =>
+  length > veryLongThresh ? base * 0.8 : length > longThresh ? base * 0.9 : base;
 
-const formatIngredientAmount = (
-  amount: number,
-  unit: string,
-  name: string
-): string => {
-  const scaled = amount;
-  if (name.toLowerCase().includes('egg')) {
-    return `${Math.round(scaled)} egg${Math.round(scaled) !== 1 ? 's' : ''}`;
-  }
-  const u = unit.toLowerCase();
-  if (u === 'g' || u === 'gram') {
-    if (scaled >= 1000) return `${Math.round(scaled / 1000)} lb`;
-    if (scaled >= 28.35) return `${Math.round(scaled / 28.35)} oz`;
-    if (scaled >= 15) return `${Math.round(scaled / 15)} tbsp`;
-    if (scaled >= 5) return `${Math.round(scaled / 5)} tsp`;
-    return `${Math.round(scaled)} g`;
-  }
-  if (u === 'ml' || u === 'milliliter') {
-    if (scaled >= 240)
-      return `${Math.round(scaled / 240)} cup${Math.round(scaled / 240) !== 1 ? 's' : ''}`;
-    if (scaled >= 15) return `${Math.round(scaled / 15)} tbsp`;
-    if (scaled >= 5) return `${Math.round(scaled / 5)} tsp`;
-    return `${Math.round(scaled)} ml`;
-  }
-  return `${Math.round(scaled)} ${unit}`;
-};
+
 
 /* ------------------------------------------------------------------ */
 /*  Component                                                         */
@@ -140,55 +134,60 @@ export default function RecipeCard({
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const isTablet = useMediaQuery(theme.breakpoints.down('md'));
+  const { settings } = useUserSettings();
 
   const [leftTabs, setLeftTabs] = useState<string[]>([...ALL_TABS]);
   const [rightTabs, setRightTabs] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState<string | null>(null);
   const [isHovered, setIsHovered] = useState(false);
+  const [expandedIngredients, setExpandedIngredients] = useState<Set<string>>(new Set());
 
   const cardHeight = isMobile ? 340 : isTablet ? 400 : 480;
   const cardWidth = cardHeight * 1.6;
 
-  const fs = (base: number, mob = 0.8, tab = 0.9) =>
-    `${base * (isMobile ? mob : isTablet ? tab : 1)}rem`;
+  const fs = (b: number) =>
+    `${b * (isMobile ? 0.8 : isTablet ? 0.9 : 1)}rem`;
   const spacing = (v: number) =>
     isMobile ? v * 0.6 : isTablet ? v * 0.8 : v;
 
+  const toggleIngredientDetails = useCallback((ingredientId: string) => {
+    setExpandedIngredients(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(ingredientId)) {
+        newSet.delete(ingredientId);
+      } else {
+        newSet.add(ingredientId);
+      }
+      return newSet;
+    });
+  }, []);
+
   const handleTabClick = (tab: string) => {
-    /* ---------------- LEFT‑SIDE CLICK: open tab ---------------- */
     if (leftTabs.includes(tab)) {
       const idx = leftTabs.indexOf(tab);
-      const moving = leftTabs.slice(idx); // tab + anything after it
+      const moving = leftTabs.slice(idx);
       setLeftTabs(leftTabs.slice(0, idx));
       setRightTabs(prev => [...moving, ...prev]);
       setActiveTab(tab);
       return;
     }
-
-    /* ---------------- RIGHT‑SIDE CLICK: close tab -------------- */
     const idx = rightTabs.indexOf(tab);
-
-    // If it was the right‑most tab, close everything
     if (idx === rightTabs.length - 1) {
       setLeftTabs(prev => [...prev, ...rightTabs]);
       setRightTabs([]);
       setActiveTab(null);
       return;
     }
-
-    // Otherwise move the clicked tab (and any to its left) back
     const moveBack = rightTabs.slice(0, idx + 1);
     const newRight = rightTabs.slice(idx + 1);
     setLeftTabs(prev => [...prev, ...moveBack]);
     setRightTabs(newRight);
-    setActiveTab(newRight.length ? newRight[newRight.length - 1] : null); // hide closed tab
+    setActiveTab(newRight.length ? newRight[newRight.length - 1] : null);
   };
 
   const isExpanded = activeTab !== null;
-
-  /* ------------------------------------------------------------------ */
-  /*  JSX                                                               */
-  /* ------------------------------------------------------------------ */
+  const leftOffset = leftTabs.length * TAB_W;
+  const rightOffset = rightTabs.length * TAB_W;
 
   return (
     <motion.div
@@ -244,7 +243,7 @@ export default function RecipeCard({
           />
         )}
 
-        {/* Left tabs */}
+        {/* ---------- Tabs / Sliders ------------ */}
         <Box
           sx={{
             position: 'absolute',
@@ -252,7 +251,6 @@ export default function RecipeCard({
             bottom: 0,
             left: 0,
             display: 'flex',
-            flexDirection: 'row',
             zIndex: 50,
           }}
         >
@@ -260,7 +258,7 @@ export default function RecipeCard({
             <Box
               key={tab}
               sx={{
-                width: 40,
+                width: TAB_W,
                 height: '100%',
                 background: 'rgba(0,0,0,0.7)',
                 display: 'flex',
@@ -272,12 +270,11 @@ export default function RecipeCard({
               onClick={() => handleTabClick(tab)}
             >
               <Typography
-                variant="caption"
                 sx={{
+                  transform: 'rotate(-90deg)',
+                  fontSize: '1.1rem',
                   color: '#fff',
                   fontWeight: 'bold',
-                  fontSize: '0.7rem',
-                  transform: 'rotate(-90deg)',
                   whiteSpace: 'nowrap',
                   pointerEvents: 'none',
                 }}
@@ -288,7 +285,6 @@ export default function RecipeCard({
           ))}
         </Box>
 
-        {/* Right tabs */}
         {rightTabs.length > 0 && (
           <Box
             sx={{
@@ -305,8 +301,8 @@ export default function RecipeCard({
                 sx={{
                   position: 'absolute',
                   top: 0,
-                  right: (rightTabs.length - 1 - idx) * 40,
-                  width: 40,
+                  right: (rightTabs.length - 1 - idx) * TAB_W,
+                  width: TAB_W,
                   height: '100%',
                   background: 'rgba(0,0,0,0.8)',
                   display: 'flex',
@@ -318,12 +314,11 @@ export default function RecipeCard({
                 onClick={() => handleTabClick(tab)}
               >
                 <Typography
-                  variant="caption"
                   sx={{
+                    transform: 'rotate(90deg)',
+                    fontSize: '1.1rem',
                     color: '#fff',
                     fontWeight: 'bold',
-                    fontSize: '0.7rem',
-                    transform: 'rotate(-90deg)',
                     whiteSpace: 'nowrap',
                     pointerEvents: 'none',
                   }}
@@ -335,25 +330,25 @@ export default function RecipeCard({
           </Box>
         )}
 
-        {/* Overlays */}
-        {ALL_TABS.map(overlay => (
+        {/* --------------- Overlays -------------- */}
+        {ALL_TABS.map(tabName => (
           <Box
-            key={overlay}
+            key={tabName}
             sx={{
               position: 'absolute',
-              inset: 0,
-              left: activeTab === overlay ? 0 : '-100%',
-              display: activeTab === overlay ? 'flex' : 'none',
+              top: 0,
+              bottom: 0,
+              left: leftOffset,
+              right: rightOffset,
+              display: activeTab === tabName ? 'flex' : 'none',
               alignItems: 'center',
               justifyContent: 'center',
               p: 2,
-              pl: 'calc(40px + 2rem)',
-              transition: 'left 0.3s ease',
               zIndex: 25,
             }}
           >
             {/* Instructions */}
-            {overlay === 'Instructions' && (
+            {tabName === 'Instructions' && (
               <Box
                 sx={{
                   width: '100%',
@@ -365,52 +360,65 @@ export default function RecipeCard({
                 }}
               >
                 <Typography
-                  variant="h6"
                   sx={{
                     fontSize: fs(1.1),
                     fontWeight: 'bold',
                     color: '#fff',
-                    textShadow: '2px 2px 4px rgba(0,0,0,0.8)',
                     mb: 2,
+                    textShadow: '2px 2px 4px rgba(0,0,0,0.8)',
                   }}
                 >
                   Instructions
                 </Typography>
                 <Box
                   sx={{
+                    flex: 1,
                     width: '100%',
-                    maxHeight: 260,
-                    overflow: 'auto',
                     p: 1.5,
+                    overflow: 'auto',
                     border: '2px solid rgba(255,255,255,0.7)',
                     borderRadius: 1,
                     background: 'rgba(255,255,255,0.1)',
                     '&::-webkit-scrollbar': { display: 'none' },
-                    scrollbarWidth: 'none',
                   }}
                 >
-                  <Typography
-                    variant="body1"
-                    sx={{
-                      whiteSpace: 'pre-wrap',
-                      lineHeight: 1.2,
-                      fontSize: fs(0.85),
-                      color: '#fff',
-                      textShadow: '1px 1px 2px rgba(0,0,0,0.8)',
-                    }}
-                    dangerouslySetInnerHTML={{
-                      __html: recipe.instructions
-                        .split('\n')
-                        .map(l => `<div>${l}</div>`)
-                        .join(''),
-                    }}
-                  />
+                  {recipe.instructions
+                    ? recipe.instructions
+                        .replace(/\. ?(Step)/g, '.\n\n$1')
+                        .split(/\n+/)
+                        .map((ln, i) => (
+                          <Typography
+                            key={i}
+                            sx={{
+                              fontSize: fs(0.85),
+                              color: '#fff',
+                              whiteSpace: 'pre-wrap',
+                              lineHeight: 1.3,
+                              textShadow: '1px 1px 2px rgba(0,0,0,0.8)',
+                              mt: i ? 1 : 0,
+                            }}
+                          >
+                            {ln.trim()}
+                          </Typography>
+                        ))
+                    : (
+                        <Typography
+                          sx={{
+                            fontSize: fs(0.85),
+                            color: '#fff',
+                            textAlign: 'center',
+                            fontStyle: 'italic',
+                          }}
+                        >
+                          No instructions available
+                        </Typography>
+                      )}
                 </Box>
               </Box>
             )}
 
             {/* Ingredients */}
-            {overlay === 'Ingredients' && (
+            {tabName === 'Ingredients' && (
               <Box
                 sx={{
                   width: '100%',
@@ -422,60 +430,276 @@ export default function RecipeCard({
                 }}
               >
                 <Typography
-                  variant="h6"
                   sx={{
                     fontSize: fs(1.1),
                     fontWeight: 'bold',
                     color: '#fff',
-                    textShadow: '2px 2px 4px rgba(0,0,0,0.8)',
                     mb: 2,
+                    textShadow: '2px 2px 4px rgba(0,0,0,0.8)',
                   }}
                 >
                   Ingredients
                 </Typography>
                 <Box
                   sx={{
+                    flex: 1,
                     width: '100%',
-                    maxHeight: 260,
-                    overflow: 'auto',
                     p: 1.5,
+                    overflow: 'auto',
                     border: '2px solid rgba(255,255,255,0.7)',
                     borderRadius: 1,
                     background: 'rgba(255,255,255,0.1)',
                     '&::-webkit-scrollbar': { display: 'none' },
-                    scrollbarWidth: 'none',
                   }}
                 >
                   {recipe.ingredients.map(ing => (
-                    <Box
-                      key={ing.id}
-                      sx={{
-                        p: 0.5,
-                        borderBottom: '1px solid rgba(255,255,255,0.3)',
-                        '&:last-child': { borderBottom: 'none' },
-                      }}
-                    >
-                      <Typography
+                    <Box key={ing.id}>
+                      <Box
                         sx={{
-                          color: '#fff',
-                          fontSize: fs(0.85),
-                          fontWeight: 'bold',
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          p: 0.5,
+                          borderBottom: '1px solid rgba(255,255,255,0.3)',
+                          cursor: 'pointer',
+                          '&:hover': {
+                            background: 'rgba(255,255,255,0.1)',
+                          },
                         }}
+                        onClick={() => toggleIngredientDetails(ing.id)}
                       >
-                        {ing.notes || ing.ingredient.name}
-                      </Typography>
-                      <Typography
-                        sx={{
-                          color: 'rgba(255,255,255,0.8)',
-                          fontSize: fs(0.75),
-                        }}
-                      >
-                        {formatIngredientAmount(
-                          ing.amount,
-                          ing.unit,
-                          ing.ingredient.name
-                        )}
-                      </Typography>
+                        <Typography
+                          sx={{
+                            color: '#fff',
+                            fontWeight: 'bold',
+                            fontSize: fs(0.85),
+                          }}
+                        >
+                          {ing.notes || ing.ingredient.name}
+                        </Typography>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                          <Typography
+                            sx={{
+                              color: 'rgba(255,255,255,0.8)',
+                              fontSize: fs(0.85),
+                            }}
+                          >
+                            {formatIngredientAmount(
+                              ing.amount,
+                              ing.unit,
+                              ing.ingredient.name,
+                              settings.units.useMetricUnits
+                            )}
+                          </Typography>
+                          <IconButton
+                            size="small"
+                            sx={{
+                              color: 'rgba(255,255,255,0.7)',
+                              p: 0.25,
+                              '&:hover': { color: '#fff' },
+                            }}
+                          >
+                            {expandedIngredients.has(ing.id) ? (
+                              <ExpandLessIcon sx={{ fontSize: fs(0.8) }} />
+                            ) : (
+                              <ExpandMoreIcon sx={{ fontSize: fs(0.8) }} />
+                            )}
+                          </IconButton>
+                        </Box>
+                      </Box>
+                      
+                      <Collapse in={expandedIngredients.has(ing.id)}>
+                        <Box
+                          sx={{
+                            p: 1,
+                            background: 'rgba(0,0,0,0.3)',
+                            borderBottom: '1px solid rgba(255,255,255,0.2)',
+                          }}
+                        >
+                          <Grid container spacing={1}>
+                            {/* Nutrition Info - Always shown */}
+                            <Grid item xs={12}>
+                              <Typography
+                                sx={{
+                                  color: '#fff',
+                                  fontSize: fs(0.75),
+                                  fontWeight: 'bold',
+                                  mb: 0.5,
+                                  textShadow: '1px 1px 2px rgba(0,0,0,0.8)',
+                                }}
+                              >
+                                Nutrition:
+                              </Typography>
+                              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                                <Chip
+                                  label={`${Math.round((ing.ingredient.calories * ing.amount) / 100)} cal`}
+                                  size="small"
+                                  sx={{ 
+                                    fontSize: fs(0.65), 
+                                    height: '20px',
+                                    color: '#fff',
+                                    backgroundColor: 'rgba(255,255,255,0.2)',
+                                    textShadow: '1px 1px 2px rgba(0,0,0,0.8)',
+                                    '& .MuiChip-label': {
+                                      color: '#fff',
+                                      textShadow: '1px 1px 2px rgba(0,0,0,0.8)',
+                                    }
+                                  }}
+                                />
+                                <Chip
+                                  label={`${Math.round((ing.ingredient.protein * ing.amount) / 100 * 10) / 10}g protein`}
+                                  size="small"
+                                  sx={{ 
+                                    fontSize: fs(0.65), 
+                                    height: '20px',
+                                    color: '#fff',
+                                    backgroundColor: 'rgba(255,255,255,0.2)',
+                                    textShadow: '1px 1px 2px rgba(0,0,0,0.8)',
+                                    '& .MuiChip-label': {
+                                      color: '#fff',
+                                      textShadow: '1px 1px 2px rgba(0,0,0,0.8)',
+                                    }
+                                  }}
+                                />
+                                <Chip
+                                  label={`${Math.round((ing.ingredient.carbs * ing.amount) / 100 * 10) / 10}g carbs`}
+                                  size="small"
+                                  sx={{ 
+                                    fontSize: fs(0.65), 
+                                    height: '20px',
+                                    color: '#fff',
+                                    backgroundColor: 'rgba(255,255,255,0.2)',
+                                    textShadow: '1px 1px 2px rgba(0,0,0,0.8)',
+                                    '& .MuiChip-label': {
+                                      color: '#fff',
+                                      textShadow: '1px 1px 2px rgba(0,0,0,0.8)',
+                                    }
+                                  }}
+                                />
+                                <Chip
+                                  label={`${Math.round((ing.ingredient.fat * ing.amount) / 100 * 10) / 10}g fat`}
+                                  size="small"
+                                  sx={{ 
+                                    fontSize: fs(0.65), 
+                                    height: '20px',
+                                    color: '#fff',
+                                    backgroundColor: 'rgba(255,255,255,0.2)',
+                                    textShadow: '1px 1px 2px rgba(0,0,0,0.8)',
+                                    '& .MuiChip-label': {
+                                      color: '#fff',
+                                      textShadow: '1px 1px 2px rgba(0,0,0,0.8)',
+                                    }
+                                  }}
+                                />
+                                {ing.ingredient.fiber > 0 && (
+                                  <Chip
+                                    label={`${Math.round((ing.ingredient.fiber * ing.amount) / 100 * 10) / 10}g fiber`}
+                                    size="small"
+                                    sx={{ 
+                                      fontSize: fs(0.65), 
+                                      height: '20px',
+                                      color: '#fff',
+                                      backgroundColor: 'rgba(255,255,255,0.2)',
+                                      textShadow: '1px 1px 2px rgba(0,0,0,0.8)',
+                                      '& .MuiChip-label': {
+                                        color: '#fff',
+                                        textShadow: '1px 1px 2px rgba(0,0,0,0.8)',
+                                      }
+                                    }}
+                                  />
+                                )}
+                              </Box>
+                            </Grid>
+                            
+                            {/* Detailed Info - Only shown if setting is enabled */}
+                            {settings.recipe.detailedIngredientInfo && (
+                              <>
+                                <Grid item xs={12}>
+                                  <Divider sx={{ my: 0.5, borderColor: 'rgba(255,255,255,0.3)' }} />
+                                </Grid>
+                                <Grid item xs={6}>
+                                  <Typography
+                                    sx={{
+                                      color: 'rgba(255,255,255,0.8)',
+                                      fontSize: fs(0.7),
+                                      fontWeight: 'bold',
+                                    }}
+                                  >
+                                    Database Name:
+                                  </Typography>
+                                  <Typography
+                                    sx={{
+                                      color: '#fff',
+                                      fontSize: fs(0.7),
+                                    }}
+                                  >
+                                    {ing.ingredient.name}
+                                  </Typography>
+                                </Grid>
+                                <Grid item xs={6}>
+                                  <Typography
+                                    sx={{
+                                      color: 'rgba(255,255,255,0.8)',
+                                      fontSize: fs(0.7),
+                                      fontWeight: 'bold',
+                                    }}
+                                  >
+                                    Category:
+                                  </Typography>
+                                  <Typography
+                                    sx={{
+                                      color: '#fff',
+                                      fontSize: fs(0.7),
+                                    }}
+                                  >
+                                    {ing.ingredient.category || 'N/A'}
+                                  </Typography>
+                                </Grid>
+                                <Grid item xs={6}>
+                                  <Typography
+                                    sx={{
+                                      color: 'rgba(255,255,255,0.8)',
+                                      fontSize: fs(0.7),
+                                      fontWeight: 'bold',
+                                    }}
+                                  >
+                                    Aisle:
+                                  </Typography>
+                                  <Typography
+                                    sx={{
+                                      color: '#fff',
+                                      fontSize: fs(0.7),
+                                    }}
+                                  >
+                                    {ing.ingredient.aisle || 'N/A'}
+                                  </Typography>
+                                </Grid>
+                                {ing.notes && (
+                                  <Grid item xs={6}>
+                                    <Typography
+                                      sx={{
+                                        color: 'rgba(255,255,255,0.8)',
+                                        fontSize: fs(0.7),
+                                        fontWeight: 'bold',
+                                      }}
+                                    >
+                                      Notes:
+                                    </Typography>
+                                    <Typography
+                                      sx={{
+                                        color: '#fff',
+                                        fontSize: fs(0.7),
+                                      }}
+                                    >
+                                      {ing.notes}
+                                    </Typography>
+                                  </Grid>
+                                )}
+                              </>
+                            )}
+                          </Grid>
+                        </Box>
+                      </Collapse>
                     </Box>
                   ))}
                 </Box>
@@ -483,7 +707,7 @@ export default function RecipeCard({
             )}
 
             {/* Nutrition */}
-            {overlay === 'Nutrition' && (
+            {tabName === 'Nutrition' && (
               <Box
                 sx={{
                   width: '100%',
@@ -495,58 +719,76 @@ export default function RecipeCard({
                 }}
               >
                 <Typography
-                  variant="h6"
                   sx={{
                     fontSize: fs(1.1),
                     fontWeight: 'bold',
                     color: '#fff',
+                    mb: 0.5,
                     textShadow: '2px 2px 4px rgba(0,0,0,0.8)',
-                    mb: 2,
                   }}
                 >
-                  Nutrition Facts
+                  Nutrition Facts
+                </Typography>
+                <Typography sx={{ fontSize: fs(0.8), color: '#fff', mb: 2 }}>
+                  {recipe.servings} serving{recipe.servings !== 1 ? 's' : ''}
                 </Typography>
                 <Box
                   sx={{
+                    flex: 1,
                     width: '100%',
-                    maxHeight: 260,
-                    overflow: 'auto',
                     p: 1.5,
+                    overflow: 'auto',
                     border: '2px solid rgba(255,255,255,0.7)',
                     borderRadius: 1,
                     background: 'rgba(255,255,255,0.1)',
                     '&::-webkit-scrollbar': { display: 'none' },
-                    scrollbarWidth: 'none',
                   }}
                 >
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      borderBottom: '1px solid rgba(255,255,255,0.7)',
+                      mb: 0.5,
+                      pb: 0.5,
+                    }}
+                  >
+                    <Typography sx={{ width: '40%' }} />
+                    <Typography sx={{ width: '30%', fontSize: fs(0.75), color: '#fff' }}>
+                      Per serv.
+                    </Typography>
+                    <Typography sx={{ width: '30%', fontSize: fs(0.75), color: '#fff' }}>
+                      Total
+                    </Typography>
+                  </Box>
                   {[
-                    ['Calories', recipe.nutrition.caloriesPerServing],
-                    ['Fat', `${Math.round(recipe.nutrition.fatPerServing)}g`],
-                    ['Carbs', `${Math.round(recipe.nutrition.carbsPerServing)}g`],
-                    ['Protein', `${Math.round(recipe.nutrition.proteinPerServing)}g`],
-                    ['Fiber', `${Math.round(recipe.nutrition.fiberPerServing)}g`],
-                  ].map(([label, val]) => (
+                    ['Calories', recipe.nutrition.caloriesPerServing, recipe.nutrition.totalCalories],
+                    ['Fat (g)', Math.round(recipe.nutrition.fatPerServing), Math.round(recipe.nutrition.totalFat)],
+                    ['Carbs (g)', Math.round(recipe.nutrition.carbsPerServing), Math.round(recipe.nutrition.totalCarbs)],
+                    ['Protein (g)', Math.round(recipe.nutrition.proteinPerServing), Math.round(recipe.nutrition.totalProtein)],
+                    ['Fiber (g)', Math.round(recipe.nutrition.fiberPerServing), Math.round(recipe.nutrition.totalFiber)],
+                    ['Sugar (g)', Math.round(recipe.nutrition.sugarPerServing), Math.round(recipe.nutrition.totalSugar)],
+                  ].map(([label, per, total]) => (
                     <Box
                       key={label}
                       sx={{
                         display: 'flex',
                         justifyContent: 'space-between',
-                        borderBottom: '1px solid rgba(255,255,255,0.7)',
-                        pb: 0.5,
+                        borderBottom: '1px solid rgba(255,255,255,0.3)',
                         mb: 0.5,
+                        pb: 0.5,
                       }}
                     >
                       <Typography
-                        sx={{
-                          fontSize: fs(0.8),
-                          fontWeight: 'bold',
-                          color: '#fff',
-                        }}
+                        sx={{ width: '40%', fontSize: fs(0.8), fontWeight: 'bold', color: '#fff' }}
                       >
                         {label}
                       </Typography>
-                      <Typography sx={{ fontSize: fs(0.8), color: '#fff' }}>
-                        {val}
+                      <Typography sx={{ width: '30%', fontSize: fs(0.8), color: '#fff', textAlign: 'right' }}>
+                        {per}
+                      </Typography>
+                      <Typography sx={{ width: '30%', fontSize: fs(0.8), color: '#fff', textAlign: 'right' }}>
+                        {total}
                       </Typography>
                     </Box>
                   ))}
@@ -556,7 +798,7 @@ export default function RecipeCard({
           </Box>
         ))}
 
-        {/* Front page info */}
+        {/* Front face */}
         {!isExpanded && (
           <Box
             sx={{
@@ -566,35 +808,94 @@ export default function RecipeCard({
               flexDirection: 'column',
               justifyContent: 'space-between',
               p: 2,
-              pl: 'calc(120px + 2rem)',
+              pl: `${leftOffset + spacing(8)}px`,
+              pr: `${rightOffset + spacing(2)}px`,
               zIndex: 30,
             }}
           >
-            <Typography
-              variant="h5"
-              sx={{
-                fontWeight: 'bold',
-                color: '#fff',
-                fontSize: fs(clampFont(1.1, recipe.name.length, 30, 50)),
-                background: 'rgba(0,0,0,0.5)',
-                borderRadius: 2,
-                p: '4px 8px',
-                lineHeight: 1.2,
-                maxWidth: '85%',
-                whiteSpace: 'nowrap',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-              }}
-            >
-              {recipe.name}
-            </Typography>
+            <Box>
+              <Typography
+                sx={{
+                  fontWeight: 'bold',
+                  color: '#fff',
+                  fontSize: fs(clampFont(1.4, recipe.name.length, 30, 50)),
+                  background: 'rgba(0,0,0,0.5)',
+                  borderRadius: 2,
+                  p: '6px 12px',
+                  maxWidth: 'fit-content',
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  textShadow: '2px 2px 4px rgba(0,0,0,0.8)',
+                }}
+              >
+                {recipe.name}
+              </Typography>
+
+              {/* Recipe Badges */}
+              <Box
+                sx={{
+                  display: 'flex',
+                  gap: 1,
+                  flexWrap: 'wrap',
+                  mt: 1,
+                }}
+              >
+                {/* Meal Type Badge */}
+                <Chip
+                  label={getMealTypeLetter(recipe.mealType)}
+                  size="small"
+                  sx={{
+                    backgroundColor: 'rgba(255,255,255,0.9)',
+                    color: '#333',
+                    fontWeight: 'bold',
+                    fontSize: '0.8rem',
+                    height: '24px',
+                    '& .MuiChip-label': {
+                      px: 1,
+                    },
+                  }}
+                />
+                
+                {/* Servings Badge */}
+                <Chip
+                  label={`${recipe.servings} ${recipe.servings === 1 ? 'serving' : 'servings'}`}
+                  size="small"
+                  sx={{
+                    backgroundColor: 'rgba(0,150,136,0.9)',
+                    color: '#fff',
+                    fontWeight: 'bold',
+                    fontSize: '0.75rem',
+                    height: '24px',
+                    '& .MuiChip-label': {
+                      px: 1,
+                    },
+                  }}
+                />
+                
+                              {/* Calories Badge */}
+              <Chip
+                label={`${Math.round(recipe.nutrition.caloriesPerServing)} cal`}
+                size="small"
+                sx={{
+                  backgroundColor: 'rgba(255,87,34,0.9)',
+                  color: '#fff',
+                  fontWeight: 'bold',
+                  fontSize: '0.75rem',
+                  height: '24px',
+                  '& .MuiChip-label': {
+                    px: 1,
+                  },
+                }}
+              />
+              </Box>
+            </Box>
 
             {recipe.description && (
               <Typography
-                variant="body2"
                 sx={{
-                  color: '#fff',
                   fontSize: fs(clampFont(0.85, recipe.description.length, 120, 200)),
+                  color: '#fff',
                   background: 'rgba(0,0,0,0.4)',
                   borderRadius: 2,
                   p: '6px 10px',
@@ -613,57 +914,68 @@ export default function RecipeCard({
           </Box>
         )}
 
-        {/* Action buttons */}
-        <Box
-          sx={{
-            position: 'absolute',
-            top: spacing(1),
-            right: spacing(1),
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 1,
-            zIndex: 30,
-          }}
-        >
-          {[
-            {
-              icon: recipe.isFavorite ? <FavoriteIcon /> : <FavoriteBorderIcon />,
-              onClick: () => onToggleFavorite(recipe.id),
-              color: recipe.isFavorite ? '#ff6b6b' : '#fff',
-              title: recipe.isFavorite ? 'Remove Favorite' : 'Add Favorite',
-            },
-            {
-              icon: <PrintIcon />,
-              onClick: () => onPrint(recipe),
-              color: '#fff',
-              title: 'Print Recipe',
-            },
-            {
-              icon: <DeleteIcon />,
-              onClick: () => onDelete(recipe.id),
-              color: '#fff',
-              title: 'Delete Recipe',
-            },
-          ].map(({ icon, onClick, color, title }) => (
-            <motion.div key={title} whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
-              <Tooltip title={title}>
-                <IconButton
-                  onClick={onClick}
-                  sx={{
-                    width: isMobile ? 32 : 40,
-                    height: isMobile ? 32 : 40,
-                    background: 'rgba(0,0,0,0.5)',
-                    color,
-                    backdropFilter: 'blur(10px)',
-                    '&:hover': { background: 'rgba(0,0,0,0.7)' },
-                  }}
-                >
-                  {icon}
-                </IconButton>
-              </Tooltip>
-            </motion.div>
-          ))}
-        </Box>
+        {/* Action buttons (hide when expanded) */}
+        {!isExpanded && (
+          <Box
+            sx={{
+              position: 'absolute',
+              top: isMobile ? '16px' : isTablet ? '20px' : '24px',
+              right: spacing(2),
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 1,
+              zIndex: 30,
+            }}
+          >
+            {[
+              {
+                icon: recipe.isFavorite ? <FavoriteIcon /> : <FavoriteBorderIcon />,
+                onClick: () => onToggleFavorite(recipe.id),
+                color: recipe.isFavorite ? '#FFD700' : '#fff',
+                title: recipe.isFavorite ? 'Remove Favorite' : 'Add Favorite',
+                isFavorite: true,
+              },
+              {
+                icon: <PrintIcon />,
+                onClick: () => onPrint(recipe),
+                color: '#9E9E9E',
+                title: 'Print Recipe',
+                isFavorite: false,
+              },
+              {
+                icon: <DeleteIcon />,
+                onClick: () => onDelete(recipe.id),
+                color: '#f44336',
+                title: 'Delete Recipe',
+                isFavorite: false,
+              },
+            ].map(({ icon, onClick, color, title, isFavorite }) => (
+              <motion.div key={title} whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
+                <Tooltip title={title}>
+                  <IconButton
+                    onClick={onClick}
+                    sx={{
+                      width: isMobile ? 32 : 40,
+                      height: isMobile ? 32 : 40,
+                      color,
+                      filter: 'drop-shadow(2px 2px 4px rgba(0,0,0,0.8))',
+                      '&:hover': { 
+                        background: 'rgba(255,255,255,0.1)',
+                        color: color === '#FFD700' ? '#FFD700' : color === '#f44336' ? '#f44336' : '#fff',
+                        filter: 'drop-shadow(2px 2px 4px rgba(0,0,0,0.8))',
+                      },
+                      '& svg': {
+                        filter: 'drop-shadow(2px 2px 4px rgba(0,0,0,0.8))',
+                      },
+                    }}
+                  >
+                    {icon}
+                  </IconButton>
+                </Tooltip>
+              </motion.div>
+            ))}
+          </Box>
+        )}
       </Box>
     </motion.div>
   );

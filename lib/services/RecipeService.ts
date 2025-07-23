@@ -221,9 +221,9 @@ export class RecipeService {
 
     if (search) {
       where.OR = [
-        { name: { contains: search, mode: 'insensitive' } },
-        { description: { contains: search, mode: 'insensitive' } },
-        { originalQuery: { contains: search, mode: 'insensitive' } }
+        { name: { contains: search } },
+        { description: { contains: search } },
+        { originalQuery: { contains: search } }
       ];
     }
 
