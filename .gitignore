@@ -38,6 +38,12 @@ next-env.d.ts
 # Prisma - Main database (exclude from git)
 /prisma/dev.db
 /prisma/dev.db-journal
+/prisma/prisma/dev.db
+/prisma/prisma/dev.db-journal
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
 
 # Large data directories (exclude from git)
 /ingredientData/
