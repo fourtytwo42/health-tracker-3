@@ -24,6 +24,8 @@ import CalendarTab from './components/CalendarTab';
 import HealthMetricsTab from './components/HealthMetricsTab';
 import MenuBuilderTab from './components/MenuBuilderTab';
 import WorkoutBuilderTab from './components/WorkoutBuilderTab';
+import ManualRecipeBuilderTab from './components/ManualRecipeBuilderTab';
+import Navigation from '../components/Navigation';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -117,10 +119,12 @@ export default function UserDetailsPage() {
   }
 
   return (
-    <Container maxWidth="xl" sx={{ mt: 4, mb: 4 }}>
-      <Typography variant="h3" component="h1" gutterBottom>
-        My Health Profile
-      </Typography>
+    <>
+      <Navigation />
+      <Container maxWidth="xl" sx={{ mt: 4, mb: 4 }}>
+        <Typography variant="h3" component="h1" gutterBottom>
+          My Health Profile
+        </Typography>
       <Typography variant="subtitle1" color="text.secondary" gutterBottom>
         Manage your personal information, preferences, and health data
       </Typography>
@@ -145,8 +149,9 @@ export default function UserDetailsPage() {
             <Tab label="Food Preferences" {...a11yProps(2)} />
             <Tab label="Exercise Preferences" {...a11yProps(3)} />
             <Tab label="Menu Builder" {...a11yProps(4)} />
-            <Tab label="Workout Builder" {...a11yProps(5)} />
-            <Tab label="Calendar & Schedule" {...a11yProps(6)} />
+            <Tab label="Manual Recipe Builder" {...a11yProps(5)} />
+            <Tab label="Workout Builder" {...a11yProps(6)} />
+            <Tab label="Calendar & Schedule" {...a11yProps(7)} />
           </Tabs>
         </Box>
 
@@ -171,13 +176,18 @@ export default function UserDetailsPage() {
         </TabPanel>
 
         <TabPanel value={tabValue} index={5}>
-          <WorkoutBuilderTab userProfile={userProfile} exercisePreferences={exercisePreferences} />
+          <ManualRecipeBuilderTab />
         </TabPanel>
 
         <TabPanel value={tabValue} index={6}>
+          <WorkoutBuilderTab userProfile={userProfile} exercisePreferences={exercisePreferences} />
+        </TabPanel>
+
+        <TabPanel value={tabValue} index={7}>
           <CalendarTab />
         </TabPanel>
       </Paper>
     </Container>
+    </>
   );
 } 

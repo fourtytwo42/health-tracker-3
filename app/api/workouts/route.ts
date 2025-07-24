@@ -160,7 +160,9 @@ function calculateWorkoutStats(workout: any): any {
           description: ve.description || 'AI-generated exercise',
           category: 'VIRTUAL',
           intensity: 'MODERATE',
-          isActive: true
+          isActive: true,
+          // Include exercise image if available
+          imageUrl: ve.imageUrl || null,
         },
         sets: ve.sets,
         reps: ve.reps,
@@ -187,6 +189,27 @@ function calculateWorkoutStats(workout: any): any {
     }
   }
 
+  // For regular exercises, check if we have virtual exercises with images to merge
+  let exercisesWithImages = workout.exercises;
+  if (workout.virtualExercises) {
+    try {
+      const virtualExercisesData = JSON.parse(workout.virtualExercises);
+      exercisesWithImages = workout.exercises.map((exercise: any, index: number) => {
+        const virtualExercise = virtualExercisesData[index];
+        return {
+          ...exercise,
+          exercise: {
+            ...exercise.exercise,
+            // Add image URL if available from virtual exercise
+            imageUrl: virtualExercise?.imageUrl || null,
+          }
+        };
+      });
+    } catch (error) {
+      console.error('Error parsing virtual exercises for image merging:', error);
+    }
+  }
+
   // Calculate total calories if not provided
   let totalCalories = workout.totalCalories;
   if (!totalCalories && workout.exercises.length > 0) {
@@ -205,5 +228,6 @@ function calculateWorkoutStats(workout: any): any {
     equipment,
     instructions,
     totalCalories: Math.round(totalCalories || 0),
+    exercises: exercisesWithImages,
   };
 } 

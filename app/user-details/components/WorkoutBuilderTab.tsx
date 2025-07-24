@@ -278,6 +278,9 @@ export default function WorkoutBuilderTab({ userProfile, exercisePreferences }: 
           );
           return updated;
         });
+        
+        // Dispatch event to notify calendar component
+        window.dispatchEvent(new CustomEvent('favoriteChanged'));
       }
     } catch (error) {
       console.error('Error toggling favorite:', error);

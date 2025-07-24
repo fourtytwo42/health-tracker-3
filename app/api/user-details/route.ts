@@ -11,11 +11,25 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const userDetails = await prisma.userDetails.findUnique({
-      where: { userId: user.id }
+    const profile = await prisma.profile.findUnique({
+      where: { userId: user.userId }
     });
 
-    return NextResponse.json({ userDetails });
+    // Parse JSON strings if they exist
+    if (profile) {
+      try {
+        if (profile.dietaryPreferences) {
+          profile.dietaryPreferences = JSON.parse(profile.dietaryPreferences);
+        }
+        if (profile.privacySettings) {
+          profile.privacySettings = JSON.parse(profile.privacySettings);
+        }
+      } catch (parseError) {
+        console.error('Error parsing profile JSON fields:', parseError);
+      }
+    }
+
+    return NextResponse.json({ userDetails: profile });
   } catch (error) {
     console.error('Error fetching user details:', error);
     return NextResponse.json(
@@ -34,68 +48,93 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
     
-    // Validate required fields
-    if (!body.activityLevel) {
-      return NextResponse.json(
-        { error: 'Activity level is required' },
-        { status: 400 }
-      );
-    }
-
-    // Upsert user details
-    const userDetails = await prisma.userDetails.upsert({
-      where: { userId: user.id },
+    // Upsert user profile
+    const userDetails = await prisma.profile.upsert({
+      where: { userId: user.userId },
       update: {
+        // Basic Information
+        firstName: body.firstName,
+        lastName: body.lastName,
+        dateOfBirth: body.dateOfBirth ? new Date(body.dateOfBirth) : null,
+        gender: body.gender,
+        
+        // Physical Measurements
         height: body.height,
         weight: body.weight,
         targetWeight: body.targetWeight,
-        bodyFatPercentage: body.bodyFatPercentage,
-        muscleMass: body.muscleMass,
-        bmi: body.bmi,
-        bloodType: body.bloodType,
+        
+        // Medical Information
         allergies: body.allergies,
         medications: body.medications,
         medicalConditions: body.medicalConditions,
         disabilities: body.disabilities,
+        
+        // Exercise & Mobility
         exerciseLimitations: body.exerciseLimitations,
         mobilityIssues: body.mobilityIssues,
         injuryHistory: body.injuryHistory,
+        
+        // Activity Level
         activityLevel: body.activityLevel,
-        sleepQuality: body.sleepQuality,
-        stressLevel: body.stressLevel,
-        smokingStatus: body.smokingStatus,
-        alcoholConsumption: body.alcoholConsumption,
-        fitnessGoals: body.fitnessGoals,
-        dietaryGoals: body.dietaryGoals,
-        weightGoals: body.weightGoals,
+        
+        // Nutrition Targets
+        dietaryPreferences: body.dietaryPreferences ? JSON.stringify(body.dietaryPreferences) : null,
+        calorieTarget: body.calorieTarget,
+        proteinTarget: body.proteinTarget,
+        carbTarget: body.carbTarget,
+        fatTarget: body.fatTarget,
+        fiberTarget: body.fiberTarget,
+        
         updatedAt: new Date()
       },
       create: {
-        userId: user.id,
+        userId: user.userId,
+        // Basic Information
+        firstName: body.firstName,
+        lastName: body.lastName,
+        dateOfBirth: body.dateOfBirth ? new Date(body.dateOfBirth) : null,
+        gender: body.gender,
+        
+        // Physical Measurements
         height: body.height,
         weight: body.weight,
         targetWeight: body.targetWeight,
-        bodyFatPercentage: body.bodyFatPercentage,
-        muscleMass: body.muscleMass,
-        bmi: body.bmi,
-        bloodType: body.bloodType,
+        
+        // Medical Information
         allergies: body.allergies,
         medications: body.medications,
         medicalConditions: body.medicalConditions,
         disabilities: body.disabilities,
+        
+        // Exercise & Mobility
         exerciseLimitations: body.exerciseLimitations,
         mobilityIssues: body.mobilityIssues,
         injuryHistory: body.injuryHistory,
+        
+        // Activity Level
         activityLevel: body.activityLevel,
-        sleepQuality: body.sleepQuality,
-        stressLevel: body.stressLevel,
-        smokingStatus: body.smokingStatus,
-        alcoholConsumption: body.alcoholConsumption,
-        fitnessGoals: body.fitnessGoals,
-        dietaryGoals: body.dietaryGoals,
-        weightGoals: body.weightGoals
+        
+        // Nutrition Targets
+        dietaryPreferences: body.dietaryPreferences ? JSON.stringify(body.dietaryPreferences) : null,
+        calorieTarget: body.calorieTarget,
+        proteinTarget: body.proteinTarget,
+        carbTarget: body.carbTarget,
+        fatTarget: body.fatTarget,
+        fiberTarget: body.fiberTarget
       }
     });
+
+    // Parse JSON strings if they exist
+    try {
+      if (userDetails.dietaryPreferences) {
+        userDetails.dietaryPreferences = JSON.parse(userDetails.dietaryPreferences);
+      }
+      if (userDetails.privacySettings) {
+        userDetails.privacySettings = JSON.parse(userDetails.privacySettings);
+      }
+    } catch (parseError) {
+      console.error('Error parsing userDetails JSON fields:', parseError);
+    }
 
     return NextResponse.json({ 
       message: 'User details saved successfully',

@@ -32,56 +32,57 @@ import {
 
 interface UserDetails {
   id?: string;
+  // Basic Information
+  firstName?: string;
+  lastName?: string;
+  dateOfBirth?: string;
+  gender?: string;
+  
+  // Physical Measurements
   height?: number; // stored in cm
-  weight?: number; // stored in kg
   targetWeight?: number; // stored in kg
-  bodyFatPercentage?: number;
-  muscleMass?: number; // stored in kg
-  bmi?: number;
-  bloodType?: string;
+  
+  // Medical Information
   allergies?: string;
   medications?: string;
   medicalConditions?: string;
   disabilities?: string;
+  
+  // Exercise & Mobility
   exerciseLimitations?: string;
   mobilityIssues?: string;
   injuryHistory?: string;
-  activityLevel: string;
-  sleepQuality?: string;
-  stressLevel?: string;
-  smokingStatus?: string;
-  alcoholConsumption?: string;
-  fitnessGoals?: string;
-  dietaryGoals?: string;
-  weightGoals?: string;
+  
+  // Nutrition Targets
+  dietaryPreferences?: string[];
+  calorieTarget?: number;
+  proteinTarget?: number;
+  carbTarget?: number;
+  fatTarget?: number;
+  fiberTarget?: number;
 }
 
 // American unit display state
 interface AmericanDisplay {
   heightFeet: number;
   heightInches: number;
-  weightLbs: number;
   targetWeightLbs: number;
-  muscleMassLbs: number;
 }
 
-const ACTIVITY_LEVELS = [
-  'SEDENTARY',
-  'LIGHTLY_ACTIVE',
-  'MODERATELY_ACTIVE',
-  'VERY_ACTIVE',
-  'EXTREMELY_ACTIVE'
+const GENDERS = ['MALE', 'FEMALE', 'OTHER', 'PREFER_NOT_TO_SAY'];
+
+const DIETARY_PREFERENCES = [
+  'VEGETARIAN',
+  'VEGAN', 
+  'GLUTEN_FREE',
+  'DAIRY_FREE',
+  'KETO',
+  'PALEO',
+  'MEDITERRANEAN',
+  'LOW_CARB',
+  'LOW_FAT',
+  'NONE'
 ];
-
-const BLOOD_TYPES = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
-
-const QUALITY_LEVELS = ['POOR', 'FAIR', 'GOOD', 'EXCELLENT'];
-
-const STRESS_LEVELS = ['LOW', 'MODERATE', 'HIGH', 'VERY_HIGH'];
-
-const SMOKING_STATUS = ['NEVER', 'FORMER', 'CURRENT', 'OCCASIONAL'];
-
-const ALCOHOL_CONSUMPTION = ['NONE', 'LIGHT', 'MODERATE', 'HEAVY'];
 
 export default function PersonalInfoTab() {
   const { user } = useAuth();
@@ -90,16 +91,14 @@ export default function PersonalInfoTab() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [userDetails, setUserDetails] = useState<UserDetails>({
-    activityLevel: 'SEDENTARY'
+    dietaryPreferences: []
   });
   
   // American units for display
   const [americanDisplay, setAmericanDisplay] = useState<AmericanDisplay>({
     heightFeet: 5,
     heightInches: 8,
-    weightLbs: 150,
-    targetWeightLbs: 150,
-    muscleMassLbs: 50
+    targetWeightLbs: 150
   });
 
   useEffect(() => {
@@ -110,49 +109,59 @@ export default function PersonalInfoTab() {
 
   const loadUserDetails = async () => {
     try {
-      const response = await fetch('/api/user-details');
+      setLoading(true);
+      
+      // Get the access token
+      const token = localStorage.getItem('accessToken');
+      if (!token) {
+        console.error('No access token found');
+        return;
+      }
+
+      const response = await fetch('/api/user-details', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
       if (response.ok) {
         const data = await response.json();
         if (data.userDetails) {
-          setUserDetails(data.userDetails);
+          // Ensure dietaryPreferences is always an array
+          const userDetailsData = {
+            ...data.userDetails,
+            dietaryPreferences: Array.isArray(data.userDetails.dietaryPreferences) 
+              ? data.userDetails.dietaryPreferences 
+              : [],
+            // Format dateOfBirth for the date input field
+            dateOfBirth: data.userDetails.dateOfBirth 
+              ? new Date(data.userDetails.dateOfBirth).toISOString().split('T')[0]
+              : ''
+          };
+          setUserDetails(userDetailsData);
           
           // Convert metric to American for display
           if (data.userDetails.height) {
             const heightConversion = convertHeightToAmerican(data.userDetails.height);
-            const totalInches = data.userDetails.height / 2.54;
-            const feet = Math.floor(totalInches / 12);
-            const inches = Math.round(totalInches % 12);
             setAmericanDisplay(prev => ({
               ...prev,
-              heightFeet: feet,
-              heightInches: inches
-            }));
-          }
-          
-          if (data.userDetails.weight) {
-            const weightConversion = convertWeightToAmerican(data.userDetails.weight);
-            setAmericanDisplay(prev => ({
-              ...prev,
-              weightLbs: weightConversion.value * 2.20462
+              heightFeet: heightConversion.feet,
+              heightInches: heightConversion.inches
             }));
           }
           
           if (data.userDetails.targetWeight) {
-            const targetWeightConversion = convertWeightToAmerican(data.userDetails.targetWeight);
+            const targetWeightLbs = convertWeightToAmerican(data.userDetails.targetWeight);
+            // Round up to nearest 0.1
+            const roundedWeight = Math.ceil(targetWeightLbs * 10) / 10;
             setAmericanDisplay(prev => ({
               ...prev,
-              targetWeightLbs: targetWeightConversion.value * 2.20462
-            }));
-          }
-          
-          if (data.userDetails.muscleMass) {
-            const muscleMassConversion = convertWeightToAmerican(data.userDetails.muscleMass);
-            setAmericanDisplay(prev => ({
-              ...prev,
-              muscleMassLbs: muscleMassConversion.value * 2.20462
+              targetWeightLbs: roundedWeight
             }));
           }
         }
+      } else {
+        console.error('Failed to load user details:', response.status);
       }
     } catch (error) {
       console.error('Error loading user details:', error);
@@ -171,15 +180,8 @@ export default function PersonalInfoTab() {
   const handleAmericanInputChange = (field: keyof AmericanDisplay, value: number) => {
     setAmericanDisplay(prev => ({
       ...prev,
-      [field]: value
+      [field]: field === 'targetWeightLbs' ? Math.ceil(value * 10) / 10 : value
     }));
-  };
-
-  const calculateBMIFromAmerican = () => {
-    if (americanDisplay.weightLbs && americanDisplay.heightFeet && americanDisplay.heightInches) {
-      const bmi = calculateBMI(americanDisplay.weightLbs, americanDisplay.heightFeet, americanDisplay.heightInches);
-      setUserDetails(prev => ({ ...prev, bmi }));
-    }
   };
 
   const handleSave = async () => {
@@ -188,42 +190,46 @@ export default function PersonalInfoTab() {
     setSuccess(null);
 
     try {
+      // Get the access token
+      const token = localStorage.getItem('accessToken');
+      if (!token) {
+        setError('No access token found. Please log in again.');
+        return;
+      }
+
       // Convert American units back to metric for database
-      const heightCm = convertHeightToMetric(americanDisplay.heightFeet, americanDisplay.heightInches).value;
-      const weightKg = convertWeightToMetric(americanDisplay.weightLbs).value;
-      const targetWeightKg = convertWeightToMetric(americanDisplay.targetWeightLbs).value;
-      const muscleMassKg = convertWeightToMetric(americanDisplay.muscleMassLbs).value;
-      
-      // Calculate BMI
-      calculateBMIFromAmerican();
+      const heightCm = convertHeightToMetric(americanDisplay.heightFeet, americanDisplay.heightInches);
+      // Round up target weight to nearest 0.1 before converting
+      const roundedTargetWeightLbs = Math.ceil(americanDisplay.targetWeightLbs * 10) / 10;
+      const targetWeightKg = convertWeightToMetric(roundedTargetWeightLbs);
       
       const updatedUserDetails = {
         ...userDetails,
         height: heightCm,
-        weight: weightKg,
-        targetWeight: targetWeightKg,
-        muscleMass: muscleMassKg
+        targetWeight: targetWeightKg
       };
       
       const response = await fetch('/api/user-details', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify(updatedUserDetails),
       });
 
       if (response.ok) {
-        setSuccess('User details saved successfully!');
+        setSuccess('Personal information saved successfully!');
         const data = await response.json();
         if (data.userDetails) {
           setUserDetails(data.userDetails);
         }
       } else {
         const errorData = await response.json();
-        setError(errorData.error || 'Failed to save user details');
+        setError(errorData.error || 'Failed to save personal information');
       }
     } catch (error) {
+      console.error('Error saving personal info:', error);
       setError('An error occurred while saving');
     } finally {
       setSaving(false);
@@ -241,15 +247,18 @@ export default function PersonalInfoTab() {
   return (
     <Box>
       <Typography variant="h5" gutterBottom>
-        Personal Information & Health Details
+        Personal Information
       </Typography>
-      
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+        Manage your basic information, physical measurements, medical details, and nutrition targets.
+      </Typography>
+
       {error && (
         <Alert severity="error" sx={{ mb: 2 }}>
           {error}
         </Alert>
       )}
-      
+
       {success && (
         <Alert severity="success" sx={{ mb: 2 }}>
           {success}
@@ -257,105 +266,97 @@ export default function PersonalInfoTab() {
       )}
 
       <Grid container spacing={3}>
+        {/* Basic Information */}
+        <Grid item xs={12} md={6}>
+          <Card>
+            <CardHeader title="Basic Information" />
+            <CardContent>
+              <Stack spacing={2}>
+                <TextField
+                  label="First Name"
+                  value={userDetails.firstName || ''}
+                  onChange={(e) => handleInputChange('firstName', e.target.value)}
+                  fullWidth
+                />
+                
+                <TextField
+                  label="Last Name"
+                  value={userDetails.lastName || ''}
+                  onChange={(e) => handleInputChange('lastName', e.target.value)}
+                  fullWidth
+                />
+                
+                <TextField
+                  label="Date of Birth"
+                  type="date"
+                  value={userDetails.dateOfBirth || ''}
+                  onChange={(e) => handleInputChange('dateOfBirth', e.target.value)}
+                  fullWidth
+                  InputLabelProps={{ shrink: true }}
+                />
+                
+                <FormControl fullWidth>
+                  <InputLabel>Gender</InputLabel>
+                  <Select
+                    value={userDetails.gender || ''}
+                    onChange={(e) => handleInputChange('gender', e.target.value)}
+                    label="Gender"
+                  >
+                    {GENDERS.map((gender) => (
+                      <MenuItem key={gender} value={gender}>
+                        {gender.replace('_', ' ')}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Stack>
+            </CardContent>
+          </Card>
+        </Grid>
+
         {/* Physical Measurements */}
         <Grid item xs={12} md={6}>
           <Card>
             <CardHeader title="Physical Measurements" />
             <CardContent>
               <Stack spacing={2}>
-                <Box>
-                  <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                    Height (feet & inches)
-                  </Typography>
-                  <Stack direction="row" spacing={1}>
-                    <TextField
-                      label="Feet"
-                      type="number"
-                      value={americanDisplay.heightFeet || ''}
-                      onChange={(e) => handleAmericanInputChange('heightFeet', parseInt(e.target.value) || 0)}
-                      sx={{ flex: 1 }}
-                      inputProps={{ min: 3, max: 8 }}
-                    />
-                    <TextField
-                      label="Inches"
-                      type="number"
-                      value={americanDisplay.heightInches || ''}
-                      onChange={(e) => handleAmericanInputChange('heightInches', parseInt(e.target.value) || 0)}
-                      sx={{ flex: 1 }}
-                      inputProps={{ min: 0, max: 11 }}
-                    />
-                  </Stack>
-                </Box>
+                <TextField
+                  label="Height (feet)"
+                  type="number"
+                  value={americanDisplay.heightFeet || ''}
+                  onChange={(e) => handleAmericanInputChange('heightFeet', parseInt(e.target.value) || 0)}
+                  fullWidth
+                  inputProps={{ min: 3, max: 8 }}
+                />
                 
                 <TextField
-                  label="Weight (lbs)"
+                  label="Height (inches)"
                   type="number"
-                  value={americanDisplay.weightLbs || ''}
-                  onChange={(e) => handleAmericanInputChange('weightLbs', parseFloat(e.target.value) || 0)}
+                  value={americanDisplay.heightInches || ''}
+                  onChange={(e) => handleAmericanInputChange('heightInches', parseInt(e.target.value) || 0)}
                   fullWidth
-                  inputProps={{ min: 50, max: 500 }}
+                  inputProps={{ min: 0, max: 11 }}
                 />
                 
                 <TextField
                   label="Target Weight (lbs)"
                   type="number"
-                  value={americanDisplay.targetWeightLbs || ''}
+                  value={Math.ceil(americanDisplay.targetWeightLbs * 10) / 10 || ''}
                   onChange={(e) => handleAmericanInputChange('targetWeightLbs', parseFloat(e.target.value) || 0)}
                   fullWidth
-                  inputProps={{ min: 50, max: 500 }}
+                  inputProps={{ min: 50, max: 500, step: 0.1 }}
                 />
-                
-                <TextField
-                  label="Body Fat Percentage"
-                  type="number"
-                  value={userDetails.bodyFatPercentage || ''}
-                  onChange={(e) => handleInputChange('bodyFatPercentage', parseFloat(e.target.value) || undefined)}
-                  fullWidth
-                  inputProps={{ min: 0, max: 50 }}
-                />
-                
-                <TextField
-                  label="Muscle Mass (lbs)"
-                  type="number"
-                  value={americanDisplay.muscleMassLbs || ''}
-                  onChange={(e) => handleAmericanInputChange('muscleMassLbs', parseFloat(e.target.value) || 0)}
-                  fullWidth
-                  inputProps={{ min: 20, max: 200 }}
-                />
-                
-                {userDetails.bmi && (
-                  <TextField
-                    label="BMI"
-                    value={`${userDetails.bmi} (${getBMICategory(userDetails.bmi)})`}
-                    fullWidth
-                    disabled
-                    helperText="Calculated automatically from height and weight"
-                  />
-                )}
               </Stack>
             </CardContent>
           </Card>
         </Grid>
 
-        {/* Health Information */}
+        {/* Medical Information */}
         <Grid item xs={12} md={6}>
           <Card>
-            <CardHeader title="Health Information" />
+            <CardHeader title="Medical Information" />
             <CardContent>
               <Stack spacing={2}>
-                <FormControl fullWidth>
-                  <InputLabel>Blood Type</InputLabel>
-                  <Select
-                    value={userDetails.bloodType || ''}
-                    onChange={(e) => handleInputChange('bloodType', e.target.value)}
-                    label="Blood Type"
-                  >
-                    {BLOOD_TYPES.map((type) => (
-                      <MenuItem key={type} value={type}>{type}</MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-                
                 <TextField
                   label="Allergies"
                   multiline
@@ -385,6 +386,16 @@ export default function PersonalInfoTab() {
                   fullWidth
                   helperText="List any chronic conditions or health issues"
                 />
+                
+                <TextField
+                  label="Disabilities"
+                  multiline
+                  rows={2}
+                  value={userDetails.disabilities || ''}
+                  onChange={(e) => handleInputChange('disabilities', e.target.value)}
+                  fullWidth
+                  helperText="List any physical disabilities or limitations"
+                />
               </Stack>
             </CardContent>
           </Card>
@@ -393,19 +404,9 @@ export default function PersonalInfoTab() {
         {/* Exercise Limitations */}
         <Grid item xs={12} md={6}>
           <Card>
-            <CardHeader title="Exercise Limitations & Disabilities" />
+            <CardHeader title="Exercise & Mobility" />
             <CardContent>
               <Stack spacing={2}>
-                <TextField
-                  label="Disabilities"
-                  multiline
-                  rows={3}
-                  value={userDetails.disabilities || ''}
-                  onChange={(e) => handleInputChange('disabilities', e.target.value)}
-                  fullWidth
-                  helperText="Describe any disabilities or physical limitations"
-                />
-                
                 <TextField
                   label="Exercise Limitations"
                   multiline
@@ -413,17 +414,17 @@ export default function PersonalInfoTab() {
                   value={userDetails.exerciseLimitations || ''}
                   onChange={(e) => handleInputChange('exerciseLimitations', e.target.value)}
                   fullWidth
-                  helperText="List body parts or movements to avoid or modify"
+                  helperText="List any exercise restrictions or limitations"
                 />
                 
                 <TextField
                   label="Mobility Issues"
                   multiline
-                  rows={3}
+                  rows={2}
                   value={userDetails.mobilityIssues || ''}
                   onChange={(e) => handleInputChange('mobilityIssues', e.target.value)}
                   fullWidth
-                  helperText="Describe any mobility or balance issues"
+                  helperText="Describe any mobility challenges"
                 />
                 
                 <TextField
@@ -433,128 +434,94 @@ export default function PersonalInfoTab() {
                   value={userDetails.injuryHistory || ''}
                   onChange={(e) => handleInputChange('injuryHistory', e.target.value)}
                   fullWidth
-                  helperText="List past injuries and current status"
+                  helperText="List past injuries and their current status"
                 />
               </Stack>
             </CardContent>
           </Card>
         </Grid>
 
-        {/* Lifestyle & Goals */}
-        <Grid item xs={12} md={6}>
-          <Card>
-            <CardHeader title="Lifestyle & Goals" />
-            <CardContent>
-              <Stack spacing={2}>
-                <FormControl fullWidth>
-                  <InputLabel>Activity Level</InputLabel>
-                  <Select
-                    value={userDetails.activityLevel}
-                    onChange={(e) => handleInputChange('activityLevel', e.target.value)}
-                    label="Activity Level"
-                  >
-                    {ACTIVITY_LEVELS.map((level) => (
-                      <MenuItem key={level} value={level}>
-                        {level.replace('_', ' ')}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-                
-                <FormControl fullWidth>
-                  <InputLabel>Sleep Quality</InputLabel>
-                  <Select
-                    value={userDetails.sleepQuality || ''}
-                    onChange={(e) => handleInputChange('sleepQuality', e.target.value)}
-                    label="Sleep Quality"
-                  >
-                    {QUALITY_LEVELS.map((level) => (
-                      <MenuItem key={level} value={level}>{level}</MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-                
-                <FormControl fullWidth>
-                  <InputLabel>Stress Level</InputLabel>
-                  <Select
-                    value={userDetails.stressLevel || ''}
-                    onChange={(e) => handleInputChange('stressLevel', e.target.value)}
-                    label="Stress Level"
-                  >
-                    {STRESS_LEVELS.map((level) => (
-                      <MenuItem key={level} value={level}>{level}</MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-                
-                <FormControl fullWidth>
-                  <InputLabel>Smoking Status</InputLabel>
-                  <Select
-                    value={userDetails.smokingStatus || ''}
-                    onChange={(e) => handleInputChange('smokingStatus', e.target.value)}
-                    label="Smoking Status"
-                  >
-                    {SMOKING_STATUS.map((status) => (
-                      <MenuItem key={status} value={status}>{status}</MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-                
-                <FormControl fullWidth>
-                  <InputLabel>Alcohol Consumption</InputLabel>
-                  <Select
-                    value={userDetails.alcoholConsumption || ''}
-                    onChange={(e) => handleInputChange('alcoholConsumption', e.target.value)}
-                    label="Alcohol Consumption"
-                  >
-                    {ALCOHOL_CONSUMPTION.map((level) => (
-                      <MenuItem key={level} value={level}>{level}</MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Stack>
-            </CardContent>
-          </Card>
-        </Grid>
-
-        {/* Goals */}
+        {/* Nutrition Targets */}
         <Grid item xs={12}>
           <Card>
-            <CardHeader title="Health & Fitness Goals" />
+            <CardHeader title="Nutrition Targets" />
             <CardContent>
-              <Grid container spacing={2}>
-                <Grid item xs={12} md={4}>
-                  <TextField
-                    label="Fitness Goals"
-                    multiline
-                    rows={4}
-                    value={userDetails.fitnessGoals || ''}
-                    onChange={(e) => handleInputChange('fitnessGoals', e.target.value)}
-                    fullWidth
-                    helperText="What are your fitness goals?"
-                  />
+              <Grid container spacing={3}>
+                <Grid item xs={12} md={6}>
+                  <Stack spacing={2}>
+                    <FormControl fullWidth>
+                      <InputLabel>Dietary Preferences</InputLabel>
+                      <Select
+                        multiple
+                        value={Array.isArray(userDetails.dietaryPreferences) ? userDetails.dietaryPreferences : []}
+                        onChange={(e) => handleInputChange('dietaryPreferences', e.target.value)}
+                        label="Dietary Preferences"
+                        renderValue={(selected) => (
+                          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                            {(Array.isArray(selected) ? selected : []).map((value) => (
+                              <Chip key={value} label={value.replace('_', ' ')} size="small" />
+                            ))}
+                          </Box>
+                        )}
+                      >
+                        {DIETARY_PREFERENCES.map((pref) => (
+                          <MenuItem key={pref} value={pref}>
+                            {pref.replace('_', ' ')}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                    
+                    <TextField
+                      label="Daily Calorie Target"
+                      type="number"
+                      value={userDetails.calorieTarget || ''}
+                      onChange={(e) => handleInputChange('calorieTarget', parseInt(e.target.value) || undefined)}
+                      fullWidth
+                      inputProps={{ min: 800, max: 5000 }}
+                      helperText="Target daily calorie intake"
+                    />
+                  </Stack>
                 </Grid>
-                <Grid item xs={12} md={4}>
-                  <TextField
-                    label="Dietary Goals"
-                    multiline
-                    rows={4}
-                    value={userDetails.dietaryGoals || ''}
-                    onChange={(e) => handleInputChange('dietaryGoals', e.target.value)}
-                    fullWidth
-                    helperText="What are your dietary goals?"
-                  />
-                </Grid>
-                <Grid item xs={12} md={4}>
-                  <TextField
-                    label="Weight Goals"
-                    multiline
-                    rows={4}
-                    value={userDetails.weightGoals || ''}
-                    onChange={(e) => handleInputChange('weightGoals', e.target.value)}
-                    fullWidth
-                    helperText="What are your weight management goals?"
-                  />
+                
+                <Grid item xs={12} md={6}>
+                  <Stack spacing={2}>
+                    <TextField
+                      label="Protein Target (g)"
+                      type="number"
+                      value={userDetails.proteinTarget || ''}
+                      onChange={(e) => handleInputChange('proteinTarget', parseInt(e.target.value) || undefined)}
+                      fullWidth
+                      inputProps={{ min: 0, max: 500 }}
+                    />
+                    
+                    <TextField
+                      label="Carb Target (g)"
+                      type="number"
+                      value={userDetails.carbTarget || ''}
+                      onChange={(e) => handleInputChange('carbTarget', parseInt(e.target.value) || undefined)}
+                      fullWidth
+                      inputProps={{ min: 0, max: 1000 }}
+                    />
+                    
+                    <TextField
+                      label="Fat Target (g)"
+                      type="number"
+                      value={userDetails.fatTarget || ''}
+                      onChange={(e) => handleInputChange('fatTarget', parseInt(e.target.value) || undefined)}
+                      fullWidth
+                      inputProps={{ min: 0, max: 200 }}
+                    />
+                    
+                    <TextField
+                      label="Fiber Target (g)"
+                      type="number"
+                      value={userDetails.fiberTarget || ''}
+                      onChange={(e) => handleInputChange('fiberTarget', parseInt(e.target.value) || undefined)}
+                      fullWidth
+                      inputProps={{ min: 0, max: 100 }}
+                    />
+                  </Stack>
                 </Grid>
               </Grid>
             </CardContent>
@@ -562,14 +529,14 @@ export default function PersonalInfoTab() {
         </Grid>
       </Grid>
 
-      <Box sx={{ mt: 3, display: 'flex', justifyContent: 'flex-end' }}>
+      <Box display="flex" justifyContent="flex-end" mt={3}>
         <Button
           variant="contained"
           onClick={handleSave}
           disabled={saving}
-          size="large"
+          startIcon={saving ? <CircularProgress size={20} /> : undefined}
         >
-          {saving ? <CircularProgress size={24} /> : 'Save Changes'}
+          {saving ? 'Saving...' : 'Save Changes'}
         </Button>
       </Box>
     </Box>

@@ -215,7 +215,11 @@ export default function ChatPage() {
           // Final failure - remove loading message and show error
           setMessages(prev => prev.filter(msg => msg.id !== loadingMessage.id));
           
-          setError(err.response?.data?.error || err.message || 'Failed to send message');
+          setError(
+            typeof err.response?.data?.error === 'string' 
+              ? err.response.data.error 
+              : err.response?.data?.error?.message || err.message || 'Failed to send message'
+          );
           
           const loadErrorMessage = async () => {
             try {

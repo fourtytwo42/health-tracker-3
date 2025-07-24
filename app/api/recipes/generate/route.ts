@@ -8,6 +8,11 @@ import { LLMRouter } from '@/lib/llmRouter';
 
 // Helper function to calculate nutrition based on serving size
 function calculateIngredientNutrition(ingredient: any, amount: number, unit: string) {
+  // Debug logging for raw ingredient data
+  console.log(`🔍 DEBUG: Raw ingredient data for ${ingredient.name}:`);
+  console.log(`   Calories: ${ingredient.calories}, Protein: ${ingredient.protein}, Carbs: ${ingredient.carbs}, Fat: ${ingredient.fat}`);
+  console.log(`   Serving size: "${ingredient.servingSize}"`);
+  
   // Check if this is a spice/seasoning by category or name
   const isSpiceOrSeasoning = ingredient.category === 'Spices and Herbs' ||
                             ingredient.name.toLowerCase().includes('baking powder') ||
@@ -17,7 +22,9 @@ function calculateIngredientNutrition(ingredient: any, amount: number, unit: str
                             ingredient.name.toLowerCase().includes('vanilla') ||
                             ingredient.name.toLowerCase().includes('extract') ||
                             ingredient.name.toLowerCase().includes('chili') ||
-                            ingredient.name.toLowerCase().includes('spices');
+                            ingredient.name.toLowerCase().includes('spices') ||
+                            ingredient.name.toLowerCase().includes('paprika') ||
+                            ingredient.name.toLowerCase().includes('cayenne');
   
   if (isSpiceOrSeasoning) {
     // For spices, just return the amount without nutrition info
@@ -33,18 +40,42 @@ function calculateIngredientNutrition(ingredient: any, amount: number, unit: str
   }
 
   // Parse the serving size to get the base amount
-  const servingSizeMatch = ingredient.servingSize.match(/(\d+(?:\.\d+)?)\s*(\w+)/);
+  let servingSizeMatch = ingredient.servingSize.match(/(\d+(?:\.\d+)?)\s*(\w+)/);
   if (!servingSizeMatch) {
-    return {
-      calories: 0,
-      protein: 0,
-      carbs: 0,
-      fat: 0
-    };
+    // Try alternative parsing for cases like "1cup" without space
+    const altMatch = ingredient.servingSize.match(/(\d+(?:\.\d+)?)(\w+)/);
+    if (!altMatch) {
+      console.log(`⚠️ Could not parse serving size for ${ingredient.name}: "${ingredient.servingSize}"`);
+      return {
+        calories: 0,
+        protein: 0,
+        carbs: 0,
+        fat: 0
+      };
+    }
+    servingSizeMatch = altMatch;
   }
 
   const baseAmount = parseFloat(servingSizeMatch[1]);
   const baseUnit = servingSizeMatch[2].toLowerCase();
+  
+  // Check if there's a weight in parentheses like "1 cup (160g)"
+  const weightMatch = ingredient.servingSize.match(/\((\d+(?:\.\d+)?)\s*(\w+)\)/);
+  let actualBaseAmount = baseAmount;
+  let actualBaseUnit = baseUnit;
+  
+  if (weightMatch) {
+    // Use the weight in parentheses instead
+    actualBaseAmount = parseFloat(weightMatch[1]);
+    actualBaseUnit = weightMatch[2].toLowerCase();
+    console.log(`🔍 DEBUG: Found weight in parentheses for ${ingredient.name}: ${actualBaseAmount}${actualBaseUnit} (original: ${baseAmount}${baseUnit})`);
+  }
+  
+  // Debug logging for serving size parsing
+  console.log(`🔍 DEBUG: Serving size parsing for ${ingredient.name}:`);
+  console.log(`   Original serving size: "${ingredient.servingSize}"`);
+  console.log(`   Parsed base amount: ${actualBaseAmount}`);
+  console.log(`   Parsed base unit: ${actualBaseUnit}`);
   
   // Convert to grams for calculation
   let amountInGrams = amount;
@@ -58,15 +89,15 @@ function calculateIngredientNutrition(ingredient: any, amount: number, unit: str
     amountInGrams = amount * 1000;
   }
 
-  let baseAmountInGrams = baseAmount;
-  if (baseUnit === 'ml') {
-    baseAmountInGrams = baseAmount;
-  } else if (baseUnit === 'g') {
-    baseAmountInGrams = baseAmount;
-  } else if (baseUnit === 'kg') {
-    baseAmountInGrams = baseAmount * 1000;
-  } else if (baseUnit === 'l') {
-    baseAmountInGrams = baseAmount * 1000;
+  let baseAmountInGrams = actualBaseAmount;
+  if (actualBaseUnit === 'ml') {
+    baseAmountInGrams = actualBaseAmount;
+  } else if (actualBaseUnit === 'g') {
+    baseAmountInGrams = actualBaseAmount;
+  } else if (actualBaseUnit === 'kg') {
+    baseAmountInGrams = actualBaseAmount * 1000;
+  } else if (actualBaseUnit === 'l') {
+    baseAmountInGrams = actualBaseAmount * 1000;
   }
 
   // Calculate scaling factor
@@ -77,6 +108,12 @@ function calculateIngredientNutrition(ingredient: any, amount: number, unit: str
   if (!calories || calories === 0) {
     calories = (ingredient.protein * 4) + (ingredient.carbs * 4) + (ingredient.fat * 9);
     console.log(`Calculated calories from macros for ${ingredient.name}: ${calories} cal`);
+  }
+
+  // Debug logging for butter specifically
+  if (ingredient.name.toLowerCase().includes('butter')) {
+    console.log(`🔍 DEBUG: Butter nutrition - calories: ${ingredient.calories}, protein: ${ingredient.protein}, carbs: ${ingredient.carbs}, fat: ${ingredient.fat}`);
+    console.log(`🔍 DEBUG: Butter calculated calories: ${calories}`);
   }
 
   // Limit scaling for spices and salt to prevent unrealistic quantities
@@ -101,10 +138,10 @@ function calculateIngredientNutrition(ingredient: any, amount: number, unit: str
   }
 
   console.log(`🔢 Nutrition calculation for ${ingredient.name}:`);
-  console.log(`   Amount: ${amount}${unit}, Base: ${baseAmount}${baseUnit}`);
+  console.log(`   Amount: ${amount}${unit}, Base: ${actualBaseAmount}${actualBaseUnit}`);
   console.log(`   Scaling factor: ${finalScalingFactor}`);
   console.log(`   Base calories: ${calories}, Calculated: ${Math.round(calories * finalScalingFactor)}`);
-  console.log(`🔢 Nutrition calculation: ${amount}${unit} = ${Math.round(calories * finalScalingFactor)} cal (base: ${calories} cal per ${baseAmount}${baseUnit})`);
+  console.log(`🔢 Nutrition calculation: ${amount}${unit} = ${Math.round(calories * finalScalingFactor)} cal (base: ${calories} cal per ${actualBaseAmount}${actualBaseUnit})`);
 
   return {
     calories: Math.round(calories * finalScalingFactor),
@@ -174,14 +211,9 @@ export async function POST(request: NextRequest) {
     }
 
     // Get comprehensive user data for personalization
-    const [userProfile, userDetails, foodPreferences, recentBiomarkers] = await Promise.all([
-      // Get user's profile for health metrics from main database
+    const [userProfile, foodPreferences, recentBiomarkers] = await Promise.all([
+      // Get user's profile for health metrics and personal information
       prisma.profile.findUnique({
-        where: { userId: user.userId }
-      }),
-      
-      // Get detailed user information
-      prisma.userDetails.findUnique({
         where: { userId: user.userId }
       }),
       
@@ -198,6 +230,20 @@ export async function POST(request: NextRequest) {
       })
     ]);
 
+    // Parse JSON strings from profile if they exist
+    if (userProfile) {
+      try {
+        if (userProfile.dietaryPreferences) {
+          userProfile.dietaryPreferences = JSON.parse(userProfile.dietaryPreferences);
+        }
+        if (userProfile.privacySettings) {
+          userProfile.privacySettings = JSON.parse(userProfile.privacySettings);
+        }
+      } catch (parseError) {
+        console.error('Error parsing profile JSON fields:', parseError);
+      }
+    }
+
     // Use MCP server for sophisticated recipe generation
     const mcpHandler = MCPHandler.getInstance();
     
@@ -210,15 +256,15 @@ export async function POST(request: NextRequest) {
     // Prepare comprehensive user context for AI
     const userContext = {
       profile: {
-        height: userDetails?.height,
-        weight: userDetails?.weight,
-        activityLevel: userDetails?.activityLevel,
-        calorieTarget: userProfile?.calorieTarget,
+        height: userProfile?.height,
+        weight: userProfile?.weight,
+        activityLevel: userProfile?.activityLevel,
+        calorieTarget: userProfile?.calorieTarget || undefined,
         dietaryPreferences: dietaryPreferences,
-        fitnessGoals: userDetails?.fitnessGoals ? JSON.parse(userDetails.fitnessGoals) : [],
-        dietaryGoals: userDetails?.dietaryGoals ? JSON.parse(userDetails.dietaryGoals) : [],
-        weightGoals: userDetails?.weightGoals ? JSON.parse(userDetails.weightGoals) : [],
-        allergies: userDetails?.allergies ? JSON.parse(userDetails.allergies) : []
+        fitnessGoals: (userProfile as any)?.fitnessGoals ? (typeof (userProfile as any).fitnessGoals === 'string' ? JSON.parse((userProfile as any).fitnessGoals) : (userProfile as any).fitnessGoals) : [],
+        dietaryGoals: (userProfile as any)?.dietaryGoals ? (typeof (userProfile as any).dietaryGoals === 'string' ? JSON.parse((userProfile as any).dietaryGoals) : (userProfile as any).dietaryGoals) : [],
+        weightGoals: (userProfile as any)?.weightGoals ? (typeof (userProfile as any).weightGoals === 'string' ? JSON.parse((userProfile as any).weightGoals) : (userProfile as any).weightGoals) : [],
+        allergies: (userProfile as any)?.allergies ? (typeof (userProfile as any).allergies === 'string' ? JSON.parse((userProfile as any).allergies) : (userProfile as any).allergies) : []
       },
       biomarkers: recentBiomarkers.map(b => ({
         type: b.type,
@@ -556,6 +602,20 @@ export async function POST(request: NextRequest) {
                     }
                   }
                   
+                  if (searchTerm === 'oats' || searchTerm.includes('oats') || searchTerm.includes('oatmeal')) {
+                    // Oats should only be in Grains and Flours category and contain "oat"
+                    if (category !== 'grains and flours' || !name.includes('oat')) {
+                      return false;
+                    }
+                  }
+                  
+                  if (searchTerm === 'egg' || searchTerm.includes('egg')) {
+                    // Eggs should only be in Eggs and omelets category
+                    if (category !== 'eggs and omelets' || !name.includes('egg')) {
+                      return false;
+                    }
+                  }
+                  
                   if (searchTerm === 'noodles' || searchTerm.includes('noodles')) {
                     // Noodles should only be in Breads and Grains category
                     if (category !== 'breads and grains' || !name.includes('noodle')) {
@@ -752,7 +812,7 @@ export async function POST(request: NextRequest) {
         original_recipe: initialRecipe,
         ingredient_search_results: ingredientSearchResults,
         user_profile: {
-          calorieTarget: userProfile?.calorieTarget,
+          calorieTarget: userProfile?.calorieTarget || undefined,
           dietaryPreferences: dietaryPreferences,
           healthMetrics: healthMetrics,
           userContext: userContext

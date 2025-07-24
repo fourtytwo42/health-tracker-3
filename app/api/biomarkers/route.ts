@@ -9,12 +9,14 @@ export const GET = withAuth(async (req: AuthenticatedRequest) => {
     const { searchParams } = new URL(req.url);
     const type = searchParams.get('type');
     const daysBack = parseInt(searchParams.get('daysBack') || '30', 10);
-    const trends = await biomarkerService.getBiomarkerTrends(req.user!.userId, type, daysBack);
-    return NextResponse.json(trends);
+    
+    // Get biomarker history instead of trends
+    const biomarkers = await biomarkerService.getBiomarkerHistory(req.user!.userId, type || undefined, daysBack);
+    return NextResponse.json({ biomarkers });
   } catch (error) {
     console.error('Biomarkers GET error:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch biomarker trends' },
+      { error: 'Failed to fetch biomarkers' },
       { status: 500 }
     );
   }

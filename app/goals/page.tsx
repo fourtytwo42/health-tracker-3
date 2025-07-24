@@ -27,6 +27,7 @@ import {
   TrendingUp as TrendingUpIcon,
   EmojiEvents as EmojiEventsIcon,
 } from '@mui/icons-material';
+import Navigation from '../components/Navigation';
 
 interface Goal {
   id: string;
@@ -162,9 +163,11 @@ export default function GoalsPage() {
   }
 
   return (
-    <Container maxWidth="lg" sx={{ py: 4 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
-        <Typography variant="h4">My Goals</Typography>
+    <>
+      <Navigation />
+      <Container maxWidth="lg" sx={{ py: 4 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
+          <Typography variant="h4">My Goals</Typography>
         <Button
           variant="contained"
           startIcon={<AddIcon />}
@@ -278,5 +281,6 @@ export default function GoalsPage() {
         </DialogActions>
       </Dialog>
     </Container>
+    </>
   );
 } 

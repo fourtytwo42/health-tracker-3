@@ -25,6 +25,7 @@ import {
   Download as DownloadIcon,
   Delete as DeleteIcon,
 } from '@mui/icons-material';
+import Navigation from '../components/Navigation';
 
 interface GroceryItem {
   id: string;
@@ -45,7 +46,7 @@ interface GroceryList {
 }
 
 export default function GroceryPage() {
-  const [groceryLists, setGroceryLists] = useState<GroceryList>([]);
+  const [groceryLists, setGroceryLists] = useState<GroceryList[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -53,7 +54,7 @@ export default function GroceryPage() {
     // For now, use mock data
     setGroceryLists([
       {
-        id: 1,
+        id: '1',
         name: 'Weekly Meal Plan Shopping',
         items: [
           { id: '1e', name: 'Chicken Breast', quantity: 2, unit: 'lbs', aisle: 'Meat & Seafood', isChecked: false },
@@ -67,7 +68,7 @@ export default function GroceryPage() {
         checkedItems: 2,
       },
       {
-        id: 2,
+        id: '2',
         name: 'Healthy Snacks',
         items: [
           { id: '6', name: 'Apples', quantity: 6, unit: 'pieces', aisle: 'Produce', isChecked: false },
@@ -146,9 +147,11 @@ export default function GroceryPage() {
   }
 
   return (
-    <Container maxWidth="lg" sx={{ py: 4 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
-        <Typography variant="h4">Lists</Typography>
+    <>
+      <Navigation />
+      <Container maxWidth="lg" sx={{ py: 4 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
+          <Typography variant="h4">Lists</Typography>
         <Button
           variant="contained"
           startIcon={<AddIcon />}
@@ -218,5 +221,6 @@ export default function GroceryPage() {
         ))}
       </Stack>
     </Container>
+    </>
   );
 } 

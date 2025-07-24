@@ -12,22 +12,22 @@ const BiomarkerLogSchema = z.object({
 
 export class BiomarkerService extends BaseService {
   async logBiomarker(userId: string, biomarkerData: z.infer<typeof BiomarkerLogSchema>) {
-    const validatedData = BiomarkerLogSchema.parse(biomarkerData);
-    
-    // Convert American units to metric for storage
-    let convertedValue = validatedData.value;
-    let convertedUnit = validatedData.unit;
-    
-    if (validatedData.type === 'WEIGHT' && validatedData.unit.toLowerCase().includes('lb')) {
-      // Convert pounds to kg for storage
-      convertedValue = Math.round(validatedData.value / 2.20462 * 10) / 10;
-      convertedUnit = 'kg';
-    }
-    
-    // Validate value ranges based on type (using metric values)
-    this.validateBiomarkerValue(validatedData.type, convertedValue);
-    
     try {
+      const validatedData = BiomarkerLogSchema.parse(biomarkerData);
+    
+      // Convert American units to metric for storage
+      let convertedValue = validatedData.value;
+      let convertedUnit = validatedData.unit;
+      
+      if (validatedData.type === 'WEIGHT' && validatedData.unit.toLowerCase().includes('lb')) {
+        // Convert pounds to kg for storage
+        convertedValue = Math.round(validatedData.value / 2.20462 * 10) / 10;
+        convertedUnit = 'kg';
+      }
+      
+      // Validate value ranges based on type (using metric values)
+      this.validateBiomarkerValue(validatedData.type, convertedValue);
+      
       const biomarker = await this.prisma.biomarker.create({
         data: {
           userId,
@@ -47,6 +47,9 @@ export class BiomarkerService extends BaseService {
       return biomarker;
     } catch (error) {
       console.error('Error logging biomarker:', error);
+      if (error instanceof z.ZodError) {
+        throw new Error(`Validation error: ${error.errors.map(e => e.message).join(', ')}`);
+      }
       throw new Error('Failed to log biomarker');
     }
   }

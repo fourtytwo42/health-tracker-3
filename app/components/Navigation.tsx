@@ -31,32 +31,20 @@ import {
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { useAuth } from '@/context/AuthContext';
 
 interface User {
   id: string;
   username: string;
+  email: string;
   role: 'USER' | 'ADMIN';
-  avatarUrl?: string;
 }
 
 export default function Navigation() {
-  const [user, setUser] = useState<User | null>(null);
+  const { user, logout } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const router = useRouter();
-
-  useEffect(() => {
-    // Get user from localStorage
-    const userStr = localStorage.getItem('user');
-    if (userStr) {
-      try {
-        const userData = JSON.parse(userStr);
-        setUser(userData);
-      } catch (error) {
-        console.error('Error parsing user data:', error);
-      }
-    }
-  }, []);
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
@@ -71,9 +59,7 @@ export default function Navigation() {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('accessToken');
-    localStorage.removeItem('refreshToken');
-    localStorage.removeItem('user');
+    logout();
     router.push('/');
   };
 
@@ -182,9 +168,8 @@ export default function Navigation() {
               >
                 <Avatar 
                   sx={{ width: 32, height: 32, bgcolor: 'primary.main' }}
-                  src={user.avatarUrl}
                 >
-                  {user.avatarUrl ? undefined : <PersonIcon />}
+                  <PersonIcon />
                 </Avatar>
               </IconButton>
               <Menu

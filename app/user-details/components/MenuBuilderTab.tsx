@@ -265,7 +265,8 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
         page: currentPage.toString(),
         limit: '12',
         search: searchTerm,
-        mealType: selectedMealType !== 'all' ? selectedMealType : ''
+        mealType: selectedMealType !== 'all' ? selectedMealType : '',
+        aiGenerated: 'true' // Only show AI-generated recipes in Menu Builder
       });
 
       const response = await authenticatedFetch(`/api/recipes?${params}`);
@@ -346,6 +347,9 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
           );
           return updated;
         });
+        
+        // Dispatch event to notify calendar component
+        window.dispatchEvent(new CustomEvent('favoriteChanged'));
       }
     } catch (error) {
       console.error('Error toggling favorite:', error);

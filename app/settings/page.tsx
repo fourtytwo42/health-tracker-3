@@ -20,6 +20,7 @@ import {
 } from '@mui/material';
 import { Save, Notifications, Security, Language, Palette, Restaurant } from '@mui/icons-material';
 import { useUserSettings } from '@/hooks/useUserSettings';
+import Navigation from '../components/Navigation';
 
 export default function SettingsPage() {
   const { settings, loading, error, saveSettings, updateSetting } = useUserSettings();
@@ -64,10 +65,12 @@ export default function SettingsPage() {
   }
 
   return (
-    <Container maxWidth="md" sx={{ mt: 4 }}>
-      <Typography variant="h4" gutterBottom>
-        Settings
-      </Typography>
+    <>
+      <Navigation />
+      <Container maxWidth="md" sx={{ mt: 4 }}>
+        <Typography variant="h4" gutterBottom>
+          Settings
+        </Typography>
 
       {error && (
         <Alert severity="error" sx={{ mb: 2 }}>
@@ -273,5 +276,6 @@ export default function SettingsPage() {
         </CardContent>
       </Card>
     </Container>
+    </>
   );
 } 

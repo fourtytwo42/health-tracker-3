@@ -405,9 +405,23 @@ The meal plan includes detailed recipes for each meal with complete ingredient l
       handler: async (args, authInfo) => {
         try {
           // Get user profile
-          const userProfile = await prisma.userDetails.findUnique({
+          const userProfile = await prisma.profile.findUnique({
             where: { userId: authInfo.userId }
           });
+          
+          // Parse JSON strings if profile exists
+          if (userProfile) {
+            try {
+              if (userProfile.dietaryPreferences) {
+                userProfile.dietaryPreferences = JSON.parse(userProfile.dietaryPreferences);
+              }
+              if (userProfile.privacySettings) {
+                userProfile.privacySettings = JSON.parse(userProfile.privacySettings);
+              }
+            } catch (parseError) {
+              console.error('Error parsing profile JSON fields in MCP:', parseError);
+            }
+          }
 
           const biomarkers = await prisma.biomarker.findMany({
             where: { userId: authInfo.userId },
@@ -666,6 +680,25 @@ CRITICAL:
             }
           });
 
+          // Get user profile for image personalization
+          const userProfileForImages = await prisma.profile.findUnique({
+            where: { userId: authInfo.userId },
+          });
+          
+          // Parse JSON strings if profile exists
+          if (userProfileForImages) {
+            try {
+              if (userProfileForImages.dietaryPreferences) {
+                userProfileForImages.dietaryPreferences = JSON.parse(userProfileForImages.dietaryPreferences);
+              }
+              if (userProfileForImages.privacySettings) {
+                userProfileForImages.privacySettings = JSON.parse(userProfileForImages.privacySettings);
+              }
+            } catch (parseError) {
+              console.error('Error parsing profile JSON fields in MCP:', parseError);
+            }
+          }
+
           // Generate images if requested
           let workoutPhotoUrl = null;
           let exerciseImages: any[] | null = null;
@@ -674,8 +707,9 @@ CRITICAL:
             try {
               console.log('Generating images for workout via MCP...');
               
-              // Generate workout image using AI-generated prompt
-              const workoutImagePrompt = workoutData.workoutImagePrompt || `A professional fitness photo showing a ${workoutData.difficulty.toLowerCase()} ${workoutData.category.toLowerCase()} workout. The image should show someone in athletic clothing performing exercises like ${matchedExercises.slice(0, 3).map((e: any) => e.name).join(', ')} in a well-lit gym or home setting. The person should be using proper form and the image should be suitable for fitness instruction.`;
+              // Build personalized workout image prompt
+              const baseWorkoutPrompt = workoutData.workoutImagePrompt || `A professional fitness photo showing a ${workoutData.difficulty.toLowerCase()} ${workoutData.category.toLowerCase()} workout. The image should show someone in athletic clothing performing exercises like ${matchedExercises.slice(0, 3).map((e: any) => e.name).join(', ')} in a well-lit gym or home setting. The person should be using proper form and the image should be suitable for fitness instruction.`;
+              const workoutImagePrompt = buildPersonalizedWorkoutImagePrompt(baseWorkoutPrompt, userProfileForImages);
               
               const { generateImage } = await import('./services/ImageGenerationService');
               
@@ -703,7 +737,8 @@ CRITICAL:
               console.log('Generating exercise images in parallel via MCP...');
               const exerciseImagePromises = matchedExercises.map(async (exercise: any, index: number) => {
                 // Use AI-generated image prompt if available, otherwise fall back to template
-                const exerciseImagePrompt = exercise.imagePrompt || `A clear, instructional fitness photo showing how to perform ${exercise.name}. The image should show proper form and technique for this exercise. The person should be in athletic clothing and the image should be well-lit and suitable for fitness instruction. ${exercise.description || ''}`;
+                const baseExercisePrompt = exercise.imagePrompt || `A clear, instructional fitness photo showing how to perform ${exercise.name}. The image should show proper form and technique for this exercise. The person should be in athletic clothing and the image should be well-lit and suitable for fitness instruction. ${exercise.description || ''}`;
+                const exerciseImagePrompt = buildPersonalizedExerciseImagePrompt(baseExercisePrompt, userProfileForImages);
                 
                 try {
                   const imageResult = await generateImage({
@@ -1904,6 +1939,114 @@ export async function withMcpAuth(
       );
     }
   };
+}
+
+// Helper function to build personalized workout image prompts
+function buildPersonalizedWorkoutImagePrompt(basePrompt: string, userProfile: any): string {
+  if (!userProfile) {
+    return basePrompt;
+  }
+
+  const personalizationDetails = [];
+  
+  // Add gender if available
+  if (userProfile.gender && userProfile.gender !== 'PREFER_NOT_TO_SAY') {
+    const genderText = userProfile.gender === 'MALE' ? 'man' : userProfile.gender === 'FEMALE' ? 'woman' : 'person';
+    personalizationDetails.push(genderText);
+  }
+  
+  // Add body type information based on height and weight
+  if (userProfile.height && userProfile.weight) {
+    const heightCm = userProfile.height;
+    const weightKg = userProfile.weight;
+    const bmi = weightKg / Math.pow(heightCm / 100, 2);
+    
+    let bodyType = '';
+    if (bmi < 18.5) {
+      bodyType = 'slim';
+    } else if (bmi < 25) {
+      bodyType = 'average build';
+    } else if (bmi < 30) {
+      bodyType = 'athletic build';
+    } else {
+      bodyType = 'strong build';
+    }
+    
+    personalizationDetails.push(bodyType);
+  }
+  
+  // Add age information if available
+  if (userProfile.dateOfBirth) {
+    const age = Math.floor((new Date().getTime() - new Date(userProfile.dateOfBirth).getTime()) / (365.25 * 24 * 60 * 60 * 1000));
+    if (age >= 18 && age <= 65) {
+      personalizationDetails.push(`${age}-year-old`);
+    }
+  }
+  
+  // Build the personalized prompt
+  if (personalizationDetails.length > 0) {
+    const personalization = personalizationDetails.join(' ');
+    return basePrompt.replace(
+      /someone in athletic clothing/,
+      `a ${personalization} in athletic clothing`
+    );
+  }
+  
+  return basePrompt;
+}
+
+// Helper function to build personalized exercise image prompts
+function buildPersonalizedExerciseImagePrompt(basePrompt: string, userProfile: any): string {
+  if (!userProfile) {
+    return basePrompt;
+  }
+
+  const personalizationDetails = [];
+  
+  // Add gender if available
+  if (userProfile.gender && userProfile.gender !== 'PREFER_NOT_TO_SAY') {
+    const genderText = userProfile.gender === 'MALE' ? 'man' : userProfile.gender === 'FEMALE' ? 'woman' : 'person';
+    personalizationDetails.push(genderText);
+  }
+  
+  // Add body type information based on height and weight
+  if (userProfile.height && userProfile.weight) {
+    const heightCm = userProfile.height;
+    const weightKg = userProfile.weight;
+    const bmi = weightKg / Math.pow(heightCm / 100, 2);
+    
+    let bodyType = '';
+    if (bmi < 18.5) {
+      bodyType = 'slim';
+    } else if (bmi < 25) {
+      bodyType = 'average build';
+    } else if (bmi < 30) {
+      bodyType = 'athletic build';
+    } else {
+      bodyType = 'strong build';
+    }
+    
+    personalizationDetails.push(bodyType);
+  }
+  
+  // Add age information if available
+  if (userProfile.dateOfBirth) {
+    const age = Math.floor((new Date().getTime() - new Date(userProfile.dateOfBirth).getTime()) / (365.25 * 24 * 60 * 60 * 1000));
+    if (age >= 18 && age <= 65) {
+      personalizationDetails.push(`${age}-year-old`);
+    }
+  }
+  
+  // Build the personalized prompt
+  if (personalizationDetails.length > 0) {
+    const personalization = personalizationDetails.join(' ');
+    return basePrompt.replace(
+      /The person should be in athletic clothing/,
+      `The ${personalization} should be in athletic clothing`
+    );
+  }
+  
+  return basePrompt;
 }
 
 export default MCPHandler; 

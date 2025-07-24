@@ -19,28 +19,20 @@ import {
   Alert,
   CircularProgress,
   IconButton,
+  Switch,
+  FormControlLabel,
+  Divider,
 } from '@mui/material';
-import { PhotoCamera, Save, Cancel } from '@mui/icons-material';
+import { PhotoCamera, Save, Cancel, Person, Security, Settings } from '@mui/icons-material';
+import Navigation from '../components/Navigation';
 
 interface Profile {
   id: string;
   userId: string;
-  firstName: string | null;
-  lastName: string | null;
-  dateOfBirth: string | null;
-  gender: string | null;
-  height: number | null;
-  weight: number | null;
-  targetWeight: number | null;
-  activityLevel: string;
-  dietaryPreferences: string[];
-  calorieTarget: number | null;
-  proteinTarget: number | null;
-  carbTarget: number | null;
-  fatTarget: number | null;
-  fiberTarget: number | null;
   privacySettings: {
-    leaderboardVisible: boolean;
+    showInLeaderboard: boolean;
+    shareProgress: boolean;
+    allowNotifications: boolean;
   };
 }
 
@@ -60,23 +52,11 @@ export default function ProfilePage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   
-  // Form state
+  // Form state - only account-related fields
   const [formData, setFormData] = useState({
-    firstName: '',
-    lastName: '',
-    dateOfBirth: '',
-    gender: '',
-    height: '',
-    weight: '',
-    targetWeight: '',
-    activityLevel: 'SEDENTARY',
-    dietaryPreferences: [] as string[],
-    calorieTarget: '',
-    proteinTarget: '',
-    carbTarget: '',
-    fatTarget: '',
-    fiberTarget: '',
-    leaderboardVisible: true,
+    showInLeaderboard: true,
+    shareProgress: false,
+    allowNotifications: true,
   });
 
   // Avatar state
@@ -98,53 +78,33 @@ export default function ProfilePage() {
       }
 
       const [userResponse, profileResponse] = await Promise.all([
-        fetch('/api/profile', {
-          headers: { 'Authorization': `Bearer ${token}` }
+        fetch('/api/auth/me', {
+          headers: { Authorization: `Bearer ${token}` }
         }),
-        fetch('/api/profile/details', {
-          headers: { 'Authorization': `Bearer ${token}` }
+        fetch('/api/profile', {
+          headers: { Authorization: `Bearer ${token}` }
         })
       ]);
 
-      if (userResponse.ok) {
+      if (userResponse.ok && profileResponse.ok) {
         const userData = await userResponse.json();
-        setUser(userData.user);
-        if (userData.user.avatarUrl) {
-          setAvatarPreview(userData.user.avatarUrl);
-        }
-      }
-
-      if (profileResponse.ok) {
         const profileData = await profileResponse.json();
+        
+        setUser(userData.user);
         setProfile(profileData.profile);
         
-        // Parse JSON fields
-        const dietaryPrefs = profileData.profile.dietaryPreferences 
-          ? JSON.parse(profileData.profile.dietaryPreferences)
-          : [];
-        const privacySettings = profileData.profile.privacySettings
-          ? JSON.parse(profileData.profile.privacySettings)
-          : { leaderboardVisible: true };
-
+        // Set form data
         setFormData({
-          firstName: profileData.profile.firstName || '',
-          lastName: profileData.profile.lastName || '',
-          dateOfBirth: profileData.profile.dateOfBirth 
-            ? new Date(profileData.profile.dateOfBirth).toISOString().split('T')[0]
-            : '',
-          gender: profileData.profile.gender || '',
-          height: profileData.profile.height?.toString() || '',
-          weight: profileData.profile.weight?.toString() || '',
-          targetWeight: profileData.profile.targetWeight?.toString() || '',
-          activityLevel: profileData.profile.activityLevel || 'SEDENTARY',
-          dietaryPreferences: dietaryPrefs,
-          calorieTarget: profileData.profile.calorieTarget?.toString() || '',
-          proteinTarget: profileData.profile.proteinTarget?.toString() || '',
-          carbTarget: profileData.profile.carbTarget?.toString() || '',
-          fatTarget: profileData.profile.fatTarget?.toString() || '',
-          fiberTarget: profileData.profile.fiberTarget?.toString() || '',
-          leaderboardVisible: privacySettings.leaderboardVisible,
+          showInLeaderboard: profileData.profile?.privacySettings?.showInLeaderboard ?? true,
+          shareProgress: profileData.profile?.privacySettings?.shareProgress ?? false,
+          allowNotifications: profileData.profile?.privacySettings?.allowNotifications ?? true,
         });
+        
+        if (userData.user?.avatarUrl) {
+          setAvatarPreview(userData.user.avatarUrl);
+        }
+      } else {
+        setError('Failed to load profile data');
       }
     } catch (error) {
       console.error('Error loading profile:', error);
@@ -152,6 +112,13 @@ export default function ProfilePage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleInputChange = (field: string, value: any) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: value
+    }));
   };
 
   const handleAvatarChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -173,23 +140,21 @@ export default function ProfilePage() {
       const formData = new FormData();
       formData.append('avatar', avatarFile);
 
+      const token = localStorage.getItem('accessToken');
       const response = await fetch('/api/profile/avatar', {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
-        },
-        body: formData,
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData
       });
 
       if (response.ok) {
         const data = await response.json();
         return data.avatarUrl;
       }
-      return null;
     } catch (error) {
       console.error('Error uploading avatar:', error);
-      return null;
     }
+    return null;
   };
 
   const handleSave = async () => {
@@ -198,39 +163,56 @@ export default function ProfilePage() {
       setError(null);
       setSuccess(null);
 
-      // Upload avatar first if changed
-      let avatarUrl = user?.avatarUrl || null;
-      if (avatarFile) {
-        avatarUrl = await uploadAvatar();
-        if (avatarUrl) {
-          setUser(prev => prev ? { ...prev, avatarUrl } : null);
-        }
-      }
-
       const token = localStorage.getItem('accessToken');
       if (!token) {
         setError('Not authenticated');
         return;
       }
 
+      // Upload avatar first if changed
+      let avatarUrl = null;
+      if (avatarFile) {
+        avatarUrl = await uploadAvatar();
+      }
+
+      // Update profile
+      const profileData = {
+        privacySettings: {
+          showInLeaderboard: formData.showInLeaderboard,
+          shareProgress: formData.shareProgress,
+          allowNotifications: formData.allowNotifications,
+        }
+      };
+
       const response = await fetch('/api/profile', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
+          Authorization: `Bearer ${token}`
         },
-        body: JSON.stringify({
-          ...formData,
-          dietaryPreferences: JSON.stringify(formData.dietaryPreferences),
-          privacySettings: JSON.stringify({
-            leaderboardVisible: formData.leaderboardVisible,
-          }),
-          avatarUrl,
-        }),
+        body: JSON.stringify(profileData)
       });
 
       if (response.ok) {
-        setSuccess('Profile updated successfully');
+        setSuccess('Profile updated successfully!');
+        
+        // Update user data in localStorage if avatar was uploaded
+        if (avatarUrl) {
+          const userStr = localStorage.getItem('user');
+          if (userStr) {
+            try {
+              const userData = JSON.parse(userStr);
+              userData.avatarUrl = avatarUrl;
+              localStorage.setItem('user', JSON.stringify(userData));
+              
+              // Dispatch custom event to notify Navigation component
+              window.dispatchEvent(new CustomEvent('userDataUpdated', { detail: userData }));
+            } catch (error) {
+              console.error('Error updating user data in localStorage:', error);
+            }
+          }
+        }
+        
         await loadProfile(); // Reload to get updated data
       } else {
         const errorData = await response.json();
@@ -245,31 +227,30 @@ export default function ProfilePage() {
   };
 
   const handleCancel = () => {
-    loadProfile(); // Reset to original data
+    loadProfile(); // Reset to original values
     setAvatarFile(null);
     setAvatarPreview(user?.avatarUrl || null);
   };
 
   if (loading) {
     return (
-      <Container maxWidth="md" sx={{ mt: 4, textAlign: 'center' }}>
-        <CircularProgress />
-      </Container>
-    );
-  }
-
-  if (!user) {
-    return (
       <Container maxWidth="md" sx={{ mt: 4 }}>
-        <Alert severity="error">Failed to load profile</Alert>
+        <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
+          <CircularProgress />
+        </Box>
       </Container>
     );
   }
 
   return (
-    <Container maxWidth="md" sx={{ mt: 4 }}>
-      <Typography variant="h4" gutterBottom>
-        Profile Settings
+    <>
+      <Navigation />
+      <Container maxWidth="md" sx={{ mt: 4, mb: 4 }}>
+        <Typography variant="h4" component="h1" gutterBottom>
+          Profile Settings
+        </Typography>
+      <Typography variant="body1" color="text.secondary" sx={{ mb: 4 }}>
+        Manage your account information and privacy settings
       </Typography>
 
       {error && (
@@ -284,15 +265,21 @@ export default function ProfilePage() {
         </Alert>
       )}
 
-      <Card>
-        <CardContent>
-          <Grid container spacing={3}>
-            {/* Avatar Section */}
-            <Grid item xs={12} md={4}>
-              <Box sx={{ textAlign: 'center' }}>
+      <Grid container spacing={3}>
+        {/* Account Information */}
+        <Grid item xs={12} md={6}>
+          <Card>
+            <CardContent>
+              <Box display="flex" alignItems="center" mb={2}>
+                <Person sx={{ mr: 1 }} />
+                <Typography variant="h6">Account Information</Typography>
+              </Box>
+              
+              {/* Avatar Section */}
+              <Box display="flex" flexDirection="column" alignItems="center" mb={3}>
                 <Avatar
                   src={avatarPreview || undefined}
-                  sx={{ width: 120, height: 120, mx: 'auto', mb: 2 }}
+                  sx={{ width: 100, height: 100, mb: 2 }}
                 />
                 <input
                   accept="image/*"
@@ -302,232 +289,114 @@ export default function ProfilePage() {
                   onChange={handleAvatarChange}
                 />
                 <label htmlFor="avatar-upload">
-                  <Button
-                    variant="outlined"
+                  <IconButton
+                    color="primary"
+                    aria-label="upload picture"
                     component="span"
-                    startIcon={<PhotoCamera />}
                   >
-                    Change Avatar
-                  </Button>
+                    <PhotoCamera />
+                  </IconButton>
                 </label>
+                <Typography variant="caption" color="text.secondary">
+                  Click to change avatar
+                </Typography>
               </Box>
-            </Grid>
 
-            {/* Profile Form */}
-            <Grid item xs={12} md={8}>
-              <Grid container spacing={2}>
-                <Grid item xs={12} sm={6}>
-                  <TextField
-                    fullWidth
-                    label="First Name"
-                    value={formData.firstName}
-                    onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
-                  />
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <TextField
-                    fullWidth
-                    label="Last Name"
-                    value={formData.lastName}
-                    onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
-                  />
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <TextField
-                    fullWidth
-                    label="Date of Birth"
-                    type="date"
-                    value={formData.dateOfBirth}
-                    onChange={(e) => setFormData({ ...formData, dateOfBirth: e.target.value })}
-                    InputLabelProps={{ shrink: true }}
-                  />
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <FormControl fullWidth>
-                    <InputLabel>Gender</InputLabel>
-                    <Select
-                      value={formData.gender}
-                      label="Gender"
-                      onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
-                    >
-                      <MenuItem value="MALE">Male</MenuItem>
-                      <MenuItem value="FEMALE">Female</MenuItem>
-                      <MenuItem value="OTHER">Other</MenuItem>
-                      <MenuItem value="PREFER_NOT_TO_SAY">Prefer not to say</MenuItem>
-                    </Select>
-                  </FormControl>
-                </Grid>
-                <Grid item xs={12} sm={4}>
-                  <TextField
-                    fullWidth
-                    label="Height (cm)"
-                    type="number"
-                    value={formData.height}
-                    onChange={(e) => setFormData({ ...formData, height: e.target.value })}
-                  />
-                </Grid>
-                <Grid item xs={12} sm={4}>
-                  <TextField
-                    fullWidth
-                    label="Weight (kg)"
-                    type="number"
-                    value={formData.weight}
-                    onChange={(e) => setFormData({ ...formData, weight: e.target.value })}
-                  />
-                </Grid>
-                <Grid item xs={12} sm={4}>
-                  <TextField
-                    fullWidth
-                    label="Target Weight (kg)"
-                    type="number"
-                    value={formData.targetWeight}
-                    onChange={(e) => setFormData({ ...formData, targetWeight: e.target.value })}
-                  />
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <FormControl fullWidth>
-                    <InputLabel>Activity Level</InputLabel>
-                    <Select
-                      value={formData.activityLevel}
-                      label="Activity Level"
-                      onChange={(e) => setFormData({ ...formData, activityLevel: e.target.value })}
-                    >
-                      <MenuItem value="SEDENTARY">Sedentary</MenuItem>
-                      <MenuItem value="LIGHTLY_ACTIVE">Lightly Active</MenuItem>
-                      <MenuItem value="MODERATELY_ACTIVE">Moderately Active</MenuItem>
-                      <MenuItem value="VERY_ACTIVE">Very Active</MenuItem>
-                      <MenuItem value="EXTREMELY_ACTIVE">Extremely Active</MenuItem>
-                    </Select>
-                  </FormControl>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <FormControl fullWidth>
-                    <InputLabel>Dietary Preferences</InputLabel>
-                    <Select
-                      multiple
-                      value={formData.dietaryPreferences}
-                      label="Dietary Preferences"
-                      onChange={(e) => setFormData({ 
-                        ...formData, 
-                        dietaryPreferences: typeof e.target.value === 'string' 
-                          ? e.target.value.split(',') 
-                          : e.target.value 
-                      })}
-                      renderValue={(selected) => (
-                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                          {selected.map((value) => (
-                            <Chip key={value} label={value} size="small" />
-                          ))}
-                        </Box>
-                      )}
-                    >
-                      <MenuItem value="vegetarian">Vegetarian</MenuItem>
-                      <MenuItem value="vegan">Vegan</MenuItem>
-                      <MenuItem value="gluten-free">Gluten Free</MenuItem>
-                      <MenuItem value="dairy-free">Dairy Free</MenuItem>
-                      <MenuItem value="keto">Keto</MenuItem>
-                      <MenuItem value="paleo">Paleo</MenuItem>
-                      <MenuItem value="mediterranean">Mediterranean</MenuItem>
-                      <MenuItem value="none">None</MenuItem>
-                    </Select>
-                  </FormControl>
-                </Grid>
-              </Grid>
-            </Grid>
-          </Grid>
+              <Divider sx={{ my: 2 }} />
 
-          {/* Nutrition Targets */}
-          <Typography variant="h6" sx={{ mt: 4, mb: 2 }}>
-            Nutrition Targets
-          </Typography>
-          <Grid container spacing={2}>
-            <Grid item xs={12} sm={6} md={3}>
-              <TextField
-                fullWidth
-                label="Calorie Target"
-                type="number"
-                value={formData.calorieTarget}
-                onChange={(e) => setFormData({ ...formData, calorieTarget: e.target.value })}
-              />
-            </Grid>
-            <Grid item xs={12} sm={6} md={3}>
-              <TextField
-                fullWidth
-                label="Protein Target (g)"
-                type="number"
-                value={formData.proteinTarget}
-                onChange={(e) => setFormData({ ...formData, proteinTarget: e.target.value })}
-              />
-            </Grid>
-            <Grid item xs={12} sm={6} md={3}>
-              <TextField
-                fullWidth
-                label="Carb Target (g)"
-                type="number"
-                value={formData.carbTarget}
-                onChange={(e) => setFormData({ ...formData, carbTarget: e.target.value })}
-              />
-            </Grid>
-            <Grid item xs={12} sm={6} md={3}>
-              <TextField
-                fullWidth
-                label="Fat Target (g)"
-                type="number"
-                value={formData.fatTarget}
-                onChange={(e) => setFormData({ ...formData, fatTarget: e.target.value })}
-              />
-            </Grid>
-            <Grid item xs={12} sm={6} md={3}>
-              <TextField
-                fullWidth
-                label="Fiber Target (g)"
-                type="number"
-                value={formData.fiberTarget}
-                onChange={(e) => setFormData({ ...formData, fiberTarget: e.target.value })}
-              />
-            </Grid>
-          </Grid>
 
-          {/* Privacy Settings */}
-          <Typography variant="h6" sx={{ mt: 4, mb: 2 }}>
-            Privacy Settings
-          </Typography>
-          <FormControl fullWidth>
-            <InputLabel>Leaderboard Visibility</InputLabel>
-            <Select
-              value={formData.leaderboardVisible ? 'visible' : 'hidden'}
-              label="Leaderboard Visibility"
-              onChange={(e) => setFormData({ 
-                ...formData, 
-                leaderboardVisible: e.target.value === 'visible' 
-              })}
-            >
-              <MenuItem value="visible">Visible to others</MenuItem>
-              <MenuItem value="hidden">Hidden from others</MenuItem>
-            </Select>
-          </FormControl>
 
-          {/* Action Buttons */}
-          <Box sx={{ mt: 4, display: 'flex', gap: 2, justifyContent: 'flex-end' }}>
-            <Button
-              variant="outlined"
-              onClick={handleCancel}
-              disabled={saving}
-              startIcon={<Cancel />}
-            >
-              Cancel
-            </Button>
-            <Button
-              variant="contained"
-              onClick={handleSave}
-              disabled={saving}
-              startIcon={saving ? <CircularProgress size={20} /> : <Save />}
-            >
-              {saving ? 'Saving...' : 'Save Changes'}
-            </Button>
-          </Box>
-        </CardContent>
-      </Card>
+              {/* Read-only fields */}
+              <TextField
+                fullWidth
+                label="Username"
+                value={user?.username || ''}
+                margin="normal"
+                InputProps={{ readOnly: true }}
+                disabled
+              />
+              
+              <TextField
+                fullWidth
+                label="Email"
+                value={user?.email || ''}
+                margin="normal"
+                InputProps={{ readOnly: true }}
+                disabled
+              />
+            </CardContent>
+          </Card>
+        </Grid>
+
+        {/* Privacy Settings */}
+        <Grid item xs={12} md={6}>
+          <Card>
+            <CardContent>
+              <Box display="flex" alignItems="center" mb={2}>
+                <Security sx={{ mr: 1 }} />
+                <Typography variant="h6">Privacy Settings</Typography>
+              </Box>
+              
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={formData.showInLeaderboard}
+                    onChange={(e) => handleInputChange('showInLeaderboard', e.target.checked)}
+                  />
+                }
+                label="Show in Leaderboard"
+              />
+              
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={formData.shareProgress}
+                    onChange={(e) => handleInputChange('shareProgress', e.target.checked)}
+                  />
+                }
+                label="Share Progress"
+              />
+              
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={formData.allowNotifications}
+                    onChange={(e) => handleInputChange('allowNotifications', e.target.checked)}
+                  />
+                }
+                label="Allow Notifications"
+              />
+
+              <Box mt={3}>
+                <Typography variant="body2" color="text.secondary">
+                  <strong>Note:</strong> For personal information (name, health data, nutrition targets), please visit the Personal Info section.
+                </Typography>
+              </Box>
+            </CardContent>
+          </Card>
+        </Grid>
+      </Grid>
+
+      {/* Action Buttons */}
+      <Box display="flex" justifyContent="flex-end" gap={2} mt={3}>
+        <Button
+          variant="outlined"
+          onClick={handleCancel}
+          disabled={saving}
+          startIcon={<Cancel />}
+        >
+          Cancel
+        </Button>
+        <Button
+          variant="contained"
+          onClick={handleSave}
+          disabled={saving}
+          startIcon={saving ? <CircularProgress size={20} /> : <Save />}
+        >
+          {saving ? 'Saving...' : 'Save Changes'}
+        </Button>
+      </Box>
     </Container>
+    </>
   );
 } 

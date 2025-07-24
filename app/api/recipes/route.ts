@@ -16,6 +16,8 @@ export async function GET(request: NextRequest) {
     const mealType = searchParams.get('mealType') || undefined;
     const isFavorite = searchParams.get('isFavorite') === 'true' ? true : 
                       searchParams.get('isFavorite') === 'false' ? false : undefined;
+    const aiGenerated = searchParams.get('aiGenerated') === 'true' ? true : 
+                       searchParams.get('aiGenerated') === 'false' ? false : undefined;
 
     const recipeService = new RecipeService();
     const result = await recipeService.getUserRecipes(
@@ -24,7 +26,8 @@ export async function GET(request: NextRequest) {
       limit,
       search,
       mealType,
-      isFavorite
+      isFavorite,
+      aiGenerated
     );
 
     return NextResponse.json(result);

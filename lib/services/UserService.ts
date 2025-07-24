@@ -2,20 +2,53 @@ import { BaseService } from './BaseService';
 import { z } from 'zod';
 
 const UpdateProfileSchema = z.object({
+  // Basic Information
   firstName: z.string().optional(),
   lastName: z.string().optional(),
   dateOfBirth: z.string().optional(), // ISO date string
   gender: z.enum(['MALE', 'FEMALE', 'OTHER', 'PREFER_NOT_TO_SAY']).optional(),
+  
+  // Health Metrics
   height: z.number().min(50).max(300).optional(), // in cm
   weight: z.number().min(20).max(500).optional(), // in kg
   targetWeight: z.number().min(20).max(500).optional(), // in kg
+  bodyFatPercentage: z.number().min(0).max(100).optional(),
+  muscleMass: z.number().min(0).max(500).optional(), // in kg
+  bmi: z.number().min(10).max(100).optional(),
+  bloodType: z.string().optional(),
+  
+  // Medical Information
+  allergies: z.string().optional(),
+  medications: z.string().optional(),
+  medicalConditions: z.string().optional(),
+  disabilities: z.string().optional(),
+  
+  // Exercise & Mobility
+  exerciseLimitations: z.string().optional(),
+  mobilityIssues: z.string().optional(),
+  injuryHistory: z.string().optional(),
   activityLevel: z.enum(['SEDENTARY', 'LIGHTLY_ACTIVE', 'MODERATELY_ACTIVE', 'VERY_ACTIVE', 'EXTREMELY_ACTIVE']).optional(),
+  
+  // Lifestyle
+  sleepQuality: z.string().optional(),
+  stressLevel: z.string().optional(),
+  smokingStatus: z.string().optional(),
+  alcoholConsumption: z.string().optional(),
+  
+  // Goals
+  fitnessGoals: z.string().optional(),
+  dietaryGoals: z.string().optional(),
+  weightGoals: z.string().optional(),
+  
+  // Nutrition
   dietaryPreferences: z.array(z.string()).optional(),
   calorieTarget: z.number().min(500).max(5000).optional(),
   proteinTarget: z.number().min(0).max(500).optional(), // in grams
   carbTarget: z.number().min(0).max(1000).optional(), // in grams
   fatTarget: z.number().min(0).max(200).optional(), // in grams
   fiberTarget: z.number().min(0).max(100).optional(), // in grams
+  
+  // Settings
   privacySettings: z.object({
     showInLeaderboard: z.boolean().optional(),
     shareProgress: z.boolean().optional(),
@@ -37,6 +70,20 @@ export class UserService extends BaseService {
         throw new Error('User not found');
       }
 
+      // Parse JSON strings back to objects/arrays
+      if (user.profile) {
+        try {
+          if (user.profile.dietaryPreferences) {
+            user.profile.dietaryPreferences = JSON.parse(user.profile.dietaryPreferences);
+          }
+          if (user.profile.privacySettings) {
+            user.profile.privacySettings = JSON.parse(user.profile.privacySettings);
+          }
+        } catch (parseError) {
+          console.error('Error parsing profile JSON fields:', parseError);
+        }
+      }
+
       return user;
     } catch (error) {
       console.error('Error fetching user profile:', error);
@@ -48,6 +95,15 @@ export class UserService extends BaseService {
     const validatedData = UpdateProfileSchema.parse(profileData);
     
     try {
+      // Prepare data for database
+      const dbData = {
+        ...validatedData,
+        dateOfBirth: validatedData.dateOfBirth ? new Date(validatedData.dateOfBirth) : undefined,
+        // Convert arrays to JSON strings for storage
+        dietaryPreferences: validatedData.dietaryPreferences ? JSON.stringify(validatedData.dietaryPreferences) : undefined,
+        privacySettings: validatedData.privacySettings ? JSON.stringify(validatedData.privacySettings) : undefined,
+      };
+
       // Check if profile exists
       const existingProfile = await this.prisma.profile.findUnique({
         where: { userId },
@@ -57,10 +113,7 @@ export class UserService extends BaseService {
         // Update existing profile
         const updatedProfile = await this.prisma.profile.update({
           where: { userId },
-          data: {
-            ...validatedData,
-            dateOfBirth: validatedData.dateOfBirth ? new Date(validatedData.dateOfBirth) : undefined,
-          },
+          data: dbData,
         });
         return updatedProfile;
       } else {
@@ -68,8 +121,7 @@ export class UserService extends BaseService {
         const newProfile = await this.prisma.profile.create({
           data: {
             userId,
-            ...validatedData,
-            dateOfBirth: validatedData.dateOfBirth ? new Date(validatedData.dateOfBirth) : undefined,
+            ...dbData,
           },
         });
         return newProfile;

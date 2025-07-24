@@ -209,7 +209,8 @@ export class RecipeService {
     limit: number = 10,
     search?: string,
     mealType?: string,
-    isFavorite?: boolean
+    isFavorite?: boolean,
+    aiGenerated?: boolean
   ): Promise<{
     recipes: RecipeWithNutrition[];
     total: number;
@@ -233,6 +234,10 @@ export class RecipeService {
 
     if (isFavorite !== undefined) {
       where.isFavorite = isFavorite;
+    }
+
+    if (aiGenerated !== undefined) {
+      where.aiGenerated = aiGenerated;
     }
 
     const [recipes, total] = await Promise.all([

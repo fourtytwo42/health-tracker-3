@@ -127,30 +127,33 @@ async function seedUserDetails() {
   });
   
   for (const user of users) {
-    await prisma.userDetails.upsert({
+    await prisma.profile.update({
       where: { userId: user.id },
-      update: {},
-      create: {
-        userId: user.id,
-        height: user.profile?.height || 170,
-        weight: user.profile?.weight || 70,
-        targetWeight: user.profile?.targetWeight || 68,
+      data: {
+        // Health Metrics
         bodyFatPercentage: 15,
         muscleMass: 55,
         bmi: 24.2,
         bloodType: 'O+',
+        
+        // Medical Information
         allergies: JSON.stringify(['Peanuts', 'Shellfish']),
         medications: JSON.stringify(['Vitamin D', 'Omega-3']),
         medicalConditions: JSON.stringify(['Asthma']),
         disabilities: JSON.stringify(['Mild knee injury']),
+        
+        // Exercise & Mobility
         exerciseLimitations: JSON.stringify(['Avoid high impact on knees']),
         mobilityIssues: JSON.stringify(['Slight stiffness in morning']),
         injuryHistory: JSON.stringify(['ACL reconstruction 2018']),
-        activityLevel: 'MODERATELY_ACTIVE',
+        
+        // Lifestyle
         sleepQuality: 'GOOD',
         stressLevel: 'MODERATE',
         smokingStatus: 'NEVER',
         alcoholConsumption: 'LIGHT',
+        
+        // Goals
         fitnessGoals: JSON.stringify(['Build muscle', 'Improve endurance']),
         dietaryGoals: JSON.stringify(['Increase protein', 'Reduce processed foods']),
         weightGoals: JSON.stringify(['Maintain current weight', 'Build muscle'])

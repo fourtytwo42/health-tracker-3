@@ -26,6 +26,7 @@ import IngredientsTab from './components/IngredientsTab';
 import ExercisesTab from './components/ExercisesTab';
 import IngredientMappingsTab from './components/IngredientMappingsTab';
 import ImageGeneratorTab from './components/ImageGeneratorTab';
+import { useAuth } from '@/context/AuthContext';
 
 interface LLMRouterConfig {
   selectedModel: string;
@@ -41,7 +42,7 @@ interface LLMRouterConfig {
 }
 
 export default function AdminDashboard() {
-  const [user, setUser] = useState<any>(null);
+  const { user, loading: authLoading } = useAuth();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState(0);
@@ -162,19 +163,10 @@ export default function AdminDashboard() {
 
   // Load data on component mount
   useEffect(() => {
-    const userStr = localStorage.getItem('user');
-    if (userStr) {
-      try {
-        const userData = JSON.parse(userStr);
-        setUser(userData);
-        if (userData.role === 'ADMIN') {
-          loadData();
-        }
-      } catch (error) {
-        console.error('Error parsing user data:', error);
-      }
+    if (user?.role === 'ADMIN') {
+      loadData();
     }
-  }, []);
+  }, [user?.role]);
 
   // Reload ingredients when search term changes (with debounce)
   useEffect(() => {
@@ -885,7 +877,7 @@ export default function AdminDashboard() {
     );
   }
 
-  if (loading) {
+  if (authLoading || loading) {
     return (
       <Container maxWidth="md" sx={{ mt: 4, textAlign: 'center' }}>
         <CircularProgress />

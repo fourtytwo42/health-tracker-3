@@ -43,7 +43,8 @@ import {
   Block as CannotDoIcon,
   Build as ModifiedIcon,
   FilterList as FilterIcon,
-  Clear as ClearIcon
+  Clear as ClearIcon,
+  SmartToy as AIIcon
 } from '@mui/icons-material';
 import { useAuth } from '@/context/AuthContext';
 
@@ -82,7 +83,7 @@ export default function ExercisePreferencesTab() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [searchResults, setSearchResults] = useState<Exercise[]>([]);
+  const [exercises, setExercises] = useState<Exercise[]>([]);
   const [allExercises, setAllExercises] = useState<Exercise[]>([]);
   const [preferences, setPreferences] = useState<ExercisePreference[]>([]);
   const [selectedExercise, setSelectedExercise] = useState<Exercise | null>(null);
@@ -91,6 +92,7 @@ export default function ExercisePreferencesTab() {
   const [preferenceType, setPreferenceType] = useState('LIKE');
   const [preferenceNotes, setPreferenceNotes] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
   const [error, setError] = useState<string | null>(null);
@@ -100,82 +102,46 @@ export default function ExercisePreferencesTab() {
   const [showFilters, setShowFilters] = useState(false);
   const [categoryFilter, setCategoryFilter] = useState('');
   const [intensityFilter, setIntensityFilter] = useState('');
-  const [metRange, setMetRange] = useState([0, 20]);
-  const [preferenceTypeFilter, setPreferenceTypeFilter] = useState('');
+  const [metRange, setMetRange] = useState([1, 10]);
 
-  // Enhanced filter states
-  const [equipmentFilter, setEquipmentFilter] = useState<string[]>([]);
-  const [bodyPartsFilter, setBodyPartsFilter] = useState<string[]>([]);
-  const [exerciseTypeFilter, setExerciseTypeFilter] = useState<string[]>([]);
-  const [difficultyFilter, setDifficultyFilter] = useState<string[]>([]);
+  // AI Search states
+  const [aiSearchLoading, setAiSearchLoading] = useState(false);
+  const [aiSearchError, setAiSearchError] = useState<string | null>(null);
+  const [aiSearchResult, setAiSearchResult] = useState<any>(null);
+  const [showAiResult, setShowAiResult] = useState(false);
 
-  // Available categories and intensities
+  // Categories and intensities
   const [categories, setCategories] = useState<string[]>([]);
   const [intensities, setIntensities] = useState<string[]>([]);
-
-  // Enhanced filter options
-  const equipmentOptions = [
-    { value: 'none', label: 'No Equipment' },
-    { value: 'dumbbells', label: 'Dumbbells' },
-    { value: 'barbell', label: 'Barbell' },
-    { value: 'resistance-bands', label: 'Resistance Bands' },
-    { value: 'cardio-machine', label: 'Cardio Machine' },
-    { value: 'bodyweight', label: 'Bodyweight Only' }
-  ];
-
-  const bodyPartsOptions = [
-    { value: 'legs', label: 'Legs' },
-    { value: 'arms', label: 'Arms' },
-    { value: 'chest', label: 'Chest' },
-    { value: 'back', label: 'Back' },
-    { value: 'shoulders', label: 'Shoulders' },
-    { value: 'core', label: 'Core' },
-    { value: 'full-body', label: 'Full Body' }
-  ];
-
-  const exerciseTypeOptions = [
-    { value: 'strength', label: 'Strength Training' },
-    { value: 'cardio', label: 'Cardio' },
-    { value: 'flexibility', label: 'Flexibility' },
-    { value: 'balance', label: 'Balance' },
-    { value: 'sports', label: 'Sports' }
-  ];
-
-  const difficultyOptions = [
-    { value: 'beginner', label: 'Beginner' },
-    { value: 'intermediate', label: 'Intermediate' },
-    { value: 'advanced', label: 'Advanced' }
-  ];
-
-  const itemsPerPage = 20;
 
   useEffect(() => {
     if (user) {
       loadCategoriesAndIntensities();
-      loadPreferences();
       loadAllExercises();
+      loadExercises();
+      loadPreferences();
     }
   }, [user]);
 
   useEffect(() => {
-    // Reset to page 1 when filters change
-    setCurrentPage(1);
     loadExercises();
-  }, [searchTerm, categoryFilter, intensityFilter, metRange, equipmentFilter, bodyPartsFilter, exerciseTypeFilter, difficultyFilter]);
+  }, [currentPage, pageSize, searchTerm, categoryFilter, intensityFilter, metRange]);
 
   const loadCategoriesAndIntensities = async () => {
     try {
-      const response = await fetch('/api/exercises/search?loadCategories=true&loadIntensities=true');
-      if (response.ok) {
-        const data = await response.json();
-        const exercises = data.exercises || [];
-        
-        // Extract unique categories and intensities
-        const uniqueCategories = Array.from(new Set(exercises.map((e: any) => e.category).filter(Boolean)));
-        const uniqueIntensities = Array.from(new Set(exercises.map((e: any) => e.intensity).filter(Boolean)));
-        
-        setCategories(uniqueCategories.sort());
-        setIntensities(uniqueIntensities.sort());
+      const [categoriesResponse, intensitiesResponse] = await Promise.all([
+        fetch('/api/exercises/categories'),
+        fetch('/api/exercises/intensities')
+      ]);
+
+      if (categoriesResponse.ok) {
+        const categoriesData = await categoriesResponse.json();
+        setCategories(categoriesData.categories || []);
+      }
+
+      if (intensitiesResponse.ok) {
+        const intensitiesData = await intensitiesResponse.json();
+        setIntensities(intensitiesData.intensities || []);
       }
     } catch (error) {
       console.error('Error loading categories and intensities:', error);
@@ -184,16 +150,13 @@ export default function ExercisePreferencesTab() {
 
   const loadAllExercises = async () => {
     try {
-      setLoading(true);
-      const response = await fetch('/api/exercises/search?limit=1000');
+      const response = await fetch('/api/exercises?limit=1000');
       if (response.ok) {
         const data = await response.json();
         setAllExercises(data.exercises || []);
       }
     } catch (error) {
       console.error('Error loading all exercises:', error);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -204,157 +167,29 @@ export default function ExercisePreferencesTab() {
       // Build query parameters
       const params = new URLSearchParams({
         page: currentPage.toString(),
-        limit: itemsPerPage.toString()
+        limit: pageSize.toString()
       });
 
-      if (searchTerm) {
-        params.append('q', searchTerm);
+      if (searchTerm.trim()) {
+        params.append('search', searchTerm.trim());
       }
-
       if (categoryFilter) {
         params.append('category', categoryFilter);
       }
-
       if (intensityFilter) {
         params.append('intensity', intensityFilter);
       }
-
-      // Add MET filters
-      if (metRange[0] > 0 || metRange[1] < 20) {
-        params.append('met', `${metRange[0]}-${metRange[1]}`);
+      if (metRange[0] > 1 || metRange[1] < 10) {
+        params.append('metMin', metRange[0].toString());
+        params.append('metMax', metRange[1].toString());
       }
 
-      const response = await fetch(`/api/exercises/search?${params}`);
+      const response = await fetch(`/api/exercises?${params.toString()}`);
       if (response.ok) {
         const data = await response.json();
-        const exercises = data.exercises || [];
-        
-        // Apply enhanced filters client-side
-        let filteredExercises = exercises;
-        
-        if (equipmentFilter.length > 0) {
-          filteredExercises = filteredExercises.filter((exercise: Exercise) => {
-            return equipmentFilter.some(equipment => {
-              const activity = exercise.activity.toLowerCase();
-              const description = exercise.description.toLowerCase();
-              
-              switch (equipment) {
-                case 'none':
-                  return !activity.includes('dumbbell') && !activity.includes('barbell') && 
-                         !activity.includes('machine') && !activity.includes('equipment');
-                case 'dumbbells':
-                  return activity.includes('dumbbell') || description.includes('dumbbell');
-                case 'barbell':
-                  return activity.includes('barbell') || description.includes('barbell');
-                case 'resistance-bands':
-                  return activity.includes('band') || activity.includes('resistance') || 
-                         description.includes('band') || description.includes('resistance');
-                case 'cardio-machine':
-                  return activity.includes('treadmill') || activity.includes('bike') || 
-                         activity.includes('elliptical') || activity.includes('rower');
-                case 'bodyweight':
-                  return activity.includes('push-up') || activity.includes('pull-up') || 
-                         activity.includes('squat') || activity.includes('plank');
-                default:
-                  return true;
-              }
-            });
-          });
-        }
-
-        if (bodyPartsFilter.length > 0) {
-          filteredExercises = filteredExercises.filter((exercise: Exercise) => {
-            return bodyPartsFilter.some(part => {
-              const activity = exercise.activity.toLowerCase();
-              const description = exercise.description.toLowerCase();
-              
-              switch (part) {
-                case 'legs':
-                  return activity.includes('squat') || activity.includes('lunge') || 
-                         activity.includes('leg') || activity.includes('calf') ||
-                         activity.includes('running') || activity.includes('walking');
-                case 'arms':
-                  return activity.includes('curl') || activity.includes('press') || 
-                         activity.includes('arm') || activity.includes('bicep') ||
-                         activity.includes('tricep');
-                case 'chest':
-                  return activity.includes('push-up') || activity.includes('bench') || 
-                         activity.includes('chest') || activity.includes('pec');
-                case 'back':
-                  return activity.includes('pull-up') || activity.includes('row') || 
-                         activity.includes('back') || activity.includes('lat');
-                case 'shoulders':
-                  return activity.includes('shoulder') || activity.includes('deltoid') || 
-                         activity.includes('press') || activity.includes('raise');
-                case 'core':
-                  return activity.includes('plank') || activity.includes('crunch') || 
-                         activity.includes('sit-up') || activity.includes('core') ||
-                         activity.includes('abdominal');
-                case 'full-body':
-                  return activity.includes('burpee') || activity.includes('mountain climber') || 
-                         activity.includes('jumping jack') || activity.includes('full body');
-                default:
-                  return true;
-              }
-            });
-          });
-        }
-
-        if (exerciseTypeFilter.length > 0) {
-          filteredExercises = filteredExercises.filter((exercise: Exercise) => {
-            return exerciseTypeFilter.some(type => {
-              const category = exercise.category.toLowerCase();
-              const activity = exercise.activity.toLowerCase();
-              
-              switch (type) {
-                case 'strength':
-                  return category.includes('strength') || category.includes('weight') || 
-                         activity.includes('lift') || activity.includes('press');
-                case 'cardio':
-                  return category.includes('cardio') || activity.includes('running') || 
-                         activity.includes('walking') || activity.includes('cycling') ||
-                         activity.includes('swimming');
-                case 'flexibility':
-                  return category.includes('flexibility') || activity.includes('stretch') || 
-                         activity.includes('yoga') || activity.includes('pilates');
-                case 'balance':
-                  return category.includes('balance') || activity.includes('balance') || 
-                         activity.includes('stability');
-                case 'sports':
-                  return category.includes('sport') || activity.includes('tennis') || 
-                         activity.includes('basketball') || activity.includes('soccer');
-                default:
-                  return true;
-              }
-            });
-          });
-        }
-
-        if (difficultyFilter.length > 0) {
-          filteredExercises = filteredExercises.filter((exercise: Exercise) => {
-            return difficultyFilter.some(difficulty => {
-              const met = exercise.met;
-              
-              switch (difficulty) {
-                case 'beginner':
-                  return met <= 3;
-                case 'intermediate':
-                  return met > 3 && met <= 8;
-                case 'advanced':
-                  return met > 8;
-                default:
-                  return true;
-              }
-            });
-          });
-        }
-
-        setSearchResults(filteredExercises);
-        
-        // Calculate pagination
-        const total = filteredExercises.length;
-        setTotalItems(total);
-        setTotalPages(Math.ceil(total / itemsPerPage));
+        setExercises(data.exercises || []);
+        setTotalItems(data.total || 0);
+        setTotalPages(Math.ceil((data.total || 0) / pageSize));
       }
     } catch (error) {
       console.error('Error loading exercises:', error);
@@ -377,34 +212,92 @@ export default function ExercisePreferencesTab() {
   };
 
   const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const value = event.target.value;
-    setSearchTerm(value);
+    setSearchTerm(event.target.value);
+    setCurrentPage(1);
   };
 
   const clearFilters = () => {
     setSearchTerm('');
     setCategoryFilter('');
     setIntensityFilter('');
-    setMetRange([0, 20]);
-    setEquipmentFilter([]);
-    setBodyPartsFilter([]);
-    setExerciseTypeFilter([]);
-    setDifficultyFilter([]);
+    setMetRange([1, 10]);
+    setCurrentPage(1);
+    clearAiSearch();
+  };
+
+  // AI Search function
+  const handleAiSearch = async () => {
+    if (!searchTerm.trim()) {
+      setAiSearchError('Please enter a search term to analyze');
+      return;
+    }
+
+    setAiSearchLoading(true);
+    setAiSearchError(null);
+    setAiSearchResult(null);
+    setShowAiResult(false);
+
+    try {
+      // Prepare filters
+      const filters: any = {};
+      if (categoryFilter) {
+        filters.category = categoryFilter;
+      }
+      if (intensityFilter) {
+        filters.intensity = intensityFilter;
+      }
+      if (metRange[0] > 1 || metRange[1] < 10) {
+        filters.met = { min: metRange[0], max: metRange[1] };
+      }
+
+      const response = await fetch('/api/exercises/ai-search', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
+        },
+        body: JSON.stringify({
+          searchTerm: searchTerm.trim(),
+          filters: Object.keys(filters).length > 0 ? filters : undefined
+        })
+      });
+
+      const result = await response.json();
+
+      if (response.ok && result.success) {
+        setAiSearchResult(result);
+        setShowAiResult(true);
+      } else {
+        setAiSearchError(result.error || 'Failed to get AI recommendation');
+      }
+    } catch (error) {
+      console.error('AI search error:', error);
+      setAiSearchError('Failed to connect to AI service');
+    } finally {
+      setAiSearchLoading(false);
+    }
+  };
+
+  // Clear AI search results
+  const clearAiSearch = () => {
+    setAiSearchResult(null);
+    setAiSearchError(null);
+    setShowAiResult(false);
   };
 
   const handleAddPreference = (exercise: Exercise) => {
     setSelectedExercise(exercise);
+    setEditingPreference(null);
     setPreferenceType('LIKE');
     setPreferenceNotes('');
-    setEditingPreference(null);
     setPreferenceDialog(true);
   };
 
   const handleEditPreference = (preference: ExercisePreference) => {
     setSelectedExercise(preference.exercise);
+    setEditingPreference(preference);
     setPreferenceType(preference.preference);
     setPreferenceNotes(preference.notes || '');
-    setEditingPreference(preference);
     setPreferenceDialog(true);
   };
 
@@ -412,87 +305,90 @@ export default function ExercisePreferencesTab() {
     if (!selectedExercise) return;
 
     try {
-      const method = editingPreference ? 'PUT' : 'POST';
+      const preferenceData = {
+        exerciseId: selectedExercise.id,
+        preference: preferenceType,
+        notes: preferenceNotes.trim() || undefined
+      };
+
       const url = editingPreference 
         ? `/api/exercise-preferences/${editingPreference.id}`
         : '/api/exercise-preferences';
+      
+      const method = editingPreference ? 'PUT' : 'POST';
 
       const response = await fetch(url, {
         method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          exerciseId: selectedExercise.id,
-          preference: preferenceType,
-          notes: preferenceNotes
-        })
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(preferenceData),
       });
 
       if (response.ok) {
-        setSuccess(editingPreference ? 'Preference updated!' : 'Preference added!');
+        setSuccess(editingPreference ? 'Preference updated successfully!' : 'Preference added successfully!');
         setPreferenceDialog(false);
-        loadPreferences();
-        setSearchTerm('');
-        setSearchResults([]);
+        await loadPreferences();
       } else {
         const errorData = await response.json();
         setError(errorData.error || 'Failed to save preference');
       }
     } catch (error) {
-      setError('An error occurred while saving');
+      setError('An error occurred while saving preference');
     }
   };
 
   const handleDeletePreference = async (preferenceId: string) => {
+    if (!confirm('Are you sure you want to delete this preference?')) return;
+
     try {
       const response = await fetch(`/api/exercise-preferences/${preferenceId}`, {
-        method: 'DELETE'
+        method: 'DELETE',
       });
 
       if (response.ok) {
-        setSuccess('Preference removed!');
-        loadPreferences();
+        setSuccess('Preference deleted successfully!');
+        await loadPreferences();
       } else {
-        setError('Failed to remove preference');
+        const errorData = await response.json();
+        setError(errorData.error || 'Failed to delete preference');
       }
     } catch (error) {
-      setError('An error occurred while removing preference');
+      setError('An error occurred while deleting preference');
     }
   };
 
   const getPreferenceIcon = (type: string) => {
-    const preference = PREFERENCE_TYPES.find(p => p.value === type);
-    return preference?.icon || <LikeIcon />;
+    return PREFERENCE_TYPES.find(p => p.value === type)?.icon || <LikeIcon />;
   };
 
   const getPreferenceColor = (type: string) => {
-    const preference = PREFERENCE_TYPES.find(p => p.value === type);
-    return preference?.color || 'default';
+    return PREFERENCE_TYPES.find(p => p.value === type)?.color || 'default';
   };
 
-  // Filter preferences based on preference type filter
-  const filteredPreferences = preferences.filter(preference => {
-    if (!preferenceTypeFilter) return true;
-    return preference.preference === preferenceTypeFilter;
-  });
+  const getExistingPreference = (exerciseId: string) => {
+    return preferences.find(p => p.exerciseId === exerciseId);
+  };
 
-  // Paginate preferences
-  const paginatedPreferences = filteredPreferences.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
-  );
+  const getIntensityColor = (intensity: string) => {
+    return INTENSITY_COLORS[intensity as keyof typeof INTENSITY_COLORS] || 'default';
+  };
 
   return (
     <Box>
       <Typography variant="h5" gutterBottom>
-        Exercise Preferences & Limitations
+        Exercise Preferences
       </Typography>
-      
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+        Manage your exercise preferences and limitations to help personalize your workout recommendations.
+      </Typography>
+
       {error && (
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
           {error}
         </Alert>
       )}
-      
+
       {success && (
         <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccess(null)}>
           {success}
@@ -500,145 +396,203 @@ export default function ExercisePreferencesTab() {
       )}
 
       <Grid container spacing={3}>
-        {/* Search Section */}
+        {/* Search and Filters */}
         <Grid item xs={12}>
           <Card>
-            <CardHeader title="Search & Add Exercise Preferences" />
-            <CardContent>
-              <TextField
-                fullWidth
-                label="Search exercises"
-                value={searchTerm}
-                onChange={handleSearchChange}
-                placeholder="Type to search for exercises..."
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <SearchIcon />
-                    </InputAdornment>
-                  ),
-                }}
-              />
-              
-              {/* Filter Toggle */}
-              <Box sx={{ mt: 2, mb: 2 }}>
-                <Button
-                  variant="outlined"
-                  onClick={() => setShowFilters(!showFilters)}
-                  startIcon={<FilterIcon />}
-                  size="small"
-                >
-                  {showFilters ? 'Hide Filters' : 'Show Filters'}
-                </Button>
-                {showFilters && (
+            <CardHeader 
+              title="Search Exercises"
+              action={
+                <Box display="flex" gap={1}>
                   <Button
                     variant="outlined"
-                    onClick={clearFilters}
-                    startIcon={<ClearIcon />}
+                    startIcon={<FilterIcon />}
+                    onClick={() => setShowFilters(!showFilters)}
                     size="small"
-                    sx={{ ml: 1 }}
                   >
-                    Clear Filters
+                    {showFilters ? 'Hide' : 'Show'} Filters
                   </Button>
+                  <Button
+                    variant="outlined"
+                    startIcon={<ClearIcon />}
+                    onClick={clearFilters}
+                    size="small"
+                  >
+                    Clear All
+                  </Button>
+                </Box>
+              }
+            />
+            <CardContent>
+              <Stack spacing={2}>
+                {/* Search Bar */}
+                <Box display="flex" gap={1}>
+                  <TextField
+                    fullWidth
+                    placeholder="Search exercises by name..."
+                    value={searchTerm}
+                    onChange={handleSearchChange}
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <SearchIcon />
+                        </InputAdornment>
+                      ),
+                    }}
+                  />
+                  <Button
+                    variant="contained"
+                    startIcon={<AIIcon />}
+                    onClick={handleAiSearch}
+                    disabled={aiSearchLoading || !searchTerm.trim()}
+                    sx={{ minWidth: 120 }}
+                  >
+                    {aiSearchLoading ? <CircularProgress size={20} /> : 'AI Match'}
+                  </Button>
+                </Box>
+
+                {/* AI Search Results */}
+                {aiSearchError && (
+                  <Alert severity="error" onClose={() => setAiSearchError(null)}>
+                    {aiSearchError}
+                  </Alert>
                 )}
-              </Box>
 
-              {/* Filter Panel */}
-              <Collapse in={showFilters}>
-                <Paper sx={{ p: 2, mb: 2 }}>
-                  <Typography variant="h6" gutterBottom>
-                    Search Filters
-                  </Typography>
-                  
-                  <Grid container spacing={2}>
-                    {/* Category Filter */}
-                    <Grid item xs={12} md={6}>
-                      <TextField
-                        select
-                        fullWidth
-                        label="Category"
-                        value={categoryFilter}
-                        onChange={(e) => setCategoryFilter(e.target.value)}
-                        size="small"
-                      >
-                        <MenuItem value="">All Categories</MenuItem>
-                        {categories.map((category) => (
-                          <MenuItem key={category} value={category}>
-                            {category}
-                          </MenuItem>
-                        ))}
-                      </TextField>
-                    </Grid>
-
-                    {/* Intensity Filter */}
-                    <Grid item xs={12} md={6}>
-                      <TextField
-                        select
-                        fullWidth
-                        label="Intensity"
-                        value={intensityFilter}
-                        onChange={(e) => setIntensityFilter(e.target.value)}
-                        size="small"
-                      >
-                        <MenuItem value="">All Intensities</MenuItem>
-                        {intensities.map((intensity) => (
-                          <MenuItem key={intensity} value={intensity}>
-                            <Box display="flex" alignItems="center" gap={1}>
-                              <Chip
-                                label={intensity}
-                                color={INTENSITY_COLORS[intensity as keyof typeof INTENSITY_COLORS] as any}
-                                size="small"
-                              />
+                {showAiResult && aiSearchResult && (
+                  <Paper sx={{ p: 2, bgcolor: 'primary.50' }}>
+                    <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
+                      <Typography variant="h6" color="primary">
+                        AI Best Match
+                      </Typography>
+                      <IconButton size="small" onClick={clearAiSearch}>
+                        <ClearIcon />
+                      </IconButton>
+                    </Box>
+                    {aiSearchResult.exercise && (
+                      <Card variant="outlined">
+                        <CardContent>
+                          <Box display="flex" justifyContent="space-between" alignItems="flex-start">
+                            <Box>
+                              <Typography variant="h6">
+                                {aiSearchResult.exercise.activity}
+                              </Typography>
+                              <Typography variant="body2" color="text.secondary">
+                                {aiSearchResult.exercise.category} • {aiSearchResult.exercise.intensity}
+                              </Typography>
+                              <Box display="flex" gap={2} mt={1}>
+                                <Chip
+                                  label={`MET: ${aiSearchResult.exercise.met}`}
+                                  size="small"
+                                  color="primary"
+                                  variant="outlined"
+                                />
+                                <Chip
+                                  label={aiSearchResult.exercise.intensity}
+                                  size="small"
+                                  color={getIntensityColor(aiSearchResult.exercise.intensity) as any}
+                                />
+                              </Box>
                             </Box>
-                          </MenuItem>
-                        ))}
-                      </TextField>
-                    </Grid>
+                            <Button
+                              variant="contained"
+                              size="small"
+                              onClick={() => handleAddPreference(aiSearchResult.exercise)}
+                            >
+                              Add Preference
+                            </Button>
+                          </Box>
+                        </CardContent>
+                      </Card>
+                    )}
+                    {aiSearchResult.explanation && (
+                      <Typography variant="body2" sx={{ mt: 1, fontStyle: 'italic' }}>
+                        {aiSearchResult.explanation}
+                      </Typography>
+                    )}
+                  </Paper>
+                )}
 
-                    {/* MET Range */}
-                    <Grid item xs={12}>
-                      <Typography gutterBottom>
-                        MET Value Range: {metRange[0]} - {metRange[1]}
-                      </Typography>
-                      <Slider
-                        value={metRange}
-                        onChange={(_, newValue) => setMetRange(newValue as number[])}
-                        valueLabelDisplay="auto"
-                        min={0}
-                        max={20}
-                        step={0.1}
-                      />
-                      <Typography variant="caption" color="text.secondary">
-                        MET (Metabolic Equivalent of Task) measures exercise intensity. Higher values = more intense.
-                      </Typography>
+                {/* Filters */}
+                <Collapse in={showFilters}>
+                  <Paper sx={{ p: 2 }}>
+                    <Grid container spacing={2}>
+                      <Grid item xs={12} md={6}>
+                        <FormControl fullWidth size="small">
+                          <InputLabel>Category</InputLabel>
+                          <Select
+                            value={categoryFilter}
+                            onChange={(e) => setCategoryFilter(e.target.value)}
+                            label="Category"
+                          >
+                            <MenuItem value="">All Categories</MenuItem>
+                            {categories.map((category) => (
+                              <MenuItem key={category} value={category}>
+                                {category}
+                              </MenuItem>
+                            ))}
+                          </Select>
+                        </FormControl>
+                      </Grid>
+                      <Grid item xs={12} md={6}>
+                        <FormControl fullWidth size="small">
+                          <InputLabel>Intensity</InputLabel>
+                          <Select
+                            value={intensityFilter}
+                            onChange={(e) => setIntensityFilter(e.target.value)}
+                            label="Intensity"
+                          >
+                            <MenuItem value="">All Intensities</MenuItem>
+                            {intensities.map((intensity) => (
+                              <MenuItem key={intensity} value={intensity}>
+                                {intensity}
+                              </MenuItem>
+                            ))}
+                          </Select>
+                        </FormControl>
+                      </Grid>
+                      
+                      {/* MET Range Filter */}
+                      <Grid item xs={12}>
+                        <Typography variant="body2" gutterBottom>
+                          MET Range: {metRange[0]} - {metRange[1]}
+                        </Typography>
+                        <Slider
+                          value={metRange}
+                          onChange={(_, value) => setMetRange(value as number[])}
+                          min={1}
+                          max={10}
+                          step={0.1}
+                          valueLabelDisplay="auto"
+                        />
+                      </Grid>
                     </Grid>
-                  </Grid>
-                </Paper>
-              </Collapse>
-              
+                  </Paper>
+                </Collapse>
+              </Stack>
+            </CardContent>
+          </Card>
+        </Grid>
+
+        {/* Exercises List */}
+        <Grid item xs={12}>
+          <Card>
+            <CardHeader 
+              title={`Exercises (${totalItems} total)`}
+              subheader={`Showing ${exercises.length} exercises on page ${currentPage} of ${totalPages}`}
+            />
+            <CardContent>
               {loading ? (
                 <Box display="flex" justifyContent="center" p={3}>
                   <CircularProgress />
                 </Box>
-              ) : searchResults.length === 0 ? (
+              ) : exercises.length === 0 ? (
                 <Typography variant="body2" color="text.secondary" align="center" py={3}>
-                  {searchTerm.length === 0 && !categoryFilter && !intensityFilter
-                    ? 'Loading exercises...'
-                    : searchTerm.length > 0 && searchTerm.length < 2 
-                    ? 'Enter at least 2 characters to search for exercises.'
-                    : 'No exercises found matching your search criteria.'
-                  }
+                  No exercises found. Try adjusting your search or filters.
                 </Typography>
               ) : (
-                <Box sx={{ mt: 2 }}>
-                  <Typography variant="subtitle2" gutterBottom>
-                    {searchTerm || categoryFilter || intensityFilter 
-                      ? `Search Results (${searchResults.length} of ${totalItems}):`
-                      : `All Exercises (${searchResults.length} of ${totalItems}):`
-                    }
-                  </Typography>
-                  <List dense>
-                    {searchResults.map((exercise) => (
+                <List>
+                  {exercises.map((exercise) => {
+                    const existingPreference = getExistingPreference(exercise.id);
+                    return (
                       <ListItem
                         key={exercise.id}
                         sx={{
@@ -650,143 +604,160 @@ export default function ExercisePreferencesTab() {
                         }}
                       >
                         <ListItemText
-                          primary={exercise.activity}
-                          secondary={
-                            <Box>
-                              <Typography variant="body2" color="text.secondary">
-                                {exercise.category} • MET: {exercise.met} • {exercise.intensity} intensity
-                              </Typography>
-                              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                                {exercise.description}
-                              </Typography>
-                            </Box>
-                          }
-                        />
-                        <ListItemSecondaryAction>
-                          <Button
-                            size="small"
-                            startIcon={<AddIcon />}
-                            onClick={() => handleAddPreference(exercise)}
-                          >
-                            Add Preference
-                          </Button>
-                        </ListItemSecondaryAction>
-                      </ListItem>
-                    ))}
-                  </List>
-                  
-                  {totalPages > 1 && (
-                    <Box display="flex" justifyContent="center" mt={2}>
-                      <Pagination
-                        count={totalPages}
-                        page={currentPage}
-                        onChange={(_, page) => setCurrentPage(page)}
-                        color="primary"
-                      />
-                    </Box>
-                  )}
-                </Box>
-              )}
-            </CardContent>
-          </Card>
-        </Grid>
-
-        {/* Preferences List */}
-        <Grid item xs={12}>
-          <Card>
-            <CardHeader 
-              title="Your Exercise Preferences" 
-              subheader={`${filteredPreferences.length} preferences saved`}
-            />
-            <CardContent>
-              {/* Preference Type Filter */}
-              <Box sx={{ mb: 2 }}>
-                <FormControl size="small" sx={{ minWidth: 200 }}>
-                  <InputLabel>Filter by Preference Type</InputLabel>
-                  <Select
-                    value={preferenceTypeFilter}
-                    onChange={(e) => setPreferenceTypeFilter(e.target.value)}
-                    label="Filter by Preference Type"
-                  >
-                    <MenuItem value="">All Preferences</MenuItem>
-                    {PREFERENCE_TYPES.map((type) => (
-                      <MenuItem key={type.value} value={type.value}>
-                        <Box display="flex" alignItems="center" gap={1}>
-                          {type.icon}
-                          {type.label}
-                        </Box>
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Box>
-
-              {loading ? (
-                <Box display="flex" justifyContent="center" p={3}>
-                  <CircularProgress />
-                </Box>
-              ) : filteredPreferences.length === 0 ? (
-                <Typography variant="body2" color="text.secondary" align="center" py={3}>
-                  {preferences.length === 0 
-                    ? 'No exercise preferences saved yet. Search for exercises above to add your preferences.'
-                    : 'No preferences match the current filter. Try adjusting your filter settings.'
-                  }
-                </Typography>
-              ) : (
-                <>
-                  <List>
-                    {paginatedPreferences.map((preference) => (
-                      <ListItem
-                        key={preference.id}
-                        sx={{
-                          border: 1,
-                          borderColor: 'divider',
-                          borderRadius: 1,
-                          mb: 1,
-                          '&:hover': { bgcolor: 'action.hover' }
-                        }}
-                      >
-                        <ListItemText
                           primary={
                             <Box display="flex" alignItems="center" gap={1}>
-                              {getPreferenceIcon(preference.preference)}
                               <Typography variant="body1">
-                                {preference.exercise.activity}
+                                {exercise.activity}
                               </Typography>
-                              <Chip
-                                label={PREFERENCE_TYPES.find(p => p.value === preference.preference)?.label}
-                                color={getPreferenceColor(preference.preference) as any}
-                                size="small"
-                              />
-                              <Chip
-                                label={`MET: ${preference.exercise.met}`}
-                                color={INTENSITY_COLORS[preference.exercise.intensity as keyof typeof INTENSITY_COLORS] as any}
-                                size="small"
-                                variant="outlined"
-                              />
+                              {existingPreference && (
+                                <Chip
+                                  icon={getPreferenceIcon(existingPreference.preference)}
+                                  label={existingPreference.preference.replace('_', ' ')}
+                                  color={getPreferenceColor(existingPreference.preference) as any}
+                                  size="small"
+                                />
+                              )}
                             </Box>
                           }
                           secondary={
                             <Box>
                               <Typography variant="body2" color="text.secondary">
-                                {preference.exercise.category} • {preference.exercise.intensity} intensity
+                                {exercise.category} • {exercise.intensity}
                               </Typography>
-                              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                                {preference.exercise.description}
-                              </Typography>
-                              {preference.notes && (
+                              <Box display="flex" gap={1} mt={0.5}>
+                                <Chip
+                                  label={`MET: ${exercise.met}`}
+                                  size="small"
+                                  color="primary"
+                                  variant="outlined"
+                                />
+                                <Chip
+                                  label={exercise.intensity}
+                                  size="small"
+                                  color={getIntensityColor(exercise.intensity) as any}
+                                />
+                              </Box>
+                              {exercise.description && (
                                 <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                                  Notes: {preference.notes}
+                                  {exercise.description}
                                 </Typography>
                               )}
                             </Box>
                           }
                         />
                         <ListItemSecondaryAction>
+                          {existingPreference ? (
+                            <Box display="flex" gap={1}>
+                              <IconButton
+                                size="small"
+                                onClick={() => handleEditPreference(existingPreference)}
+                              >
+                                <EditIcon />
+                              </IconButton>
+                              <IconButton
+                                size="small"
+                                color="error"
+                                onClick={() => handleDeletePreference(existingPreference.id)}
+                              >
+                                <DeleteIcon />
+                              </IconButton>
+                            </Box>
+                          ) : (
+                            <IconButton
+                              size="small"
+                              onClick={() => handleAddPreference(exercise)}
+                            >
+                              <AddIcon />
+                            </IconButton>
+                          )}
+                        </ListItemSecondaryAction>
+                      </ListItem>
+                    );
+                  })}
+                </List>
+              )}
+              
+              {/* Pagination */}
+              {totalPages > 1 && (
+                <Box display="flex" justifyContent="center" mt={2}>
+                  <Pagination
+                    count={totalPages}
+                    page={currentPage}
+                    onChange={(_, page) => setCurrentPage(page)}
+                    color="primary"
+                  />
+                </Box>
+              )}
+            </CardContent>
+          </Card>
+        </Grid>
+
+        {/* Current Preferences */}
+        <Grid item xs={12}>
+          <Card>
+            <CardHeader title="Your Exercise Preferences" />
+            <CardContent>
+              {preferences.length === 0 ? (
+                <Typography variant="body2" color="text.secondary" align="center" py={3}>
+                  No exercise preferences set yet. Search for exercises above to add your preferences.
+                </Typography>
+              ) : (
+                <List>
+                  {preferences.map((preference) => (
+                    <ListItem
+                      key={preference.id}
+                      sx={{
+                        border: 1,
+                        borderColor: 'divider',
+                        borderRadius: 1,
+                        mb: 1
+                      }}
+                    >
+                      <ListItemText
+                        primary={
+                          <Box display="flex" alignItems="center" gap={1}>
+                            <Typography variant="body1">
+                              {preference.exercise.activity}
+                            </Typography>
+                            <Chip
+                              icon={getPreferenceIcon(preference.preference)}
+                              label={preference.preference.replace('_', ' ')}
+                              color={getPreferenceColor(preference.preference) as any}
+                              size="small"
+                            />
+                          </Box>
+                        }
+                        secondary={
+                          <Box>
+                            <Typography variant="body2" color="text.secondary">
+                              {preference.exercise.category} • {preference.exercise.intensity}
+                            </Typography>
+                            <Box display="flex" gap={1} mt={0.5}>
+                              <Chip
+                                label={`MET: ${preference.exercise.met}`}
+                                size="small"
+                                color="primary"
+                                variant="outlined"
+                              />
+                              <Chip
+                                label={preference.exercise.intensity}
+                                size="small"
+                                color={getIntensityColor(preference.exercise.intensity) as any}
+                              />
+                            </Box>
+                            {preference.notes && (
+                              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                                Notes: {preference.notes}
+                              </Typography>
+                            )}
+                          </Box>
+                        }
+                      />
+                      <ListItemSecondaryAction>
+                        <Box display="flex" gap={1}>
                           <IconButton
                             size="small"
                             onClick={() => handleEditPreference(preference)}
-                            sx={{ mr: 1 }}
                           >
                             <EditIcon />
                           </IconButton>
@@ -797,22 +768,11 @@ export default function ExercisePreferencesTab() {
                           >
                             <DeleteIcon />
                           </IconButton>
-                        </ListItemSecondaryAction>
-                      </ListItem>
-                    ))}
-                  </List>
-                  
-                  {Math.ceil(filteredPreferences.length / itemsPerPage) > 1 && (
-                    <Box display="flex" justifyContent="center" mt={2}>
-                      <Pagination
-                        count={Math.ceil(filteredPreferences.length / itemsPerPage)}
-                        page={currentPage}
-                        onChange={(_, page) => setCurrentPage(page)}
-                        color="primary"
-                      />
-                    </Box>
-                  )}
-                </>
+                        </Box>
+                      </ListItemSecondaryAction>
+                    </ListItem>
+                  ))}
+                </List>
               )}
             </CardContent>
           </Card>
@@ -828,15 +788,23 @@ export default function ExercisePreferencesTab() {
           <Stack spacing={2} sx={{ mt: 1 }}>
             {selectedExercise && (
               <Box>
-                <Typography variant="subtitle1" gutterBottom>
-                  {selectedExercise.activity}
-                </Typography>
+                <Typography variant="h6">{selectedExercise.activity}</Typography>
                 <Typography variant="body2" color="text.secondary">
-                  {selectedExercise.category} • MET: {selectedExercise.met} • {selectedExercise.intensity} intensity
+                  {selectedExercise.category} • {selectedExercise.intensity}
                 </Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                  {selectedExercise.description}
-                </Typography>
+                <Box display="flex" gap={1} mt={1}>
+                  <Chip
+                    label={`MET: ${selectedExercise.met}`}
+                    size="small"
+                    color="primary"
+                    variant="outlined"
+                  />
+                  <Chip
+                    label={selectedExercise.intensity}
+                    size="small"
+                    color={getIntensityColor(selectedExercise.intensity) as any}
+                  />
+                </Box>
               </Box>
             )}
             
@@ -857,7 +825,7 @@ export default function ExercisePreferencesTab() {
                 ))}
               </Select>
             </FormControl>
-            
+
             <TextField
               label="Notes (optional)"
               multiline
@@ -865,7 +833,7 @@ export default function ExercisePreferencesTab() {
               value={preferenceNotes}
               onChange={(e) => setPreferenceNotes(e.target.value)}
               fullWidth
-              placeholder="Add any additional notes about this preference..."
+              placeholder="Add any notes about this preference..."
             />
           </Stack>
         </DialogContent>

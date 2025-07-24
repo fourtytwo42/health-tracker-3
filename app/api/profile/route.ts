@@ -17,17 +17,22 @@ export async function GET(request: NextRequest) {
     const token = authHeader.substring(7);
     const authInfo = AuthService.verifyAccessToken(token);
     
-    const user = await prisma.user.findUnique({
-      where: { id: authInfo.userId },
-      select: {
-        id: true,
-        username: true,
-        email: true,
-        role: true,
-        avatarUrl: true,
-        createdAt: true,
-      },
-    });
+    const [user, profile] = await Promise.all([
+      prisma.user.findUnique({
+        where: { id: authInfo.userId },
+        select: {
+          id: true,
+          username: true,
+          email: true,
+          role: true,
+          avatarUrl: true,
+          createdAt: true,
+        },
+      }),
+      prisma.profile.findUnique({
+        where: { userId: authInfo.userId },
+      })
+    ]);
 
     if (!user) {
       return NextResponse.json(
@@ -36,7 +41,17 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    return NextResponse.json({ user });
+    // Parse privacy settings if they exist
+    if (profile?.privacySettings) {
+      try {
+        profile.privacySettings = JSON.parse(profile.privacySettings);
+      } catch (error) {
+        console.error('Error parsing privacy settings:', error);
+        profile.privacySettings = null;
+      }
+    }
+
+    return NextResponse.json({ user, profile });
   } catch (error) {
     console.error('Error getting user profile:', error);
     return NextResponse.json(
@@ -105,7 +120,7 @@ export async function PUT(request: NextRequest) {
         carbTarget: carbTarget ? parseInt(carbTarget) : null,
         fatTarget: fatTarget ? parseInt(fatTarget) : null,
         fiberTarget: fiberTarget ? parseInt(fiberTarget) : null,
-        privacySettings,
+        privacySettings: privacySettings ? JSON.stringify(privacySettings) : null,
         updatedAt: new Date(),
       },
       create: {
@@ -124,7 +139,7 @@ export async function PUT(request: NextRequest) {
         carbTarget: carbTarget ? parseInt(carbTarget) : null,
         fatTarget: fatTarget ? parseInt(fatTarget) : null,
         fiberTarget: fiberTarget ? parseInt(fiberTarget) : null,
-        privacySettings,
+        privacySettings: privacySettings ? JSON.stringify(privacySettings) : null,
       },
     });
 

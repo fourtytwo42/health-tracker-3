@@ -133,8 +133,55 @@
    };
    
    export const getBMICategory = (bmi: number): string =>
-     bmi < 18.5 ? 'UNDERWEIGHT'
-     : bmi < 25  ? 'NORMAL'
-     : bmi < 30  ? 'OVERWEIGHT'
-                 : 'OBESE';
+  bmi < 18.5 ? 'UNDERWEIGHT'
+: bmi < 25  ? 'NORMAL'
+: bmi < 30  ? 'OVERWEIGHT'
+            : 'OBESE';
+
+// Body composition calculations based on height, weight, age, and gender
+export const calculateBodyFatPercentage = (
+  weightKg: number,
+  heightCm: number,
+  age: number,
+  gender: string
+): number => {
+  // Using the U.S. Navy body fat calculation method
+  const heightM = heightCm / 100;
+  
+  if (gender === 'MALE') {
+    // Male formula: 86.010 × log10(abdomen - neck) - 70.041 × log10(height) + 36.76
+    // For simplicity, we'll use a BMI-based estimation
+    const bmi = weightKg / (heightM * heightM);
+    const ageFactor = age < 30 ? 0 : age < 50 ? 0.5 : 1;
+    
+    // Rough estimation based on BMI and age
+    if (bmi < 18.5) return 8 + ageFactor;
+    if (bmi < 25) return 12 + ageFactor;
+    if (bmi < 30) return 20 + ageFactor;
+    return 25 + ageFactor;
+  } else {
+    // Female formula: 163.205 × log10(waist + hip - neck) - 97.684 × log10(height) - 78.387
+    // For simplicity, we'll use a BMI-based estimation
+    const bmi = weightKg / (heightM * heightM);
+    const ageFactor = age < 30 ? 0 : age < 50 ? 1 : 2;
+    
+    // Rough estimation based on BMI and age
+    if (bmi < 18.5) return 14 + ageFactor;
+    if (bmi < 25) return 20 + ageFactor;
+    if (bmi < 30) return 28 + ageFactor;
+    return 35 + ageFactor;
+  }
+};
+
+export const calculateMuscleMass = (
+  weightKg: number,
+  bodyFatPercentage: number
+): number => {
+  // Muscle mass is roughly the remaining weight after subtracting fat mass
+  const fatMass = weightKg * (bodyFatPercentage / 100);
+  const leanMass = weightKg - fatMass;
+  
+  // Muscle mass is approximately 40-50% of lean mass
+  return leanMass * 0.45;
+};
 

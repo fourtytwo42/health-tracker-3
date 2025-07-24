@@ -68,6 +68,7 @@ export interface WorkoutWithExercises {
       description?: string;
       category?: string;
       intensity?: string;
+      imageUrl?: string;
     };
   }>;
 }
@@ -500,6 +501,7 @@ Return a valid JSON object with the following structure:
     const targetMuscleGroups = workout.targetMuscleGroups ? JSON.parse(workout.targetMuscleGroups) : [];
     const equipment = workout.equipment ? JSON.parse(workout.equipment) : [];
     const instructions = workout.instructions ? JSON.parse(workout.instructions) : [];
+    const virtualExercises = workout.virtualExercises ? JSON.parse(workout.virtualExercises) : [];
 
     // Calculate total calories if not provided
     let totalCalories = workout.totalCalories;
@@ -513,12 +515,28 @@ Return a valid JSON object with the following structure:
       }, 0);
     }
 
+    // Process exercises to include images from virtualExercises
+    const exercisesWithImages = workout.exercises.map((exercise: any, index: number) => {
+      // Find corresponding virtual exercise with image
+      const virtualExercise = virtualExercises[index];
+      
+      return {
+        ...exercise,
+        exercise: {
+          ...exercise.exercise,
+          // Add image URL if available from virtual exercise
+          imageUrl: virtualExercise?.imageUrl || null,
+        }
+      };
+    });
+
     return {
       ...workout,
       targetMuscleGroups,
       equipment,
       instructions,
       totalCalories: Math.round(totalCalories || 0),
+      exercises: exercisesWithImages,
     };
   }
 } 

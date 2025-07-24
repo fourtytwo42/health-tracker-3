@@ -44,7 +44,8 @@ import {
   Warning as AllergyIcon,
   Block as IntoleranceIcon,
   FilterList as FilterIcon,
-  Clear as ClearIcon
+  Clear as ClearIcon,
+  SmartToy as AIIcon
 } from '@mui/icons-material';
 import { useAuth } from '@/context/AuthContext';
 
@@ -126,7 +127,7 @@ export default function FoodPreferencesTab() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [searchResults, setSearchResults] = useState<Ingredient[]>([]);
+  const [ingredients, setIngredients] = useState<Ingredient[]>([]);
   const [allIngredients, setAllIngredients] = useState<Ingredient[]>([]);
   const [preferences, setPreferences] = useState<FoodPreference[]>([]);
   const [selectedIngredient, setSelectedIngredient] = useState<Ingredient | null>(null);
@@ -135,6 +136,7 @@ export default function FoodPreferencesTab() {
   const [preferenceType, setPreferenceType] = useState('LIKE');
   const [preferenceNotes, setPreferenceNotes] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
   const [error, setError] = useState<string | null>(null);
@@ -149,95 +151,46 @@ export default function FoodPreferencesTab() {
   const [carbRange, setCarbRange] = useState([0, 100]);
   const [fatRange, setFatRange] = useState([0, 100]);
   const [fiberRange, setFiberRange] = useState([0, 50]);
-  const [sodiumRange, setSodiumRange] = useState([0, 2000]);
-  const [preferenceTypeFilter, setPreferenceTypeFilter] = useState('');
-  
-  // Enhanced filter states
-  const [dietaryFilter, setDietaryFilter] = useState<string[]>([]);
-  const [preparationFilter, setPreparationFilter] = useState<string[]>([]);
-  const [mealTypeFilter, setMealTypeFilter] = useState<string[]>([]);
-  const [seasonalFilter, setSeasonalFilter] = useState<string[]>([]);
+  const [sodiumRange, setSodiumRange] = useState([0, 5000]);
 
-  // Available categories and aisles
+  // AI Search states
+  const [aiSearchLoading, setAiSearchLoading] = useState(false);
+  const [aiSearchError, setAiSearchError] = useState<string | null>(null);
+  const [aiSearchResult, setAiSearchResult] = useState<any>(null);
+  const [showAiResult, setShowAiResult] = useState(false);
+
+  // Categories and aisles
   const [categories, setCategories] = useState<string[]>([]);
   const [aisles, setAisles] = useState<string[]>([]);
-
-  // Enhanced filter options
-  const dietaryOptions = [
-    { value: 'vegan', label: 'Vegan' },
-    { value: 'vegetarian', label: 'Vegetarian' },
-    { value: 'gluten-free', label: 'Gluten-Free' },
-    { value: 'dairy-free', label: 'Dairy-Free' },
-    { value: 'keto', label: 'Keto' },
-    { value: 'paleo', label: 'Paleo' }
-  ];
-
-  const preparationOptions = [
-    { value: 'raw', label: 'Raw' },
-    { value: 'cooked', label: 'Cooked' },
-    { value: 'frozen', label: 'Frozen' },
-    { value: 'canned', label: 'Canned' },
-    { value: 'fresh', label: 'Fresh' },
-    { value: 'dried', label: 'Dried' }
-  ];
-
-  const mealTypeOptions = [
-    { value: 'breakfast', label: 'Breakfast' },
-    { value: 'lunch', label: 'Lunch' },
-    { value: 'dinner', label: 'Dinner' },
-    { value: 'snack', label: 'Snack' },
-    { value: 'dessert', label: 'Dessert' }
-  ];
-
-  const seasonalOptions = [
-    { value: 'spring', label: 'Spring' },
-    { value: 'summer', label: 'Summer' },
-    { value: 'fall', label: 'Fall' },
-    { value: 'winter', label: 'Winter' },
-    { value: 'year-round', label: 'Year-Round' }
-  ];
-
-  const itemsPerPage = 20;
-
-  // Filter preferences based on preference type filter
-  const filteredPreferences = preferences.filter(preference => {
-    if (!preferenceTypeFilter) return true;
-    return preference.preference === preferenceTypeFilter;
-  });
-
-  // Paginate preferences
-  const paginatedPreferences = filteredPreferences.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
-  );
 
   useEffect(() => {
     if (user) {
       loadCategoriesAndAisles();
-      loadPreferences();
       loadAllIngredients();
+      loadIngredients();
+      loadPreferences();
     }
   }, [user]);
 
   useEffect(() => {
-    // Reset to page 1 when filters change
-    setCurrentPage(1);
     loadIngredients();
-  }, [searchTerm, categoryFilter, aisleFilter, calorieRange, proteinRange, carbRange, fatRange, fiberRange, sodiumRange, preferenceTypeFilter, dietaryFilter, preparationFilter, mealTypeFilter, seasonalFilter]);
+  }, [currentPage, pageSize, searchTerm, categoryFilter, aisleFilter, calorieRange, proteinRange, carbRange, fatRange, fiberRange, sodiumRange]);
 
   const loadCategoriesAndAisles = async () => {
     try {
-      const response = await fetch('/api/ingredients/search?loadCategories=true&loadAisles=true');
-      if (response.ok) {
-        const data = await response.json();
-        const ingredients = data.ingredients || [];
-        
-        // Extract unique categories and aisles
-        const uniqueCategories = [...new Set(ingredients.map((ing: any) => ing.category).filter(Boolean))];
-        const uniqueAisles = [...new Set(ingredients.map((ing: any) => ing.aisle).filter(Boolean))];
-        
-        setCategories(uniqueCategories.sort());
-        setAisles(uniqueAisles.sort());
+      const [categoriesResponse, aislesResponse] = await Promise.all([
+        fetch('/api/ingredients/categories'),
+        fetch('/api/ingredients/aisles')
+      ]);
+
+      if (categoriesResponse.ok) {
+        const categoriesData = await categoriesResponse.json();
+        setCategories(categoriesData.categories || []);
+      }
+
+      if (aislesResponse.ok) {
+        const aislesData = await aislesResponse.json();
+        setAisles(aislesData.aisles || []);
       }
     } catch (error) {
       console.error('Error loading categories and aisles:', error);
@@ -246,16 +199,13 @@ export default function FoodPreferencesTab() {
 
   const loadAllIngredients = async () => {
     try {
-      setLoading(true);
-      const response = await fetch('/api/ingredients/search?limit=1000');
+      const response = await fetch('/api/ingredients?limit=1000');
       if (response.ok) {
         const data = await response.json();
         setAllIngredients(data.ingredients || []);
       }
     } catch (error) {
       console.error('Error loading all ingredients:', error);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -266,147 +216,49 @@ export default function FoodPreferencesTab() {
       // Build query parameters
       const params = new URLSearchParams({
         page: currentPage.toString(),
-        limit: itemsPerPage.toString()
+        limit: pageSize.toString()
       });
 
-      if (searchTerm) {
-        params.append('q', searchTerm);
+      if (searchTerm.trim()) {
+        params.append('search', searchTerm.trim());
       }
-
       if (categoryFilter) {
         params.append('category', categoryFilter);
       }
-
       if (aisleFilter) {
         params.append('aisle', aisleFilter);
       }
-
-      // Add nutrition filters
       if (calorieRange[0] > 0 || calorieRange[1] < 1000) {
-        params.append('calories', `${calorieRange[0]}-${calorieRange[1]}`);
+        params.append('caloriesMin', calorieRange[0].toString());
+        params.append('caloriesMax', calorieRange[1].toString());
       }
-
       if (proteinRange[0] > 0 || proteinRange[1] < 100) {
-        params.append('protein', `${proteinRange[0]}-${proteinRange[1]}`);
+        params.append('proteinMin', proteinRange[0].toString());
+        params.append('proteinMax', proteinRange[1].toString());
       }
-
       if (carbRange[0] > 0 || carbRange[1] < 100) {
-        params.append('carbs', `${carbRange[0]}-${carbRange[1]}`);
+        params.append('carbsMin', carbRange[0].toString());
+        params.append('carbsMax', carbRange[1].toString());
       }
-
       if (fatRange[0] > 0 || fatRange[1] < 100) {
-        params.append('fat', `${fatRange[0]}-${fatRange[1]}`);
+        params.append('fatMin', fatRange[0].toString());
+        params.append('fatMax', fatRange[1].toString());
       }
-
       if (fiberRange[0] > 0 || fiberRange[1] < 50) {
-        params.append('fiber', `${fiberRange[0]}-${fiberRange[1]}`);
+        params.append('fiberMin', fiberRange[0].toString());
+        params.append('fiberMax', fiberRange[1].toString());
+      }
+      if (sodiumRange[0] > 0 || sodiumRange[1] < 5000) {
+        params.append('sodiumMin', sodiumRange[0].toString());
+        params.append('sodiumMax', sodiumRange[1].toString());
       }
 
-      if (sodiumRange[0] > 0 || sodiumRange[1] < 2000) {
-        params.append('sodium', `${sodiumRange[0]}-${sodiumRange[1]}`);
-      }
-
-      const response = await fetch(`/api/ingredients/search?${params}`);
+      const response = await fetch(`/api/ingredients?${params.toString()}`);
       if (response.ok) {
         const data = await response.json();
-        const ingredients = data.ingredients || [];
-        
-        // Apply enhanced filters client-side
-        let filteredIngredients = ingredients;
-        
-        if (dietaryFilter.length > 0) {
-          filteredIngredients = filteredIngredients.filter((ing: Ingredient) => {
-            return dietaryFilter.some(diet => {
-              const name = ing.name.toLowerCase();
-              const category = ing.category.toLowerCase();
-              
-              switch (diet) {
-                case 'vegan':
-                  return !name.includes('meat') && !name.includes('chicken') && !name.includes('beef') && 
-                         !name.includes('pork') && !name.includes('fish') && !name.includes('dairy') &&
-                         !name.includes('milk') && !name.includes('cheese') && !name.includes('egg');
-                case 'vegetarian':
-                  return !name.includes('meat') && !name.includes('chicken') && !name.includes('beef') && 
-                         !name.includes('pork') && !name.includes('fish');
-                case 'gluten-free':
-                  return !name.includes('wheat') && !name.includes('gluten') && !name.includes('bread') &&
-                         !name.includes('pasta') && !name.includes('flour');
-                case 'dairy-free':
-                  return !name.includes('milk') && !name.includes('cheese') && !name.includes('yogurt') &&
-                         !name.includes('butter') && !name.includes('cream');
-                case 'keto':
-                  return ing.carbs < 10; // Low carb for keto
-                case 'paleo':
-                  return !name.includes('grain') && !name.includes('wheat') && !name.includes('rice') &&
-                         !name.includes('corn') && !name.includes('bean');
-                default:
-                  return true;
-              }
-            });
-          });
-        }
-
-        if (preparationFilter.length > 0) {
-          filteredIngredients = filteredIngredients.filter((ing: Ingredient) => {
-            return preparationFilter.some(prep => {
-              const name = ing.name.toLowerCase();
-              
-              switch (prep) {
-                case 'raw':
-                  return name.includes('raw') || name.includes('fresh');
-                case 'cooked':
-                  return name.includes('cooked') || name.includes('roasted') || name.includes('grilled');
-                case 'frozen':
-                  return name.includes('frozen');
-                case 'canned':
-                  return name.includes('canned') || name.includes('preserved');
-                case 'fresh':
-                  return name.includes('fresh') || !name.includes('frozen') && !name.includes('canned');
-                case 'dried':
-                  return name.includes('dried') || name.includes('dehydrated');
-                default:
-                  return true;
-              }
-            });
-          });
-        }
-
-        if (mealTypeFilter.length > 0) {
-          filteredIngredients = filteredIngredients.filter((ing: Ingredient) => {
-            return mealTypeFilter.some(meal => {
-              const name = ing.name.toLowerCase();
-              const category = ing.category.toLowerCase();
-              
-              switch (meal) {
-                case 'breakfast':
-                  return name.includes('egg') || name.includes('cereal') || name.includes('oatmeal') ||
-                         name.includes('pancake') || name.includes('waffle') || name.includes('toast') ||
-                         category.includes('dairy') || category.includes('fruit');
-                case 'lunch':
-                  return name.includes('sandwich') || name.includes('salad') || name.includes('soup') ||
-                         category.includes('vegetable') || category.includes('protein');
-                case 'dinner':
-                  return category.includes('protein') || category.includes('vegetable') ||
-                         name.includes('pasta') || name.includes('rice') || name.includes('potato');
-                case 'snack':
-                  return name.includes('chip') || name.includes('cracker') || name.includes('nut') ||
-                         name.includes('fruit') || name.includes('yogurt');
-                case 'dessert':
-                  return name.includes('chocolate') || name.includes('cake') || name.includes('cookie') ||
-                         name.includes('ice cream') || name.includes('candy') || name.includes('sweet');
-                default:
-                  return true;
-              }
-            });
-          });
-        }
-
-        setSearchResults(filteredIngredients);
-        
-        // Calculate pagination
-        const total = filteredIngredients.length;
-        setTotalItems(total);
-        setTotalPages(Math.ceil(total / itemsPerPage));
+        setIngredients(data.ingredients || []);
+        setTotalItems(data.total || 0);
+        setTotalPages(Math.ceil((data.total || 0) / pageSize));
       }
     } catch (error) {
       console.error('Error loading ingredients:', error);
@@ -429,11 +281,12 @@ export default function FoodPreferencesTab() {
   };
 
   const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const value = event.target.value;
-    setSearchTerm(value);
+    setSearchTerm(event.target.value);
+    setCurrentPage(1);
   };
 
   const clearFilters = () => {
+    setSearchTerm('');
     setCategoryFilter('');
     setAisleFilter('');
     setCalorieRange([0, 1000]);
@@ -441,27 +294,95 @@ export default function FoodPreferencesTab() {
     setCarbRange([0, 100]);
     setFatRange([0, 100]);
     setFiberRange([0, 50]);
-    setSodiumRange([0, 2000]);
-    setPreferenceTypeFilter('');
-    setDietaryFilter([]);
-    setPreparationFilter([]);
-    setMealTypeFilter([]);
-    setSeasonalFilter([]);
+    setSodiumRange([0, 5000]);
+    setCurrentPage(1);
+    clearAiSearch();
+  };
+
+  // AI Search function
+  const handleAiSearch = async () => {
+    if (!searchTerm.trim()) {
+      setAiSearchError('Please enter a search term to analyze');
+      return;
+    }
+
+    setAiSearchLoading(true);
+    setAiSearchError(null);
+    setAiSearchResult(null);
+    setShowAiResult(false);
+
+    try {
+      // Prepare nutrition filters
+      const nutritionFilters: any = {};
+      if (calorieRange[0] > 0 || calorieRange[1] < 1000) {
+        nutritionFilters.calories = { min: calorieRange[0], max: calorieRange[1] };
+      }
+      if (proteinRange[0] > 0 || proteinRange[1] < 100) {
+        nutritionFilters.protein = { min: proteinRange[0], max: proteinRange[1] };
+      }
+      if (carbRange[0] > 0 || carbRange[1] < 100) {
+        nutritionFilters.carbs = { min: carbRange[0], max: carbRange[1] };
+      }
+      if (fatRange[0] > 0 || fatRange[1] < 100) {
+        nutritionFilters.fat = { min: fatRange[0], max: fatRange[1] };
+      }
+      if (fiberRange[0] > 0 || fiberRange[1] < 50) {
+        nutritionFilters.fiber = { min: fiberRange[0], max: fiberRange[1] };
+      }
+      if (sodiumRange[0] > 0 || sodiumRange[1] < 5000) {
+        nutritionFilters.sodium = { min: sodiumRange[0], max: sodiumRange[1] };
+      }
+
+      const response = await fetch('/api/ingredients/ai-search', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
+        },
+        body: JSON.stringify({
+          searchTerm: searchTerm.trim(),
+          category: categoryFilter || undefined,
+          aisle: aisleFilter || undefined,
+          nutritionFilters: Object.keys(nutritionFilters).length > 0 ? nutritionFilters : undefined
+        })
+      });
+
+      const result = await response.json();
+
+      if (response.ok && result.success) {
+        setAiSearchResult(result);
+        setShowAiResult(true);
+      } else {
+        setAiSearchError(result.error || 'Failed to get AI recommendation');
+      }
+    } catch (error) {
+      console.error('AI search error:', error);
+      setAiSearchError('Failed to connect to AI service');
+    } finally {
+      setAiSearchLoading(false);
+    }
+  };
+
+  // Clear AI search results
+  const clearAiSearch = () => {
+    setAiSearchResult(null);
+    setAiSearchError(null);
+    setShowAiResult(false);
   };
 
   const handleAddPreference = (ingredient: Ingredient) => {
     setSelectedIngredient(ingredient);
+    setEditingPreference(null);
     setPreferenceType('LIKE');
     setPreferenceNotes('');
-    setEditingPreference(null);
     setPreferenceDialog(true);
   };
 
   const handleEditPreference = (preference: FoodPreference) => {
     setSelectedIngredient(preference.ingredient);
+    setEditingPreference(preference);
     setPreferenceType(preference.preference);
     setPreferenceNotes(preference.notes || '');
-    setEditingPreference(preference);
     setPreferenceDialog(true);
   };
 
@@ -469,77 +390,94 @@ export default function FoodPreferencesTab() {
     if (!selectedIngredient) return;
 
     try {
-      const method = editingPreference ? 'PUT' : 'POST';
+      const preferenceData = {
+        ingredientId: selectedIngredient.id,
+        preference: preferenceType,
+        notes: preferenceNotes.trim() || undefined
+      };
+
       const url = editingPreference 
         ? `/api/food-preferences/${editingPreference.id}`
         : '/api/food-preferences';
+      
+      const method = editingPreference ? 'PUT' : 'POST';
 
       const response = await fetch(url, {
         method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ingredientId: selectedIngredient.id,
-          preference: preferenceType,
-          notes: preferenceNotes
-        })
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(preferenceData),
       });
 
       if (response.ok) {
-        setSuccess(editingPreference ? 'Preference updated!' : 'Preference added!');
+        setSuccess(editingPreference ? 'Preference updated successfully!' : 'Preference added successfully!');
         setPreferenceDialog(false);
-        loadPreferences();
-        setSearchTerm('');
-        setSearchResults([]);
+        await loadPreferences();
       } else {
         const errorData = await response.json();
         setError(errorData.error || 'Failed to save preference');
       }
     } catch (error) {
-      setError('An error occurred while saving');
+      setError('An error occurred while saving preference');
     }
   };
 
   const handleDeletePreference = async (preferenceId: string) => {
+    if (!confirm('Are you sure you want to delete this preference?')) return;
+
     try {
       const response = await fetch(`/api/food-preferences/${preferenceId}`, {
-        method: 'DELETE'
+        method: 'DELETE',
       });
 
       if (response.ok) {
-        setSuccess('Preference removed!');
-        loadPreferences();
+        setSuccess('Preference deleted successfully!');
+        await loadPreferences();
       } else {
-        setError('Failed to remove preference');
+        const errorData = await response.json();
+        setError(errorData.error || 'Failed to delete preference');
       }
     } catch (error) {
-      setError('An error occurred while removing preference');
+      setError('An error occurred while deleting preference');
     }
   };
 
   const getPreferenceIcon = (type: string) => {
-    const preference = PREFERENCE_TYPES.find(p => p.value === type);
-    return preference?.icon || <LikeIcon />;
+    return PREFERENCE_TYPES.find(p => p.value === type)?.icon || <LikeIcon />;
   };
 
   const getPreferenceColor = (type: string) => {
-    const preference = PREFERENCE_TYPES.find(p => p.value === type);
-    return preference?.color || 'default';
+    return PREFERENCE_TYPES.find(p => p.value === type)?.color || 'default';
   };
 
+  const getExistingPreference = (ingredientId: string) => {
+    return preferences.find(p => p.ingredientId === ingredientId);
+  };
 
+  const shouldShowNutritionValue = (value: number | null | undefined): boolean => {
+    return value !== null && value !== undefined && value > 0;
+  };
+
+  const formatNutritionValue = (value: number | null | undefined, defaultValue: number = 0): number => {
+    return shouldShowNutritionValue(value) ? value! : defaultValue;
+  };
 
   return (
     <Box>
       <Typography variant="h5" gutterBottom>
         Food Preferences & Allergies
       </Typography>
-      
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+        Manage your food preferences, allergies, and intolerances to help personalize your meal recommendations.
+      </Typography>
+
       {error && (
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
           {error}
         </Alert>
       )}
-      
+
       {success && (
         <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccess(null)}>
           {success}
@@ -547,319 +485,269 @@ export default function FoodPreferencesTab() {
       )}
 
       <Grid container spacing={3}>
-        {/* Search Section */}
+        {/* Search and Filters */}
         <Grid item xs={12}>
           <Card>
-            <CardHeader title="Search & Add Food Preferences" />
-            <CardContent>
-              <TextField
-                fullWidth
-                label="Search ingredients"
-                value={searchTerm}
-                onChange={handleSearchChange}
-                placeholder="Type to search for ingredients..."
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <SearchIcon />
-                    </InputAdornment>
-                  ),
-                }}
-              />
-              
-              {/* Filter Toggle */}
-              <Box sx={{ mt: 2, mb: 2 }}>
-                <Button
-                  variant="outlined"
-                  onClick={() => setShowFilters(!showFilters)}
-                  startIcon={<FilterIcon />}
-                  size="small"
-                >
-                  {showFilters ? 'Hide Filters' : 'Show Filters'}
-                </Button>
-                {showFilters && (
+            <CardHeader 
+              title="Search Ingredients"
+              action={
+                <Box display="flex" gap={1}>
                   <Button
                     variant="outlined"
-                    onClick={clearFilters}
-                    startIcon={<ClearIcon />}
+                    startIcon={<FilterIcon />}
+                    onClick={() => setShowFilters(!showFilters)}
                     size="small"
-                    sx={{ ml: 1 }}
                   >
-                    Clear Filters
+                    {showFilters ? 'Hide' : 'Show'} Filters
                   </Button>
+                  <Button
+                    variant="outlined"
+                    startIcon={<ClearIcon />}
+                    onClick={clearFilters}
+                    size="small"
+                  >
+                    Clear All
+                  </Button>
+                </Box>
+              }
+            />
+            <CardContent>
+              <Stack spacing={2}>
+                {/* Search Bar */}
+                <Box display="flex" gap={1}>
+                  <TextField
+                    fullWidth
+                    placeholder="Search ingredients by name..."
+                    value={searchTerm}
+                    onChange={handleSearchChange}
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <SearchIcon />
+                        </InputAdornment>
+                      ),
+                    }}
+                  />
+                  <Button
+                    variant="contained"
+                    startIcon={<AIIcon />}
+                    onClick={handleAiSearch}
+                    disabled={aiSearchLoading || !searchTerm.trim()}
+                    sx={{ minWidth: 120 }}
+                  >
+                    {aiSearchLoading ? <CircularProgress size={20} /> : 'AI Match'}
+                  </Button>
+                </Box>
+
+                {/* AI Search Results */}
+                {aiSearchError && (
+                  <Alert severity="error" onClose={() => setAiSearchError(null)}>
+                    {aiSearchError}
+                  </Alert>
                 )}
-              </Box>
 
-              {/* Filter Panel */}
-              <Collapse in={showFilters}>
-                <Paper sx={{ p: 2, mb: 2 }}>
-                  <Typography variant="h6" gutterBottom>
-                    Search Filters
-                  </Typography>
-                  
-                  <Grid container spacing={2}>
-                    {/* Category Filter */}
-                    <Grid item xs={12} md={6}>
-                      <TextField
-                        select
-                        fullWidth
-                        label="Category"
-                        value={categoryFilter}
-                        onChange={(e) => setCategoryFilter(e.target.value)}
-                        size="small"
-                      >
-                        <MenuItem value="">All Categories</MenuItem>
-                        {categories.map((category) => (
-                          <MenuItem key={category} value={category}>
-                            {category}
-                          </MenuItem>
-                        ))}
-                      </TextField>
-                    </Grid>
-
-                    {/* Aisle Filter */}
-                    <Grid item xs={12} md={6}>
-                      <TextField
-                        select
-                        fullWidth
-                        label="Aisle"
-                        value={aisleFilter}
-                        onChange={(e) => setAisleFilter(e.target.value)}
-                        size="small"
-                      >
-                        <MenuItem value="">All Aisles</MenuItem>
-                        {aisles.map((aisle) => (
-                          <MenuItem key={aisle} value={aisle}>
-                            {aisle}
-                          </MenuItem>
-                        ))}
-                      </TextField>
-                    </Grid>
-
-                    {/* Calorie Range */}
-                    <Grid item xs={12} md={6}>
-                      <Typography gutterBottom>
-                        Calories: {calorieRange[0]} - {calorieRange[1]}
+                {showAiResult && aiSearchResult && (
+                  <Paper sx={{ p: 2, bgcolor: 'primary.50' }}>
+                    <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
+                      <Typography variant="h6" color="primary">
+                        AI Best Match
                       </Typography>
-                      <Slider
-                        value={calorieRange}
-                        onChange={(_, newValue) => setCalorieRange(newValue as number[])}
-                        valueLabelDisplay="auto"
-                        min={0}
-                        max={1000}
-                        step={10}
-                      />
-                    </Grid>
-
-                    {/* Protein Range */}
-                    <Grid item xs={12} md={6}>
-                      <Typography gutterBottom>
-                        Protein: {proteinRange[0]} - {proteinRange[1]}g
-                      </Typography>
-                      <Slider
-                        value={proteinRange}
-                        onChange={(_, newValue) => setProteinRange(newValue as number[])}
-                        valueLabelDisplay="auto"
-                        min={0}
-                        max={100}
-                        step={1}
-                      />
-                    </Grid>
-
-                    {/* Carb Range */}
-                    <Grid item xs={12} md={6}>
-                      <Typography gutterBottom>
-                        Carbs: {carbRange[0]} - {carbRange[1]}g
-                      </Typography>
-                      <Slider
-                        value={carbRange}
-                        onChange={(_, newValue) => setCarbRange(newValue as number[])}
-                        valueLabelDisplay="auto"
-                        min={0}
-                        max={100}
-                        step={1}
-                      />
-                    </Grid>
-
-                    {/* Fat Range */}
-                    <Grid item xs={12} md={6}>
-                      <Typography gutterBottom>
-                        Fat: {fatRange[0]} - {fatRange[1]}g
-                      </Typography>
-                      <Slider
-                        value={fatRange}
-                        onChange={(_, newValue) => setFatRange(newValue as number[])}
-                        valueLabelDisplay="auto"
-                        min={0}
-                        max={100}
-                        step={1}
-                      />
-                    </Grid>
-
-                    {/* Fiber Range */}
-                    <Grid item xs={12} md={6}>
-                      <Typography gutterBottom>
-                        Fiber: {fiberRange[0]} - {fiberRange[1]}g
-                      </Typography>
-                      <Slider
-                        value={fiberRange}
-                        onChange={(_, newValue) => setFiberRange(newValue as number[])}
-                        valueLabelDisplay="auto"
-                        min={0}
-                        max={50}
-                        step={0.5}
-                      />
-                    </Grid>
-
-                    {/* Sodium Range */}
-                    <Grid item xs={12} md={6}>
-                      <Typography gutterBottom>
-                        Sodium: {sodiumRange[0]} - {sodiumRange[1]}mg
-                      </Typography>
-                      <Slider
-                        value={sodiumRange}
-                        onChange={(_, newValue) => setSodiumRange(newValue as number[])}
-                        valueLabelDisplay="auto"
-                        min={0}
-                        max={2000}
-                        step={10}
-                      />
-                    </Grid>
-
-                    {/* Enhanced Filters */}
-                    <Grid item xs={12}>
-                      <Divider sx={{ my: 2 }} />
-                      <Typography variant="h6" gutterBottom>
-                        Enhanced Filters
-                      </Typography>
-                    </Grid>
-
-                    {/* Dietary Restrictions */}
-                    <Grid item xs={12} md={6}>
-                      <FormControl fullWidth size="small">
-                        <InputLabel>Dietary Restrictions</InputLabel>
-                        <Select
-                          multiple
-                          value={dietaryFilter}
-                          onChange={(e) => setDietaryFilter(e.target.value as string[])}
-                          renderValue={(selected) => (
-                            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                              {selected.map((value) => (
-                                <Chip key={value} label={dietaryOptions.find(opt => opt.value === value)?.label || value} size="small" />
-                              ))}
+                      <IconButton size="small" onClick={clearAiSearch}>
+                        <ClearIcon />
+                      </IconButton>
+                    </Box>
+                    {aiSearchResult.ingredient && (
+                      <Card variant="outlined">
+                        <CardContent>
+                          <Box display="flex" justifyContent="space-between" alignItems="flex-start">
+                            <Box>
+                              <Typography variant="h6">
+                                {aiSearchResult.ingredient.name}
+                              </Typography>
+                              <Typography variant="body2" color="text.secondary">
+                                {aiSearchResult.ingredient.category} • {aiSearchResult.ingredient.aisle}
+                              </Typography>
+                              <Box display="flex" gap={2} mt={1}>
+                                <Typography variant="body2">
+                                  {formatNutritionValue(aiSearchResult.ingredient.calories)} cal
+                                </Typography>
+                                <Typography variant="body2">
+                                  P: {formatNutritionValue(aiSearchResult.ingredient.protein)}g
+                                </Typography>
+                                <Typography variant="body2">
+                                  C: {formatNutritionValue(aiSearchResult.ingredient.carbs)}g
+                                </Typography>
+                                <Typography variant="body2">
+                                  F: {formatNutritionValue(aiSearchResult.ingredient.fat)}g
+                                </Typography>
+                              </Box>
                             </Box>
-                          )}
-                        >
-                          {dietaryOptions.map((option) => (
-                            <MenuItem key={option.value} value={option.value}>
-                              {option.label}
-                            </MenuItem>
-                          ))}
-                        </Select>
-                      </FormControl>
-                    </Grid>
+                            <Button
+                              variant="contained"
+                              size="small"
+                              onClick={() => handleAddPreference(aiSearchResult.ingredient)}
+                            >
+                              Add Preference
+                            </Button>
+                          </Box>
+                        </CardContent>
+                      </Card>
+                    )}
+                    {aiSearchResult.explanation && (
+                      <Typography variant="body2" sx={{ mt: 1, fontStyle: 'italic' }}>
+                        {aiSearchResult.explanation}
+                      </Typography>
+                    )}
+                  </Paper>
+                )}
 
-                    {/* Preparation Methods */}
-                    <Grid item xs={12} md={6}>
-                      <FormControl fullWidth size="small">
-                        <InputLabel>Preparation Methods</InputLabel>
-                        <Select
-                          multiple
-                          value={preparationFilter}
-                          onChange={(e) => setPreparationFilter(e.target.value as string[])}
-                          renderValue={(selected) => (
-                            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                              {selected.map((value) => (
-                                <Chip key={value} label={preparationOptions.find(opt => opt.value === value)?.label || value} size="small" />
-                              ))}
-                            </Box>
-                          )}
-                        >
-                          {preparationOptions.map((option) => (
-                            <MenuItem key={option.value} value={option.value}>
-                              {option.label}
-                            </MenuItem>
-                          ))}
-                        </Select>
-                      </FormControl>
+                {/* Filters */}
+                <Collapse in={showFilters}>
+                  <Paper sx={{ p: 2 }}>
+                    <Grid container spacing={2}>
+                      <Grid item xs={12} md={6}>
+                        <FormControl fullWidth size="small">
+                          <InputLabel>Category</InputLabel>
+                          <Select
+                            value={categoryFilter}
+                            onChange={(e) => setCategoryFilter(e.target.value)}
+                            label="Category"
+                          >
+                            <MenuItem value="">All Categories</MenuItem>
+                            {categories.map((category) => (
+                              <MenuItem key={category} value={category}>
+                                {category}
+                              </MenuItem>
+                            ))}
+                          </Select>
+                        </FormControl>
+                      </Grid>
+                      <Grid item xs={12} md={6}>
+                        <FormControl fullWidth size="small">
+                          <InputLabel>Aisle</InputLabel>
+                          <Select
+                            value={aisleFilter}
+                            onChange={(e) => setAisleFilter(e.target.value)}
+                            label="Aisle"
+                          >
+                            <MenuItem value="">All Aisles</MenuItem>
+                            {aisles.map((aisle) => (
+                              <MenuItem key={aisle} value={aisle}>
+                                {aisle}
+                              </MenuItem>
+                            ))}
+                          </Select>
+                        </FormControl>
+                      </Grid>
+                      
+                      {/* Nutrition Filters */}
+                      <Grid item xs={12} md={4}>
+                        <Typography variant="body2" gutterBottom>
+                          Calories: {calorieRange[0]} - {calorieRange[1]}
+                        </Typography>
+                        <Slider
+                          value={calorieRange}
+                          onChange={(_, value) => setCalorieRange(value as number[])}
+                          min={0}
+                          max={1000}
+                          step={10}
+                          valueLabelDisplay="auto"
+                        />
+                      </Grid>
+                      <Grid item xs={12} md={4}>
+                        <Typography variant="body2" gutterBottom>
+                          Protein: {proteinRange[0]} - {proteinRange[1]}g
+                        </Typography>
+                        <Slider
+                          value={proteinRange}
+                          onChange={(_, value) => setProteinRange(value as number[])}
+                          min={0}
+                          max={100}
+                          step={1}
+                          valueLabelDisplay="auto"
+                        />
+                      </Grid>
+                      <Grid item xs={12} md={4}>
+                        <Typography variant="body2" gutterBottom>
+                          Carbs: {carbRange[0]} - {carbRange[1]}g
+                        </Typography>
+                        <Slider
+                          value={carbRange}
+                          onChange={(_, value) => setCarbRange(value as number[])}
+                          min={0}
+                          max={100}
+                          step={1}
+                          valueLabelDisplay="auto"
+                        />
+                      </Grid>
+                      <Grid item xs={12} md={4}>
+                        <Typography variant="body2" gutterBottom>
+                          Fat: {fatRange[0]} - {fatRange[1]}g
+                        </Typography>
+                        <Slider
+                          value={fatRange}
+                          onChange={(_, value) => setFatRange(value as number[])}
+                          min={0}
+                          max={100}
+                          step={1}
+                          valueLabelDisplay="auto"
+                        />
+                      </Grid>
+                      <Grid item xs={12} md={4}>
+                        <Typography variant="body2" gutterBottom>
+                          Fiber: {fiberRange[0]} - {fiberRange[1]}g
+                        </Typography>
+                        <Slider
+                          value={fiberRange}
+                          onChange={(_, value) => setFiberRange(value as number[])}
+                          min={0}
+                          max={50}
+                          step={1}
+                          valueLabelDisplay="auto"
+                        />
+                      </Grid>
+                      <Grid item xs={12} md={4}>
+                        <Typography variant="body2" gutterBottom>
+                          Sodium: {sodiumRange[0]} - {sodiumRange[1]}mg
+                        </Typography>
+                        <Slider
+                          value={sodiumRange}
+                          onChange={(_, value) => setSodiumRange(value as number[])}
+                          min={0}
+                          max={5000}
+                          step={50}
+                          valueLabelDisplay="auto"
+                        />
+                      </Grid>
                     </Grid>
+                  </Paper>
+                </Collapse>
+              </Stack>
+            </CardContent>
+          </Card>
+        </Grid>
 
-                    {/* Meal Types */}
-                    <Grid item xs={12} md={6}>
-                      <FormControl fullWidth size="small">
-                        <InputLabel>Meal Types</InputLabel>
-                        <Select
-                          multiple
-                          value={mealTypeFilter}
-                          onChange={(e) => setMealTypeFilter(e.target.value as string[])}
-                          renderValue={(selected) => (
-                            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                              {selected.map((value) => (
-                                <Chip key={value} label={mealTypeOptions.find(opt => opt.value === value)?.label || value} size="small" />
-                              ))}
-                            </Box>
-                          )}
-                        >
-                          {mealTypeOptions.map((option) => (
-                            <MenuItem key={option.value} value={option.value}>
-                              {option.label}
-                            </MenuItem>
-                          ))}
-                        </Select>
-                      </FormControl>
-                    </Grid>
-
-                    {/* Seasonal Availability */}
-                    <Grid item xs={12} md={6}>
-                      <FormControl fullWidth size="small">
-                        <InputLabel>Seasonal Availability</InputLabel>
-                        <Select
-                          multiple
-                          value={seasonalFilter}
-                          onChange={(e) => setSeasonalFilter(e.target.value as string[])}
-                          renderValue={(selected) => (
-                            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                              {selected.map((value) => (
-                                <Chip key={value} label={seasonalOptions.find(opt => opt.value === value)?.label || value} size="small" />
-                              ))}
-                            </Box>
-                          )}
-                        >
-                          {seasonalOptions.map((option) => (
-                            <MenuItem key={option.value} value={option.value}>
-                              {option.label}
-                            </MenuItem>
-                          ))}
-                        </Select>
-                      </FormControl>
-                    </Grid>
-                  </Grid>
-                </Paper>
-              </Collapse>
-              
+        {/* Ingredients List */}
+        <Grid item xs={12}>
+          <Card>
+            <CardHeader 
+              title={`Ingredients (${totalItems} total)`}
+              subheader={`Showing ${ingredients.length} ingredients on page ${currentPage} of ${totalPages}`}
+            />
+            <CardContent>
               {loading ? (
                 <Box display="flex" justifyContent="center" p={3}>
                   <CircularProgress />
                 </Box>
-              ) : searchResults.length === 0 ? (
+              ) : ingredients.length === 0 ? (
                 <Typography variant="body2" color="text.secondary" align="center" py={3}>
-                  {searchTerm.length === 0 && !categoryFilter && !aisleFilter
-                    ? 'Loading ingredients...'
-                    : searchTerm.length > 0 && searchTerm.length < 2 
-                    ? 'Enter at least 2 characters to search for ingredients.'
-                    : 'No ingredients found matching your search criteria.'
-                  }
+                  No ingredients found. Try adjusting your search or filters.
                 </Typography>
               ) : (
-                <Box sx={{ mt: 2 }}>
-                  <Typography variant="subtitle2" gutterBottom>
-                    {searchTerm || categoryFilter || aisleFilter 
-                      ? `Search Results (${searchResults.length} of ${totalItems}):`
-                      : `All Ingredients (${searchResults.length} of ${totalItems}):`
-                    }
-                  </Typography>
-                  <List dense>
-                    {searchResults.map((ingredient) => (
+                <List>
+                  {ingredients.map((ingredient) => {
+                    const existingPreference = getExistingPreference(ingredient.id);
+                    return (
                       <ListItem
                         key={ingredient.id}
                         sx={{
@@ -871,125 +759,151 @@ export default function FoodPreferencesTab() {
                         }}
                       >
                         <ListItemText
-                          primary={ingredient.name}
-                          secondary={`${ingredient.category} • ${ingredient.calories} cal • ${ingredient.protein}g protein • ${ingredient.carbs}g carbs • ${ingredient.fat}g fat`}
+                          primary={
+                            <Box display="flex" alignItems="center" gap={1}>
+                              <Typography variant="body1">
+                                {ingredient.name}
+                              </Typography>
+                              {existingPreference && (
+                                <Chip
+                                  icon={getPreferenceIcon(existingPreference.preference)}
+                                  label={existingPreference.preference.replace('_', ' ')}
+                                  color={getPreferenceColor(existingPreference.preference) as any}
+                                  size="small"
+                                />
+                              )}
+                            </Box>
+                          }
+                          secondary={
+                            <Box>
+                              <Typography variant="body2" color="text.secondary">
+                                {ingredient.category} • {ingredient.aisle}
+                              </Typography>
+                              <Box display="flex" gap={2} mt={0.5}>
+                                {shouldShowNutritionValue(ingredient.calories) && (
+                                  <Typography variant="body2">
+                                    {ingredient.calories} cal
+                                  </Typography>
+                                )}
+                                {shouldShowNutritionValue(ingredient.protein) && (
+                                  <Typography variant="body2">
+                                    P: {ingredient.protein}g
+                                  </Typography>
+                                )}
+                                {shouldShowNutritionValue(ingredient.carbs) && (
+                                  <Typography variant="body2">
+                                    C: {ingredient.carbs}g
+                                  </Typography>
+                                )}
+                                {shouldShowNutritionValue(ingredient.fat) && (
+                                  <Typography variant="body2">
+                                    F: {ingredient.fat}g
+                                  </Typography>
+                                )}
+                              </Box>
+                            </Box>
+                          }
                         />
                         <ListItemSecondaryAction>
-                          <Button
-                            size="small"
-                            startIcon={<AddIcon />}
-                            onClick={() => handleAddPreference(ingredient)}
-                          >
-                            Add Preference
-                          </Button>
+                          {existingPreference ? (
+                            <Box display="flex" gap={1}>
+                              <IconButton
+                                size="small"
+                                onClick={() => handleEditPreference(existingPreference)}
+                              >
+                                <EditIcon />
+                              </IconButton>
+                              <IconButton
+                                size="small"
+                                color="error"
+                                onClick={() => handleDeletePreference(existingPreference.id)}
+                              >
+                                <DeleteIcon />
+                              </IconButton>
+                            </Box>
+                          ) : (
+                            <IconButton
+                              size="small"
+                              onClick={() => handleAddPreference(ingredient)}
+                            >
+                              <AddIcon />
+                            </IconButton>
+                          )}
                         </ListItemSecondaryAction>
                       </ListItem>
-                    ))}
-                  </List>
-                  
-                  {totalPages > 1 && (
-                    <Box display="flex" justifyContent="center" mt={2}>
-                      <Pagination
-                        count={totalPages}
-                        page={currentPage}
-                        onChange={(_, page) => setCurrentPage(page)}
-                        color="primary"
-                      />
-                    </Box>
-                  )}
+                    );
+                  })}
+                </List>
+              )}
+              
+              {/* Pagination */}
+              {totalPages > 1 && (
+                <Box display="flex" justifyContent="center" mt={2}>
+                  <Pagination
+                    count={totalPages}
+                    page={currentPage}
+                    onChange={(_, page) => setCurrentPage(page)}
+                    color="primary"
+                  />
                 </Box>
               )}
             </CardContent>
           </Card>
         </Grid>
 
-        {/* Preferences List */}
+        {/* Current Preferences */}
         <Grid item xs={12}>
           <Card>
-            <CardHeader 
-              title="Your Food Preferences" 
-              subheader={`${filteredPreferences.length} preferences saved`}
-            />
+            <CardHeader title="Your Food Preferences" />
             <CardContent>
-              {/* Preference Type Filter */}
-              <Box sx={{ mb: 2 }}>
-                <FormControl size="small" sx={{ minWidth: 200 }}>
-                  <InputLabel>Filter by Preference Type</InputLabel>
-                  <Select
-                    value={preferenceTypeFilter}
-                    onChange={(e) => setPreferenceTypeFilter(e.target.value)}
-                    label="Filter by Preference Type"
-                  >
-                    <MenuItem value="">All Preferences</MenuItem>
-                    {PREFERENCE_TYPES.map((type) => (
-                      <MenuItem key={type.value} value={type.value}>
-                        <Box display="flex" alignItems="center" gap={1}>
-                          {type.icon}
-                          {type.label}
-                        </Box>
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Box>
-
-              {loading ? (
-                <Box display="flex" justifyContent="center" p={3}>
-                  <CircularProgress />
-                </Box>
-              ) : filteredPreferences.length === 0 ? (
+              {preferences.length === 0 ? (
                 <Typography variant="body2" color="text.secondary" align="center" py={3}>
-                  {preferences.length === 0 
-                    ? 'No food preferences saved yet. Search for ingredients above to add your preferences.'
-                    : 'No preferences match the current filter. Try adjusting your filter settings.'
-                  }
+                  No food preferences set yet. Search for ingredients above to add your preferences.
                 </Typography>
               ) : (
-                <>
-                  <List>
-                    {paginatedPreferences.map((preference) => (
-                      <ListItem
-                        key={preference.id}
-                        sx={{
-                          border: 1,
-                          borderColor: 'divider',
-                          borderRadius: 1,
-                          mb: 1,
-                          '&:hover': { bgcolor: 'action.hover' }
-                        }}
-                      >
-                        <ListItemText
-                          primary={
-                            <Box display="flex" alignItems="center" gap={1}>
-                              {getPreferenceIcon(preference.preference)}
-                              <Typography variant="body1">
-                                {preference.ingredient.name}
+                <List>
+                  {preferences.map((preference) => (
+                    <ListItem
+                      key={preference.id}
+                      sx={{
+                        border: 1,
+                        borderColor: 'divider',
+                        borderRadius: 1,
+                        mb: 1
+                      }}
+                    >
+                      <ListItemText
+                        primary={
+                          <Box display="flex" alignItems="center" gap={1}>
+                            <Typography variant="body1">
+                              {preference.ingredient.name}
+                            </Typography>
+                            <Chip
+                              icon={getPreferenceIcon(preference.preference)}
+                              label={preference.preference.replace('_', ' ')}
+                              color={getPreferenceColor(preference.preference) as any}
+                              size="small"
+                            />
+                          </Box>
+                        }
+                        secondary={
+                          <Box>
+                            <Typography variant="body2" color="text.secondary">
+                              {preference.ingredient.category} • {preference.ingredient.aisle}
+                            </Typography>
+                            {preference.notes && (
+                              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                                Notes: {preference.notes}
                               </Typography>
-                              <Chip
-                                label={PREFERENCE_TYPES.find(p => p.value === preference.preference)?.label}
-                                color={getPreferenceColor(preference.preference) as any}
-                                size="small"
-                              />
-                            </Box>
-                          }
-                          secondary={
-                            <Box>
-                              <Typography variant="body2" color="text.secondary">
-                                {preference.ingredient.category} • {preference.ingredient.calories} cal • {preference.ingredient.protein}g protein
-                              </Typography>
-                              {preference.notes && (
-                                <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                                  Notes: {preference.notes}
-                                </Typography>
-                              )}
-                            </Box>
-                          }
-                        />
-                        <ListItemSecondaryAction>
+                            )}
+                          </Box>
+                        }
+                      />
+                      <ListItemSecondaryAction>
+                        <Box display="flex" gap={1}>
                           <IconButton
                             size="small"
                             onClick={() => handleEditPreference(preference)}
-                            sx={{ mr: 1 }}
                           >
                             <EditIcon />
                           </IconButton>
@@ -1000,22 +914,11 @@ export default function FoodPreferencesTab() {
                           >
                             <DeleteIcon />
                           </IconButton>
-                        </ListItemSecondaryAction>
-                      </ListItem>
-                    ))}
-                  </List>
-                  
-                  {Math.ceil(filteredPreferences.length / itemsPerPage) > 1 && (
-                    <Box display="flex" justifyContent="center" mt={2}>
-                      <Pagination
-                        count={Math.ceil(filteredPreferences.length / itemsPerPage)}
-                        page={currentPage}
-                        onChange={(_, page) => setCurrentPage(page)}
-                        color="primary"
-                      />
-                    </Box>
-                  )}
-                </>
+                        </Box>
+                      </ListItemSecondaryAction>
+                    </ListItem>
+                  ))}
+                </List>
               )}
             </CardContent>
           </Card>
@@ -1031,11 +934,9 @@ export default function FoodPreferencesTab() {
           <Stack spacing={2} sx={{ mt: 1 }}>
             {selectedIngredient && (
               <Box>
-                <Typography variant="subtitle1" gutterBottom>
-                  {selectedIngredient.name}
-                </Typography>
+                <Typography variant="h6">{selectedIngredient.name}</Typography>
                 <Typography variant="body2" color="text.secondary">
-                  {selectedIngredient.category} • {selectedIngredient.calories} calories • {selectedIngredient.protein}g protein
+                  {selectedIngredient.category} • {selectedIngredient.aisle}
                 </Typography>
               </Box>
             )}
@@ -1057,7 +958,7 @@ export default function FoodPreferencesTab() {
                 ))}
               </Select>
             </FormControl>
-            
+
             <TextField
               label="Notes (optional)"
               multiline
@@ -1065,7 +966,7 @@ export default function FoodPreferencesTab() {
               value={preferenceNotes}
               onChange={(e) => setPreferenceNotes(e.target.value)}
               fullWidth
-              placeholder="Add any additional notes about this preference..."
+              placeholder="Add any notes about this preference..."
             />
           </Stack>
         </DialogContent>
