@@ -1134,7 +1134,11 @@ export async function POST(request: NextRequest) {
         console.log('Generating image for recipe...');
         
         // Create a comprehensive prompt for image generation
-        const imagePrompt = `A beautiful, appetizing photo of ${finalRecipeData.title || finalRecipeData.name}. ${finalRecipeData.description || ''} The dish should be presented on a clean plate with good lighting, showing the final cooked result ready to eat.`;
+        const recipeName = finalRecipeData.title || finalRecipeData.name;
+        const recipeDescription = finalRecipeData.description || '';
+        const imagePrompt = `A beautiful, appetizing photo of ${recipeName}. ${recipeDescription} The dish should be presented on a clean plate with good lighting, showing the final cooked result ready to eat. Professional food photography style.`;
+        
+        console.log('DEBUG: Recipe image prompt:', imagePrompt.substring(0, 100) + '...');
         
         // Import the image generation function directly
         const { generateImage } = await import('@/lib/services/ImageGenerationService');
@@ -1142,11 +1146,8 @@ export async function POST(request: NextRequest) {
         const imageResult = await generateImage({
           prompt: imagePrompt,
           textModel: 'gpt-4o-mini',
-          quality: 'standard',
-          size: '1024x1024',
-          background: 'opaque',
-          format: 'jpeg',
-          outputCompression: 80
+          quality: 'low',
+          size: '1024x1024'
         });
 
         if (imageResult.success) {

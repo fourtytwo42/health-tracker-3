@@ -540,6 +540,7 @@ export default function WorkoutBuilderTab({ userProfile, exercisePreferences }: 
               onToggleFavorite={toggleFavorite}
               onDelete={deleteWorkout}
               onPrint={printWorkout}
+              generateImage={generateImage}
             />
           </Box>
         ))}

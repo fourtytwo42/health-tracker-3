@@ -33,6 +33,7 @@ interface Exercise {
   description?: string;
   category?: string;
   intensity?: string;
+  imageUrl?: string;
 }
 
 interface WorkoutExercise {
@@ -157,6 +158,24 @@ export default function PrintWorkoutPage() {
         <CardContent>
           {/* Header */}
           <Box sx={{ textAlign: 'center', mb: 3 }}>
+            {/* Main Workout Image */}
+            {workout.photoUrl && (
+              <Box sx={{ mb: 3 }}>
+                <img 
+                  src={workout.photoUrl} 
+                  alt={`${workout.name} workout`}
+                  style={{
+                    width: '100%',
+                    maxWidth: '400px',
+                    aspectRatio: '2 / 3',
+                    objectFit: 'cover',
+                    borderRadius: '8px',
+                    boxShadow: '0 4px 8px rgba(0,0,0,0.1)'
+                  }}
+                />
+              </Box>
+            )}
+            
             <Typography variant="h3" sx={{ fontWeight: 700, mb: 1 }}>
               {workout.name}
             </Typography>
@@ -289,6 +308,23 @@ export default function PrintWorkoutPage() {
                     >
                       {workoutExercise.exercise.description}
                     </Typography>
+                  )}
+                  
+                  {/* Exercise Image */}
+                  {workoutExercise.exercise.imageUrl && (
+                    <Box sx={{ mt: 2, mb: 1 }}>
+                      <img 
+                        src={workoutExercise.exercise.imageUrl} 
+                        alt={`${workoutExercise.exercise.activity} exercise`}
+                        style={{
+                          width: '100%',
+                          maxWidth: '200px',
+                          aspectRatio: '2 / 3',
+                          objectFit: 'cover',
+                          borderRadius: '4px'
+                        }}
+                      />
+                    </Box>
                   )}
                   
                   {workoutExercise.notes && (

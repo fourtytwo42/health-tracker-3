@@ -493,6 +493,7 @@ model Workout {
   targetMuscleGroups String? // JSON array
   equipment   String?  // JSON array
   instructions String? // JSON array
+  virtualExercises String? // JSON array for AI-generated virtual exercises
   photoUrl    String?
   isFavorite  Boolean  @default(false)
   isPublic    Boolean  @default(false)
@@ -511,9 +512,9 @@ model WorkoutExercise {
   id          String   @id @default(cuid())
   workoutId   String   @map("workout_id")
   exerciseId  String   @map("exercise_id")
-  sets        Int
-  reps        Int?
-  duration    Int?     // seconds
+  sets        Int?     // Optional for time-based exercises
+  reps        Int?     // Optional for time-based exercises
+  duration    Int?     // seconds - for time-based exercises
   restPeriod  Int      @default(60) // seconds
   order       Int
   notes       String?

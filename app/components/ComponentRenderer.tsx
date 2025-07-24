@@ -2,15 +2,8 @@
 
 import React from 'react';
 import { Box } from '@mui/material';
-import RecipeCard from './cards/RecipeCard';
-import PlanSummary from './cards/PlanSummary';
-import LeaderboardSnippet from './cards/LeaderboardSnippet';
-import GroceryListCard from './cards/GroceryListCard';
-import GoalBadge from './cards/GoalBadge';
-import BiomarkerChart from './cards/BiomarkerChart';
-import MealCard from './cards/MealCard';
-import IngredientAlternatives from './cards/IngredientAlternatives';
-import NutritionLabel from './cards/NutritionLabel';
+import RecipeCard from './RecipeCard';
+import WorkoutCard from '../../components/WorkoutCard';
 import QuickReplies from './QuickReplies';
 
 export interface ComponentJson {
@@ -27,14 +20,7 @@ interface ComponentRendererProps {
 
 const componentRegistry: Record<string, React.ComponentType<any>> = {
   RecipeCard,
-  PlanSummary,
-  LeaderboardSnippet,
-  GroceryListCard,
-  GoalBadge,
-  BiomarkerChart,
-  MealCard,
-  IngredientAlternatives,
-  NutritionLabel,
+  WorkoutCard,
 };
 
 export default function ComponentRenderer({ component, onQuickReply }: ComponentRendererProps) {
@@ -54,7 +40,7 @@ export default function ComponentRenderer({ component, onQuickReply }: Component
   return (
     <Box sx={{ my: 1 }}>
       <Component {...component.props} onQuickReply={onQuickReply} />
-      {component.quickReplies && component.quickReplies.length > 0 && (
+      {component.quickReplies && component.quickReplies.length > 0 && onQuickReply && (
         <QuickReplies 
           replies={component.quickReplies} 
           onReply={onQuickReply}

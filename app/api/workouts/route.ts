@@ -138,6 +138,55 @@ function calculateWorkoutStats(workout: any): any {
   const equipment = workout.equipment ? JSON.parse(workout.equipment) : [];
   const instructions = workout.instructions ? JSON.parse(workout.instructions) : [];
 
+  console.log(`=== DEBUG: calculateWorkoutStats for workout ${workout.id} ===`);
+  console.log('AI Generated:', workout.aiGenerated);
+  console.log('Virtual Exercises field:', workout.virtualExercises ? 'Present' : 'Missing');
+  console.log('Exercises from include:', workout.exercises ? workout.exercises.length : 'No exercises array');
+
+  // For AI-generated workouts, we need to handle virtual exercises
+  // Check if this is an AI-generated workout with virtual exercises stored
+  if (workout.aiGenerated && workout.virtualExercises) {
+    try {
+      const virtualExercisesData = JSON.parse(workout.virtualExercises);
+      
+      // Convert virtual exercises to the format expected by the UI
+      const virtualExercises = virtualExercisesData.map((ve: any, index: number) => ({
+        id: ve.exerciseId || `virtual-${index + 1}`,
+        exercise: {
+          id: ve.exerciseId || `virtual-${index + 1}`,
+          activity: ve.name || 'Virtual Exercise',
+          code: ve.exerciseId || 'VIRTUAL',
+          met: 3.5, // Default MET value
+          description: ve.description || 'AI-generated exercise',
+          category: 'VIRTUAL',
+          intensity: 'MODERATE',
+          isActive: true
+        },
+        sets: ve.sets,
+        reps: ve.reps,
+        duration: ve.duration,
+        restPeriod: ve.restPeriod || 60,
+        order: ve.order || index + 1,
+        notes: ve.notes
+      }));
+
+      console.log('Virtual exercises processed:', virtualExercises.length);
+      console.log('First virtual exercise:', virtualExercises[0]?.exercise?.activity);
+
+      return {
+        ...workout,
+        targetMuscleGroups,
+        equipment,
+        instructions,
+        totalCalories: Math.round(workout.totalCalories || 0),
+        exercises: virtualExercises, // Override the empty exercises array from the include
+        isVirtual: true
+      };
+    } catch (error) {
+      console.error('Error parsing virtual exercises:', error);
+    }
+  }
+
   // Calculate total calories if not provided
   let totalCalories = workout.totalCalories;
   if (!totalCalories && workout.exercises.length > 0) {

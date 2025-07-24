@@ -73,9 +73,16 @@ export async function POST(request: NextRequest) {
     // Parse LLM response and create workout
     const workoutData = parseWorkoutResponse(response.content, user.userId, validatedData.keywords, validatedData.generateImage || false);
     
-    const workout = await createWorkout(workoutData);
-
-    return NextResponse.json(workout);
+    try {
+      const workout = await createWorkout(workoutData);
+      return NextResponse.json(workout);
+    } catch (error) {
+      console.error('Error in createWorkout:', error);
+      return NextResponse.json(
+        { error: 'Failed to create workout', details: error instanceof Error ? error.message : 'Unknown error' },
+        { status: 500 }
+      );
+    }
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
@@ -226,8 +233,31 @@ ${dislikedExercises.length > 0 ? `Avoid these exercises: ${dislikedExercises.joi
 Target muscle groups: ${targetMuscleGroups.join(', ') || 'Any'}
 Available equipment: ${equipment.join(', ') || 'None'}
 
-Available exercises (use these exercise codes):
-${exercises.map(ex => `- ${ex.code}: ${ex.activity} (MET: ${ex.met})`).join('\n')}
+AVAILABLE ACTIVITY TYPES (choose from these for each exercise):
+LIGHT INTENSITY (MET < 3):
+- walking, 1.7 mph, strolling (MET: 2.3)
+- walking, 2.5 mph (MET: 2.9)
+- yoga, Hatha (MET: 3.0)
+- water aerobics (MET: 2.5)
+
+MODERATE INTENSITY (MET 3-6):
+- resistance training, multiple exercises, 8-15 reps (MET: 3.5)
+- calisthenics, moderate effort (push ups, sit ups, pull-ups, lunges) (MET: 3.8)
+- Pilates, general (MET: 3.8)
+- calisthenics, home exercise, light/moderate effort (MET: 3.5)
+- walking 3.0 mph (MET: 3.3)
+- walking 3.4 mph (MET: 3.6)
+- bicycling, <10 mph, leisure (MET: 4.0)
+- bicycling, stationary, 50 watts, very light effort (MET: 5.3)
+- bicycling, stationary, 100 watts, light effort (MET: 5.5)
+
+VIGOROUS INTENSITY (MET > 6):
+- jogging, general (MET: 7.0)
+- calisthenics, heavy, vigorous effort (MET: 8.0)
+- running/jogging, in place (MET: 8.0)
+- rope jumping (MET: 10.0)
+
+CRITICAL: Use "name" field for exercise names and "activityType" field to specify the exact activity type from the list above.
 
 Please create a workout that:
 1. Is appropriate for the user's fitness level and goals
@@ -237,6 +267,7 @@ Please create a workout that:
 5. Provides detailed, step-by-step instructions with form cues
 6. Includes proper warm-up and cool-down
 7. Has appropriate rest periods and progression
+8. Uses descriptive search terms for exercises
 
 Format the response as JSON:
 {
@@ -251,19 +282,37 @@ Format the response as JSON:
   "instructions": ["step1", "step2", "step3"],
   "exercises": [
     {
-      "exerciseId": "exercise_code",
-      "sets": 3,
-      "reps": 12,
+      "name": "Exercise Name",
+      "activityType": "calisthenics, moderate effort",
+      "description": "detailed description of how to perform this exercise",
+      "sets": 3,        // For strength training (optional for time-based exercises)
+      "reps": 12,       // For strength training (optional for time-based exercises)
+      "duration": 300,  // For time-based exercises like cardio, yoga, stretching (in seconds)
       "restPeriod": 60,
-      "notes": "optional notes"
+      "notes": "optional notes about form or modifications"
     }
   ]
 }
+
+IMPORTANT: 
+1. Use "name" field for exercise names (e.g., "Push-ups", "Squats", "Calf Raises")
+2. Use "activityType" field to specify the exact activity type from the list above
+3. For strength training exercises, use "sets" and "reps" fields (duration will be calculated automatically)
+4. For time-based exercises (cardio, yoga, stretching), use "duration" field (in seconds) instead of sets/reps
+5. Choose the appropriate format based on the exercise type
+6. The activityType must exactly match one from the list above for accurate calorie calculations
+7. For time-based exercises, specify realistic durations (e.g., 300 seconds for 5 minutes of cardio)
+      8. DO NOT include any comments in the JSON response - only valid JSON
+      9. DO NOT include parenthetical text in numeric values (e.g., use "12" not "12 (per leg)")
+      10. For each exercise, include an "imagePrompt" field with a creative, specific description for generating an instructional image of that exercise. Make it detailed and unique to the exercise. Focus on the specific movement, body position, and form cues. Avoid generic descriptions.
+      11. Include a "workoutImagePrompt" field at the workout level with a creative, specific description for generating an image that represents the entire workout. This should capture the overall theme, intensity, and feel of the complete workout session. Make it detailed and inspiring, focusing on the workout as a whole rather than individual exercises.
 `;
 }
 
 function getDefaultWorkoutSystemPrompt(): string {
   return `You are an expert fitness trainer and workout designer with deep knowledge of exercise science, biomechanics, and training principles. Your role is to create comprehensive, safe, and effective workouts that users can follow independently.
+
+CRITICAL RULE: Use "searchTerm" field for exercises, NOT "exerciseId". The searchTerm should be a descriptive name like "push ups", "squats", "aerobic", etc. that can be used to find the best matching exercise in our database.
 
 KEY RESPONSIBILITIES:
 1. Design workouts that are appropriate for the specified difficulty level and duration
@@ -274,15 +323,17 @@ KEY RESPONSIBILITIES:
 6. Adapt workouts to available equipment
 7. Provide clear pacing and timing guidance
 8. Include safety considerations and form cues
+9. Use descriptive search terms for exercises - never use numeric codes
 
 WORKOUT STRUCTURE GUIDELINES:
 - Always start with a 5-10 minute warm-up
-- Include proper rest periods between sets (30-90 seconds for strength, 15-30 seconds for HIIT)
+- Include proper rest periods between exercises (30-90 seconds for strength, 15-30 seconds for HIIT)
 - End with a 5-10 minute cool-down and stretching
-- For strength training: 3-5 sets, 8-15 reps per set
-- For cardio: 20-60 minutes continuous or interval training
-- For HIIT: 30 seconds work, 30 seconds rest cycles
-- For flexibility: Hold stretches for 15-30 seconds each
+- For strength training: 3-5 sets, 8-15 reps per set (use sets and reps)
+- For cardio: 20-60 minutes continuous or interval training (use duration in seconds)
+- For HIIT: 30 seconds work, 30 seconds rest cycles (use duration)
+- For flexibility: Hold stretches for 15-30 seconds each (use duration)
+- For yoga: Hold poses for 30-60 seconds each (use duration)
 
 SAFETY FIRST:
 - Always include form cues and safety reminders
@@ -301,6 +352,7 @@ Return a valid JSON object with the following structure:
   "totalCalories": estimated_calories_burned,
   "targetMuscleGroups": ["muscle1", "muscle2"],
   "equipment": ["equipment1", "equipment2"],
+  "workoutImagePrompt": "Creative description for generating an image that represents the entire workout theme and intensity",
   "instructions": [
     "Step 1: Detailed warm-up instructions",
     "Step 2: Exercise 1 with form cues and safety notes",
@@ -311,17 +363,23 @@ Return a valid JSON object with the following structure:
   ],
   "exercises": [
     {
-      "exerciseId": "exercise_code_from_database",
+      "searchTerm": "exercise search term",
+      "description": "detailed description of how to perform this exercise",
       "sets": number_of_sets,
       "reps": reps_per_set,
       "restPeriod": rest_seconds,
-      "notes": "Specific form cues, modifications, or safety notes"
+      "notes": "Specific form cues, modifications, or safety notes",
+      "imagePrompt": "Creative description for generating an instructional image of this specific exercise"
     }
   ]
 }`;
 }
 
 function extractWorkoutJsonFromResponse(response: string): string | null {
+  console.log('DEBUG: Extracting JSON from response, length:', response.length);
+  console.log('DEBUG: Response starts with:', response.substring(0, 100));
+  console.log('DEBUG: Response ends with:', response.substring(response.length - 100));
+  
   // Strategy 1: Look for JSON code blocks (```json ... ```)
   const codeBlockMatch = response.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/);
   if (codeBlockMatch) {
@@ -338,10 +396,13 @@ function extractWorkoutJsonFromResponse(response: string): string | null {
   
   // Strategy 3: Find the outermost JSON object by counting braces
   const firstBrace = response.indexOf('{');
+  console.log('DEBUG: First brace found at position:', firstBrace);
   if (firstBrace === -1) return null;
   
   let braceCount = 0;
   let lastBrace = -1;
+  
+  console.log('DEBUG: Starting brace counting from position:', firstBrace);
   
   for (let i = firstBrace; i < response.length; i++) {
     const char = response[i];
@@ -351,14 +412,20 @@ function extractWorkoutJsonFromResponse(response: string): string | null {
       braceCount--;
       if (braceCount === 0) {
         lastBrace = i;
+        console.log('DEBUG: Found matching closing brace at position:', i);
         break;
       }
     }
   }
   
+  console.log('DEBUG: Final brace count:', braceCount);
+  console.log('DEBUG: Last brace position:', lastBrace);
+  
   if (lastBrace !== -1) {
     console.log('Found JSON with brace counting');
-    return response.substring(firstBrace, lastBrace + 1);
+    const extractedJson = response.substring(firstBrace, lastBrace + 1);
+    console.log('DEBUG: Extracted JSON length:', extractedJson.length);
+    return extractedJson;
   }
   
   return null;
@@ -379,12 +446,23 @@ function cleanWorkoutJsonString(jsonString: string): string {
   
   // Fix common JSON issues
   jsonString = jsonString
+    // Remove single-line comments (// ...)
+    .replace(/\/\/.*$/gm, '')
+    // Remove multi-line comments (/* ... */)
+    .replace(/\/\*[\s\S]*?\*\//g, '')
     // Fix unquoted property names
     .replace(/([{,]\s*)([a-zA-Z_][a-zA-Z0-9_]*)\s*:/g, '$1"$2":')
     // Fix trailing commas
     .replace(/,(\s*[}\]])/g, '$1')
     // Fix missing quotes around string values
-    .replace(/:\s*([a-zA-Z][a-zA-Z0-9\s]*[a-zA-Z0-9])(\s*[,}])/g, ':"$1"$2');
+    .replace(/:\s*([a-zA-Z][a-zA-Z0-9\s]*[a-zA-Z0-9])(\s*[,}])/g, ':"$1"$2')
+    // Remove text in parentheses from numeric values (e.g., "12 (per leg)" -> "12")
+    .replace(/:\s*(\d+)\s*\([^)]*\)/g, ': $1')
+    // Remove text in parentheses from string values (e.g., "value (note)" -> "value")
+    .replace(/:\s*"([^"]*?)\s*\([^)]*\)"/g, ':"$1"')
+    // Clean up extra whitespace
+    .replace(/\s+/g, ' ')
+    .trim();
   
   return jsonString;
 }
@@ -435,6 +513,7 @@ function parseWorkoutResponse(
       aiGenerated: true,
       originalQuery,
       exercises: workoutData.exercises || [],
+      generateImage: generateImage, // Include the generateImage flag
     };
   } catch (error) {
     console.error('Error parsing workout response:', error);
@@ -443,64 +522,270 @@ function parseWorkoutResponse(
 }
 
 async function createWorkout(workoutData: any): Promise<any> {
-  const { exercises, ...workoutInfo } = workoutData;
+  const { exercises, generateImage, ...workoutInfo } = workoutData;
+  
+  // Generate images if requested
+  let workoutPhotoUrl = null;
+  let exerciseImages = null;
+  
+  console.log('DEBUG: workoutData.generateImage =', workoutData.generateImage);
+  if (workoutData.generateImage) {
+    try {
+      console.log('Generating images for workout...');
+      
+      // Generate workout image using AI-generated prompt
+      const workoutImagePrompt = workoutData.workoutImagePrompt || `A professional fitness photo showing a ${workoutData.difficulty.toLowerCase()} ${workoutData.category.toLowerCase()} workout. The image should show someone in athletic clothing performing exercises like ${exercises.slice(0, 3).map((e: any) => e.name).join(', ')} in a well-lit gym or home setting. The person should be using proper form and the image should be suitable for fitness instruction.`;
+      
+      const { generateImage } = await import('@/lib/services/ImageGenerationService');
+      
+      console.log('DEBUG: About to generate workout image with prompt:', workoutImagePrompt);
+      const workoutImageResult = await generateImage({
+        prompt: workoutImagePrompt,
+        textModel: 'gpt-4o-mini',
+        quality: 'low',
+        size: '1024x1536'
+      });
+      console.log('DEBUG: Workout image result success:', workoutImageResult.success);
 
-  const workout = await prisma.workout.create({
-    data: {
-      ...workoutInfo,
-      targetMuscleGroups: workoutInfo.targetMuscleGroups ? JSON.stringify(workoutInfo.targetMuscleGroups) : null,
-      equipment: workoutInfo.equipment ? JSON.stringify(workoutInfo.equipment) : null,
-      instructions: workoutInfo.instructions ? JSON.stringify(workoutInfo.instructions) : null,
-      exercises: {
-        create: exercises.map((exercise: any, index: number) => ({
-          exerciseId: exercise.exerciseId,
-          sets: exercise.sets,
-          reps: exercise.reps,
-          duration: exercise.duration,
-          restPeriod: exercise.restPeriod || 60,
-          order: index + 1,
-          notes: exercise.notes,
-        })),
-      },
-    },
-    include: {
-      exercises: {
-        include: {
-          exercise: true,
-        },
-        orderBy: {
-          order: 'asc',
-        },
-      },
-    },
+      if (workoutImageResult.success) {
+        workoutPhotoUrl = workoutImageResult.imageUrl;
+        console.log('Workout image generated successfully');
+      } else {
+        console.error('Failed to generate workout image:', workoutImageResult.error);
+      }
+      
+      // Generate exercise images in parallel
+      console.log('Generating exercise images in parallel...');
+      const exerciseImagePromises = exercises.map(async (exercise: any, index: number) => {
+        // Use AI-generated image prompt if available, otherwise fall back to template
+        const exerciseImagePrompt = exercise.imagePrompt || `A clear, instructional fitness photo showing how to perform ${exercise.name}. The image should show proper form and technique for this exercise. The person should be in athletic clothing and the image should be well-lit and suitable for fitness instruction. ${exercise.description || ''}`;
+        
+        console.log(`DEBUG: Generating image for exercise "${exercise.name}" with prompt: ${exerciseImagePrompt.substring(0, 100)}...`);
+        
+        try {
+          const imageResult = await generateImage({
+            prompt: exerciseImagePrompt,
+            textModel: 'gpt-4o-mini',
+            quality: 'low',
+            size: '1024x1536'
+          });
+          
+          return {
+            exerciseIndex: index,
+            success: imageResult.success,
+            imageUrl: imageResult.imageUrl,
+            error: imageResult.error
+          };
+        } catch (error) {
+          console.error(`Error generating image for exercise ${exercise.name}:`, error);
+          return {
+            exerciseIndex: index,
+            success: false,
+            error: error instanceof Error ? error.message : 'Unknown error'
+          };
+        }
+      });
+      
+      const exerciseImageResults = await Promise.all(exerciseImagePromises);
+      exerciseImages = exerciseImageResults;
+      
+      console.log(`Generated ${exerciseImageResults.filter(r => r.success).length} out of ${exercises.length} exercise images`);
+      
+      // Debug: Log each exercise image result
+      exerciseImageResults.forEach((result, index) => {
+        console.log(`  Exercise ${index + 1} image: ${result.success ? 'Success' : 'Failed'}`);
+        if (result.success) {
+          console.log(`    URL: ${result.imageUrl?.substring(0, 100)}...`);
+        } else {
+          console.log(`    Error: ${result.error}`);
+        }
+      });
+      
+    } catch (error) {
+      console.error('Error generating workout images:', error);
+    }
+  }
+
+  // MET values mapping
+  const metValues = {
+    'walking, 1.7 mph, strolling': 2.3,
+    'walking, 2.5 mph': 2.9,
+    'walking, 3.0 mph': 3.3,
+    'walking, 3.4 mph': 3.6,
+    'yoga, Hatha': 3.0,
+    'water aerobics': 2.5,
+    'resistance training, multiple exercises, 8-15 reps': 3.5,
+    'calisthenics, moderate effort': 3.8,
+    'Pilates, general': 3.8,
+    'calisthenics, home exercise, light/moderate effort': 3.5,
+    'bicycling, <10 mph, leisure': 4.0,
+    'bicycling, stationary, 50 watts, very light effort': 5.3,
+    'bicycling, stationary, 100 watts, light effort': 5.5,
+    'jogging, general': 7.0,
+    'calisthenics, heavy, vigorous effort': 8.0,
+    'running/jogging, in place': 8.0,
+    'rope jumping': 10.0,
+    'flexibility': 2.5
+  };
+
+  // Process exercises and calculate calories
+  let totalCalories = 0;
+  const processedExercises = exercises.map((exercise: any, index: number) => {
+    const activityType = exercise.activityType;
+    const met = metValues[activityType as keyof typeof metValues];
+    
+    if (!met) {
+      throw new Error(`Unknown activity type: "${activityType}"`);
+    }
+    
+    // Calculate calories for this exercise
+    let exerciseCalories = 0;
+    let totalDuration = 0;
+    const userWeight = 70; // Default weight for calculation
+    
+    // For strength training, we might need to adjust MET based on intensity
+    let adjustedMet = met;
+    if (exercise.sets && exercise.reps) {
+      // Strength training is more intense than the base MET suggests
+      // Adjust MET based on number of sets and reps (more work = higher intensity)
+      const totalReps = exercise.sets * exercise.reps;
+      if (totalReps >= 30) adjustedMet = met * 1.2; // High volume = higher intensity
+      else if (totalReps >= 20) adjustedMet = met * 1.1; // Medium volume
+    }
+    
+    if (exercise.sets && exercise.reps) {
+      // Rep-based exercise (strength training)
+      // For strength training, we need to account for the full effort of each set
+      // This includes the time doing reps, brief pauses between reps, and the intensity
+      
+      // Calculate total time per set (more realistic)
+      // Each set takes approximately 5 minutes (300 seconds)
+      // This includes the time doing reps, rest between reps, and setup
+      const timePerSet = 300; // 5 minutes per set
+      
+      // Total work time across all sets
+      const totalWorkTime = exercise.sets * timePerSet;
+      
+      // For calorie calculation, use total work time
+      totalDuration = totalWorkTime;
+      
+      // Calories = (MET * weight * work_duration_in_hours)
+      exerciseCalories = Math.round((adjustedMet * userWeight * totalDuration) / 3600);
+    } else if (exercise.duration) {
+      // Time-based exercise (cardio, yoga, etc.)
+      totalDuration = exercise.duration;
+      
+      // Calories = (MET * weight * duration_in_hours)
+      exerciseCalories = Math.round((met * userWeight * totalDuration) / 3600);
+    }
+    
+    totalCalories += exerciseCalories;
+    
+    // Get exercise image if available
+    const exerciseImage = exerciseImages ? exerciseImages.find((img: any) => img.exerciseIndex === index) : null;
+    
+    return {
+      exerciseId: `VIRTUAL-${index + 1}`,
+      sets: exercise.sets || null,
+      reps: exercise.reps || null,
+      duration: exercise.duration || null,
+      restPeriod: exercise.restPeriod || 60,
+      order: index + 1,
+      notes: exercise.notes,
+      calories: exerciseCalories,
+      name: exercise.name,
+      description: exercise.description,
+      activityType: exercise.activityType,
+      // Add exercise image if generated
+      imageUrl: exerciseImage?.success ? exerciseImage.imageUrl : null,
+    };
   });
 
-  return calculateWorkoutStats(workout);
+          const workout = await prisma.workout.create({
+          data: {
+            ...workoutInfo,
+            totalCalories: totalCalories,
+            targetMuscleGroups: workoutInfo.targetMuscleGroups ? JSON.stringify(workoutInfo.targetMuscleGroups) : null,
+            equipment: workoutInfo.equipment ? JSON.stringify(workoutInfo.equipment) : null,
+            instructions: workoutInfo.instructions ? JSON.stringify(workoutInfo.instructions) : null,
+            // Store virtual exercises data in the workout record
+            virtualExercises: JSON.stringify(processedExercises),
+            // Add workout image if generated
+            photoUrl: workoutPhotoUrl,
+          },
+          include: {
+            exercises: {
+              include: {
+                exercise: true,
+              },
+              orderBy: {
+                order: 'asc',
+              },
+            },
+          },
+        });
+
+  return calculateWorkoutStats(workout, processedExercises);
 }
 
-function calculateWorkoutStats(workout: any): any {
+function calculateWorkoutStats(workout: any, processedExercises?: any[]): any {
   // Parse JSON fields
   const targetMuscleGroups = workout.targetMuscleGroups ? JSON.parse(workout.targetMuscleGroups) : [];
   const equipment = workout.equipment ? JSON.parse(workout.equipment) : [];
   const instructions = workout.instructions ? JSON.parse(workout.instructions) : [];
 
-  // Calculate total calories if not provided
+  // Use provided total calories or calculate from processed exercises
   let totalCalories = workout.totalCalories;
-  if (!totalCalories && workout.exercises.length > 0) {
-    totalCalories = workout.exercises.reduce((total: number, we: any) => {
-      const exerciseDuration = we.duration || (we.reps ? we.reps * 3 : 60); // Estimate duration
-      const setsDuration = exerciseDuration * we.sets;
-      const totalDuration = setsDuration + (we.restPeriod * (we.sets - 1));
-      const caloriesPerMinute = (we.exercise.met * 3.5 * 70) / 200; // Rough calculation
-      return total + (caloriesPerMinute * totalDuration / 60);
+  if (!totalCalories && processedExercises) {
+    totalCalories = processedExercises.reduce((total: number, exercise: any) => {
+      return total + (exercise.calories || 0);
     }, 0);
   }
 
-  return {
+  // Convert virtual exercises to the format expected by the UI
+  const exercisesForUI = processedExercises ? processedExercises.map((ve: any, index: number) => ({
+    id: ve.exerciseId || `virtual-${index + 1}`,
+    exerciseId: ve.exerciseId || `virtual-${index + 1}`,
+    exercise: {
+      id: ve.exerciseId || `virtual-${index + 1}`,
+      activity: ve.name || 'Virtual Exercise',
+      code: ve.exerciseId || 'VIRTUAL',
+      met: 3.5, // Default MET value
+      description: ve.description || 'AI-generated exercise',
+      category: 'VIRTUAL',
+      intensity: 'MODERATE',
+      isActive: true,
+      // Add exercise image if available
+      imageUrl: ve.imageUrl || null,
+    },
+    sets: ve.sets,
+    reps: ve.reps,
+    duration: ve.duration,
+    restPeriod: ve.restPeriod || 60,
+    order: ve.order || index + 1,
+    notes: ve.notes
+  })) : [];
+
+  const result = {
     ...workout,
     targetMuscleGroups,
     equipment,
     instructions,
     totalCalories: Math.round(totalCalories || 0),
+    // Add virtual exercises for display
+    virtualExercises: processedExercises || [],
+    // Add exercises in the format expected by the UI
+    exercises: exercisesForUI,
   };
+
+        // Debug: Check if exercise images are included
+      console.log('DEBUG: Final response exercise images:');
+      exercisesForUI.forEach((ex, index) => {
+        console.log(`  Exercise ${index + 1}: ${ex.exercise.activity} - imageUrl: ${ex.exercise.imageUrl ? 'Present' : 'Missing'}`);
+        if (ex.exercise.imageUrl) {
+          console.log(`    URL: ${ex.exercise.imageUrl.substring(0, 100)}...`);
+        }
+      });
+
+  return result;
 } 

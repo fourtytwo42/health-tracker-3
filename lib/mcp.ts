@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { LLMRouter } from './llmRouter';
 import { AuthService, JWTPayload } from './auth';
 import { SystemMessageService } from './services/SystemMessageService';
+import { prisma } from './prisma';
 
 export interface MCPTool {
   name: string;
@@ -384,6 +385,392 @@ The meal plan includes detailed recipes for each meal with complete ingredient l
             success: false,
             error: error instanceof Error ? error.message : 'Failed to fetch leaderboard'
           };
+        }
+      },
+    });
+
+    // Generate workout tool
+    this.registerTool({
+      name: 'generate_workout',
+      description: 'Generate a personalized workout plan',
+      schema: z.object({
+        keywords: z.string().describe('User request or keywords for the workout'),
+        workoutType: z.enum(['STRENGTH', 'CARDIO', 'FLEXIBILITY', 'HIIT', 'CIRCUIT', 'YOGA', 'PILATES']).describe('Type of workout'),
+        duration: z.number().min(15).max(120).describe('Duration in minutes'),
+        difficulty: z.enum(['BEGINNER', 'INTERMEDIATE', 'ADVANCED']).describe('Difficulty level'),
+        targetMuscleGroups: z.array(z.string()).optional().describe('Target muscle groups'),
+        equipment: z.array(z.string()).optional().describe('Available equipment'),
+        generateImage: z.boolean().optional().default(false).describe('Whether to generate exercise images'),
+      }),
+      handler: async (args, authInfo) => {
+        try {
+          // Get user profile
+          const userProfile = await prisma.userDetails.findUnique({
+            where: { userId: authInfo.userId }
+          });
+
+          const biomarkers = await prisma.biomarker.findMany({
+            where: { userId: authInfo.userId },
+            orderBy: { createdAt: 'desc' },
+            take: 5
+          });
+
+                   // Generate workout plan using AI
+         const workoutPrompt = `Create a ${args.duration}-minute ${args.difficulty.toLowerCase()} ${args.workoutType.toLowerCase()} workout based on this request: "${args.keywords}"
+
+USER CONTEXT:
+${userProfile ? `Weight: ${userProfile.weight || 'Not specified'}kg
+Height: ${userProfile.height || 'Not specified'}cm
+Fitness Level: ${userProfile.activityLevel || 'Not specified'}
+Goals: ${userProfile.fitnessGoals || 'Not specified'}` : 'No specific user profile data available'}
+
+${biomarkers.length > 0 ? `Recent Biomarkers: ${biomarkers.slice(0, 3).map(b => `${b.type}: ${b.value}${b.unit || ''}`).join(', ')}` : ''}
+
+Target muscle groups: ${args.targetMuscleGroups?.join(', ') || 'Any'}
+Available equipment: ${args.equipment?.join(', ') || 'None'}
+
+AVAILABLE ACTIVITY TYPES (choose from these for each exercise):
+LIGHT INTENSITY (MET < 3):
+- walking, 1.7 mph, strolling (MET: 2.3)
+- walking, 2.5 mph (MET: 2.9)
+- yoga, Hatha (MET: 3.0)
+- water aerobics (MET: 2.5)
+
+MODERATE INTENSITY (MET 3-6):
+- resistance training, multiple exercises, 8-15 reps (MET: 3.5)
+- calisthenics, moderate effort (push ups, sit ups, pull-ups, lunges) (MET: 3.8)
+- Pilates, general (MET: 3.8)
+- calisthenics, home exercise, light/moderate effort (MET: 3.5)
+- walking 3.0 mph (MET: 3.3)
+- walking 3.4 mph (MET: 3.6)
+- bicycling, <10 mph, leisure (MET: 4.0)
+- bicycling, stationary, 50 watts, very light effort (MET: 5.3)
+- bicycling, stationary, 100 watts, light effort (MET: 5.5)
+
+VIGOROUS INTENSITY (MET > 6):
+- jogging, general (MET: 7.0)
+- calisthenics, heavy, vigorous effort (MET: 8.0)
+- running/jogging, in place (MET: 8.0)
+- rope jumping (MET: 10.0)
+
+Please create a workout that:
+1. Is appropriate for the user's fitness level and goals
+2. Uses preferred exercises when possible
+3. Avoids disliked exercises
+4. Considers any health markers or limitations
+5. Provides detailed, step-by-step instructions with form cues
+6. Includes proper warm-up and cool-down
+7. Has appropriate rest periods and progression
+
+Format the response as JSON:
+{
+  "name": "Workout Name",
+  "description": "Brief description",
+  "category": "${args.workoutType}",
+  "difficulty": "${args.difficulty}",
+  "duration": ${args.duration},
+  "totalCalories": estimated_calories,
+  "targetMuscleGroups": ["muscle1", "muscle2"],
+  "equipment": ["equipment1", "equipment2"],
+  "instructions": ["step1", "step2", "step3"],
+  "exercises": [
+    {
+      "name": "Exercise Name",
+      "activityType": "calisthenics, moderate effort",
+      "description": "detailed description of how to perform this exercise",
+      "sets": 3,        // For strength training (optional for time-based exercises)
+      "reps": 12,       // For strength training (optional for time-based exercises)
+      "duration": 300,  // For time-based exercises like cardio, yoga, stretching (in seconds)
+      "restPeriod": 60,
+      "notes": "optional notes about form or modifications"
+    }
+  ]
+}
+
+CRITICAL: 
+1. Use "name" field for exercise names (e.g., "Push-ups", "Squats", "Calf Raises")
+2. Use "activityType" field to specify the exact activity type from the list above
+3. For strength training exercises, use "sets" and "reps" fields (duration will be calculated automatically)
+4. For time-based exercises (cardio, yoga, stretching), use "duration" field (in seconds) instead of sets/reps
+5. Choose the appropriate format based on the exercise type
+6. The activityType must exactly match one from the list above for accurate calorie calculations
+7. For time-based exercises, specify realistic durations (e.g., 300 seconds for 5 minutes of cardio)
+             8. DO NOT include any comments in the JSON response - only valid JSON
+       9. DO NOT include parenthetical text in numeric values (e.g., use "12" not "12 (per leg)")
+       10. For each exercise, include an "imagePrompt" field with a creative, specific description for generating an instructional image of that exercise. Make it detailed and unique to the exercise. Focus on the specific movement, body position, and form cues. Avoid generic descriptions.
+       11. Include a "workoutImagePrompt" field at the workout level with a creative, specific description for generating an image that represents the entire workout. This should capture the overall theme, intensity, and feel of the complete workout session. Make it detailed and inspiring, focusing on the workout as a whole rather than individual exercises.`;
+
+          const llmResponse = await this.llmRouter.generateResponse({
+            prompt: workoutPrompt,
+            userId: authInfo.userId,
+            tool: 'generate_workout',
+            maxTokens: 3000,
+            temperature: 0.7
+          });
+
+          // Parse the workout response
+          let workoutData;
+          try {
+            const jsonMatch = llmResponse.content.match(/\{[\s\S]*\}/);
+            if (jsonMatch) {
+              workoutData = JSON.parse(jsonMatch[0]);
+            } else {
+              throw new Error('No JSON found in response');
+            }
+          } catch (parseError) {
+            console.error('Failed to parse workout response:', llmResponse.content);
+            throw new Error('Failed to parse workout generation response');
+          }
+
+          // Process exercises using activity types and MET values
+          const matchedExercises = [];
+
+          // MET values mapping
+          const metValues = {
+            'walking, 1.7 mph, strolling': 2.3,
+            'walking, 2.5 mph': 2.9,
+            'yoga, Hatha': 3.0,
+            'water aerobics': 2.5,
+            'resistance training, multiple exercises, 8-15 reps': 3.5,
+            'calisthenics, moderate effort': 3.8,
+            'Pilates, general': 3.8,
+            'calisthenics, home exercise, light/moderate effort': 3.5,
+            'walking 3.0 mph': 3.3,
+            'walking 3.4 mph': 3.6,
+            'bicycling, <10 mph, leisure': 4.0,
+            'bicycling, stationary, 50 watts, very light effort': 5.3,
+            'bicycling, stationary, 100 watts, light effort': 5.5,
+            'jogging, general': 7.0,
+            'calisthenics, heavy, vigorous effort': 8.0,
+            'running/jogging, in place': 8.0,
+            'rope jumping': 10.0
+          };
+
+          for (const exercise of workoutData.exercises) {
+            try {
+              const activityType = exercise.activityType;
+              const met = metValues[activityType];
+              
+              if (!met) {
+                console.error(`Unknown activity type: "${activityType}"`);
+                continue;
+              }
+              
+                              // Calculate calories for this exercise
+                let exerciseCalories = 0;
+                let totalDuration = 0;
+                const userWeight = userProfile?.weight || 70; // Default to 70kg if no weight available
+                
+                // For strength training, we might need to adjust MET based on intensity
+                let adjustedMet = met;
+                if (exercise.sets && exercise.reps) {
+                  // Strength training is more intense than the base MET suggests
+                  // Adjust MET based on number of sets and reps (more work = higher intensity)
+                  const totalReps = exercise.sets * exercise.reps;
+                  if (totalReps >= 30) adjustedMet = met * 1.2; // High volume = higher intensity
+                  else if (totalReps >= 20) adjustedMet = met * 1.1; // Medium volume
+                }
+                
+                if (exercise.sets && exercise.reps) {
+                // Rep-based exercise (strength training)
+                // For strength training, we need to account for the full effort of each set
+                // This includes the time doing reps, brief pauses between reps, and the intensity
+                
+                // Calculate total time per set (more realistic)
+                // Each set takes approximately 5 minutes (300 seconds)
+                // This includes the time doing reps, rest between reps, and setup
+                const timePerSet = 300; // 5 minutes per set
+                
+                // Total work time across all sets
+                const totalWorkTime = exercise.sets * timePerSet;
+                
+                // Rest time between sets
+                const totalRestTime = (exercise.sets - 1) * (exercise.restPeriod || 60);
+                
+                // For calorie calculation, use total work time
+                totalDuration = totalWorkTime;
+                
+                // Calories = (MET * weight * work_duration_in_hours)
+                exerciseCalories = Math.round((adjustedMet * userWeight * totalDuration) / 3600);
+                
+                console.log(`Rep-based exercise: ${exercise.name} - ${exercise.sets} sets × ${exercise.reps} reps = ${totalWorkTime}s work + ${totalRestTime}s rest = ${totalDuration}s active time`);
+              } else if (exercise.duration) {
+                // Time-based exercise (cardio, yoga, etc.)
+                totalDuration = exercise.duration;
+                
+                // Calories = (MET * weight * duration_in_hours)
+                exerciseCalories = Math.round((met * userWeight * totalDuration) / 3600);
+                
+                console.log(`Time-based exercise: ${exercise.name} - ${totalDuration}s duration`);
+              }
+              
+              // Create a virtual exercise object
+              const virtualExercise = {
+                id: `virtual-${Date.now()}-${Math.random()}`,
+                activity: exercise.name,
+                code: `VIRTUAL-${Math.random().toString(36).substr(2, 5).toUpperCase()}`,
+                met: met,
+                description: exercise.description,
+                category: 'Virtual Exercise',
+                intensity: met < 3 ? 'LIGHT' : met < 6 ? 'MODERATE' : 'VIGOROUS',
+                isActive: true
+              };
+              
+              matchedExercises.push({
+                ...exercise,
+                exercise: virtualExercise,
+                name: exercise.name,
+                activityType: activityType,
+                met: met,
+                calories: exerciseCalories,
+                sets: exercise.sets || null,
+                reps: exercise.reps || null,
+                duration: exercise.duration || null
+              });
+              
+              console.log(`Created virtual exercise: ${exercise.name} (${activityType}, MET: ${met}, Calories: ${exerciseCalories})`);
+            } catch (error) {
+              console.error(`Failed to process exercise "${exercise.name}":`, error);
+              // Continue with other exercises
+            }
+          }
+
+          // Only create workout if we have at least one valid exercise
+          if (matchedExercises.length === 0) {
+            throw new Error('No valid exercises found for the workout. Please try again with different exercise terms.');
+          }
+
+          console.log(`Creating workout with ${matchedExercises.length} exercises`);
+          
+          // Calculate total calories from all exercises
+          const totalCalories = matchedExercises.reduce((total, exercise) => total + (exercise.calories || 0), 0);
+          
+          // Create the workout in the database with virtual exercises first
+          const workout = await prisma.workout.create({
+            data: {
+              userId: authInfo.userId,
+              name: workoutData.name,
+              description: workoutData.description,
+              category: workoutData.category,
+              difficulty: workoutData.difficulty,
+              duration: workoutData.duration,
+              totalCalories: totalCalories,
+              targetMuscleGroups: JSON.stringify(workoutData.targetMuscleGroups || []),
+              equipment: JSON.stringify(workoutData.equipment || []),
+              instructions: JSON.stringify(workoutData.instructions || []),
+              virtualExercises: JSON.stringify(matchedExercises), // Store virtual exercises
+              isFavorite: false,
+              isPublic: false,
+              aiGenerated: true,
+              originalQuery: args.keywords
+            }
+          });
+
+          // Generate images if requested
+          let workoutPhotoUrl = null;
+          let exerciseImages: any[] | null = null;
+          
+          if (args.generateImage) {
+            try {
+              console.log('Generating images for workout via MCP...');
+              
+              // Generate workout image using AI-generated prompt
+              const workoutImagePrompt = workoutData.workoutImagePrompt || `A professional fitness photo showing a ${workoutData.difficulty.toLowerCase()} ${workoutData.category.toLowerCase()} workout. The image should show someone in athletic clothing performing exercises like ${matchedExercises.slice(0, 3).map((e: any) => e.name).join(', ')} in a well-lit gym or home setting. The person should be using proper form and the image should be suitable for fitness instruction.`;
+              
+              const { generateImage } = await import('./services/ImageGenerationService');
+              
+              const workoutImageResult = await generateImage({
+                prompt: workoutImagePrompt,
+                textModel: 'gpt-4o-mini',
+                quality: 'low',
+                size: '1024x1536'
+              });
+
+              if (workoutImageResult.success) {
+                workoutPhotoUrl = workoutImageResult.imageUrl;
+                console.log('Workout image generated successfully via MCP');
+                
+                // Update workout with image URL
+                await prisma.workout.update({
+                  where: { id: workout.id },
+                  data: { photoUrl: workoutPhotoUrl }
+                });
+              } else {
+                console.error('Failed to generate workout image via MCP:', workoutImageResult.error);
+              }
+              
+              // Generate exercise images in parallel
+              console.log('Generating exercise images in parallel via MCP...');
+              const exerciseImagePromises = matchedExercises.map(async (exercise: any, index: number) => {
+                // Use AI-generated image prompt if available, otherwise fall back to template
+                const exerciseImagePrompt = exercise.imagePrompt || `A clear, instructional fitness photo showing how to perform ${exercise.name}. The image should show proper form and technique for this exercise. The person should be in athletic clothing and the image should be well-lit and suitable for fitness instruction. ${exercise.description || ''}`;
+                
+                try {
+                  const imageResult = await generateImage({
+                    prompt: exerciseImagePrompt,
+                    textModel: 'gpt-4o-mini',
+                    quality: 'low',
+                    size: '1024x1536'
+                  });
+                  
+                  return {
+                    exerciseIndex: index,
+                    success: imageResult.success,
+                    imageUrl: imageResult.imageUrl,
+                    error: imageResult.error
+                  };
+                } catch (error) {
+                  console.error(`Error generating image for exercise ${exercise.name} via MCP:`, error);
+                  return {
+                    exerciseIndex: index,
+                    success: false,
+                    error: error instanceof Error ? error.message : 'Unknown error'
+                  };
+                }
+              });
+              
+              const exerciseImageResults = await Promise.all(exerciseImagePromises);
+              exerciseImages = exerciseImageResults;
+              
+              console.log(`Generated ${exerciseImageResults.filter((r: any) => r.success).length} out of ${matchedExercises.length} exercise images via MCP`);
+              
+              // Update matched exercises with their images
+              matchedExercises.forEach((exercise: any, index: number) => {
+                const exerciseImage = exerciseImages ? exerciseImages.find((img: any) => img.exerciseIndex === index) : null;
+                if (exerciseImage?.success) {
+                  exercise.imageUrl = exerciseImage.imageUrl;
+                }
+              });
+              
+            } catch (error) {
+              console.error('Error generating workout images via MCP:', error);
+            }
+          }
+
+          return {
+            type: 'WorkoutCard',
+            props: {
+              workout: {
+                ...workout,
+                targetMuscleGroups: workoutData.targetMuscleGroups || [],
+                equipment: workoutData.equipment || [],
+                instructions: workoutData.instructions || [],
+                exercises: matchedExercises.map((exercise, index) => ({
+                  ...exercise,
+                  order: index + 1
+                }))
+              },
+              generateImage: args.generateImage
+            },
+            quickReplies: [
+              { label: 'Save this workout', value: 'I want to save this workout to my favorites' },
+              { label: 'Modify the workout', value: 'I want to modify this workout' },
+              { label: 'Generate another workout', value: 'I want to generate a different workout' },
+            ],
+          };
+        } catch (error) {
+          console.error('Error generating workout:', error);
+          throw new Error('Failed to generate workout');
         }
       },
     });

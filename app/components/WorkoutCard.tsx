@@ -41,6 +41,7 @@ interface Exercise {
   description?: string;
   category?: string;
   intensity?: string;
+  imageUrl?: string;
 }
 
 interface WorkoutExercise {
@@ -81,6 +82,7 @@ interface WorkoutCardProps {
   onToggleFavorite: (workoutId: string) => void;
   onDelete: (workoutId: string) => void;
   onPrint: (workout: Workout) => void;
+  generateImage?: boolean;
 }
 
 /* ------------------------------------------------------------------ */
@@ -148,6 +150,7 @@ export default function WorkoutCard({
   onToggleFavorite,
   onDelete,
   onPrint,
+  generateImage = false,
 }: WorkoutCardProps) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
@@ -214,7 +217,8 @@ export default function WorkoutCard({
         <Box
           sx={{
             position: 'relative',
-            height: 200,
+            aspectRatio: '2 / 3',
+            minHeight: 300,
             background: workout.photoUrl
               ? `linear-gradient(rgba(0,0,0,0.3), rgba(0,0,0,0.6)), url(${workout.photoUrl})`
               : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
@@ -436,11 +440,19 @@ export default function WorkoutCard({
                         >
                           {index + 1}. {workoutExercise.exercise.activity}
                         </Typography>
-                        <Chip
-                          label={`${workoutExercise.sets} sets`}
-                          size="small"
-                          sx={{ fontSize: fs(0.7) }}
-                        />
+                        {workoutExercise.sets ? (
+                          <Chip
+                            label={`${workoutExercise.sets} sets`}
+                            size="small"
+                            sx={{ fontSize: fs(0.7) }}
+                          />
+                        ) : workoutExercise.duration ? (
+                          <Chip
+                            label={formatExerciseDuration(workoutExercise.duration)}
+                            size="small"
+                            sx={{ fontSize: fs(0.7) }}
+                          />
+                        ) : null}
                       </Box>
                       
                       <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', mb: 0.5 }}>
@@ -470,6 +482,41 @@ export default function WorkoutCard({
                         >
                           {workoutExercise.exercise.description}
                         </Typography>
+                      )}
+                      
+                      {/* Exercise Image */}
+                      {(generateImage || workoutExercise.exercise.imageUrl) && (
+                        <Box sx={{ mt: 1 }}>
+                          {workoutExercise.exercise.imageUrl ? (
+                            <img 
+                              src={workoutExercise.exercise.imageUrl} 
+                              alt={`${workoutExercise.exercise.activity} exercise`}
+                              style={{
+                                width: '100%',
+                                aspectRatio: '2 / 3',
+                                objectFit: 'cover',
+                                borderRadius: '4px'
+                              }}
+                            />
+                          ) : (
+                            <Box 
+                              sx={{ 
+                                height: 80,
+                                bgcolor: 'grey.100',
+                                borderRadius: 1,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                border: '1px dashed',
+                                borderColor: 'grey.300'
+                              }}
+                            >
+                              <Typography variant="body2" color="text.secondary" sx={{ fontSize: fs(0.7) }}>
+                                Generating image...
+                              </Typography>
+                            </Box>
+                          )}
+                        </Box>
                       )}
                     </Box>
                   ))}

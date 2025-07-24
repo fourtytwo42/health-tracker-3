@@ -31,7 +31,7 @@ import {
 interface ImageGenerationConfig {
   prompt: string;
   textModel: string;
-  quality: 'standard' | 'hd';
+  quality: 'low' | 'medium' | 'high' | 'standard' | 'hd';
   size: '1024x1024' | '1536x1024' | '1024x1536' | 'auto';
   background: 'opaque' | 'transparent';
   format: 'png' | 'jpeg' | 'webp';
@@ -41,7 +41,7 @@ interface ImageGenerationConfig {
 const defaultConfig: ImageGenerationConfig = {
   prompt: '',
   textModel: 'gpt-4o-mini',
-  quality: 'standard',
+  quality: 'low',
   size: '1024x1024',
   background: 'opaque',
   format: 'png',
@@ -57,8 +57,11 @@ const textModels = [
 ];
 
 const qualityOptions = [
-  { value: 'standard', label: 'Standard (Fastest, Cheapest)' },
-  { value: 'hd', label: 'HD (Higher Quality)' },
+  { value: 'low', label: 'Low (Cheapest - $0.011)' },
+  { value: 'medium', label: 'Medium ($0.042)' },
+  { value: 'high', label: 'High ($0.167)' },
+  { value: 'standard', label: 'Standard (DALL-E 3 - $0.04)' },
+  { value: 'hd', label: 'HD (DALL-E 3 - $0.08)' },
 ];
 
 const sizeOptions = [
@@ -226,8 +229,11 @@ export default function ImageGeneratorTab() {
   const getEstimatedCost = () => {
     // Rough cost estimation based on quality and size
     const baseCosts = {
-      standard: { square: 0.011, portrait: 0.016, landscape: 0.016 },
-      hd: { square: 0.042, portrait: 0.063, landscape: 0.063 },
+      low: { square: 0.011, portrait: 0.016, landscape: 0.016 },
+      medium: { square: 0.042, portrait: 0.063, landscape: 0.063 },
+      high: { square: 0.167, portrait: 0.25, landscape: 0.25 },
+      standard: { square: 0.04, portrait: 0.08, landscape: 0.08 },
+      hd: { square: 0.08, portrait: 0.12, landscape: 0.12 },
     };
 
     const quality = config.quality;
