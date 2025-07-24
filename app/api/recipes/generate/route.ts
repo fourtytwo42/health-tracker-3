@@ -455,7 +455,7 @@ export async function POST(request: NextRequest) {
                 console.log(`⚠️  AI search failed for "${ingredientName}", using fallback search...`);
                 
                 // Fallback search with better filtering
-                const ingredientService = new IngredientService();
+                const ingredientService = IngredientService.getInstance();
                 const fallbackResults = await ingredientService.getIngredientsPaginated(
                   1, 100, false, ingredientName, ing.category, undefined
                 );
@@ -914,12 +914,12 @@ export async function POST(request: NextRequest) {
                 const searchName = ingredientName.toLowerCase();
                 
                 // Check if the found ingredient actually contains the main ingredient word
-                const mainWords = searchName.split(' ').filter(word => 
+                const mainWords = searchName.split(' ').filter((word: string) => 
                   word.length > 2 && 
                   !['fresh', 'raw', 'ripe', 'large', 'small', 'medium', 'boneless', 'skinless'].includes(word)
                 );
                 
-                const isRelevant = mainWords.some(word => foundName.includes(word));
+                const isRelevant = mainWords.some((word: string) => foundName.includes(word));
                 
                 if (isRelevant) {
                   console.log(`✅ Found ingredient with simplified name: ${simplifiedName} -> ${foundIngredient.name}`);
@@ -1163,134 +1163,92 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    return NextResponse.json({ 
-      recipe,
-      nutrition: finalPerServingNutrition,
-      totalNutrition: {
-        calories: finalPerServingNutrition.calories * refinedRecipe.servings,
-        protein: finalPerServingNutrition.protein * refinedRecipe.servings,
-        carbs: finalPerServingNutrition.carbs * refinedRecipe.servings,
-        fat: finalPerServingNutrition.fat * refinedRecipe.servings,
-        fiber: finalPerServingNutrition.fiber * refinedRecipe.servings,
-        sugar: finalPerServingNutrition.sugar * refinedRecipe.servings,
-        sodium: finalPerServingNutrition.sodium * refinedRecipe.servings
+    // Format the response for the RecipeCard component
+    const recipeCardData = {
+      id: recipe.id,
+      name: recipe.name,
+      title: recipe.name, // Add title for compatibility
+      description: recipe.description,
+      mealType: recipe.mealType,
+      servings: recipe.servings,
+      prepTime: recipe.prepTime,
+      cookTime: recipe.cookTime,
+      totalTime: recipe.totalTime,
+      difficulty: recipe.difficulty,
+      cuisine: recipe.cuisine,
+      tags: recipe.tags,
+      photoUrl: photoUrl,
+      imageUrl: photoUrl, // Add imageUrl for compatibility
+      instructions: Array.isArray(recipe.instructions) 
+        ? recipe.instructions.join('\n')
+        : recipe.instructions,
+      isFavorite: false,
+      isPublic: false,
+      aiGenerated: true,
+      originalQuery: keywords,
+      createdAt: recipe.createdAt,
+      updatedAt: recipe.updatedAt,
+      ingredients: finalIngredientsList
+        .filter(ing => !ing.unavailable) // Only include available ingredients in the main ingredients list
+        .map(ing => ({
+          id: ing.ingredientId || `temp-${Date.now()}-${Math.random()}`,
+          amount: ing.amount,
+          unit: ing.unit,
+          notes: ing.originalName, // Use the original AI ingredient name as notes
+          isOptional: ing.isOptional || false,
+          order: ing.order || 0,
+          name: ing.originalName, // Use the original AI ingredient name
+          calories: ing.nutrition?.calories || 0,
+          protein: ing.nutrition?.protein || 0,
+          carbs: ing.nutrition?.carbs || 0,
+          fat: ing.nutrition?.fat || 0,
+          fiber: ing.nutrition?.fiber || 0,
+          sugar: ing.nutrition?.sugar || 0,
+          ingredient: ing.resolvedIngredient ? {
+            id: ing.resolvedIngredient.id,
+            name: ing.resolvedIngredient.name,
+            category: ing.resolvedIngredient.category || '',
+            aisle: ing.resolvedIngredient.aisle || '',
+            calories: ing.resolvedIngredient.calories,
+            protein: ing.resolvedIngredient.protein,
+            carbs: ing.resolvedIngredient.carbs,
+            fat: ing.resolvedIngredient.fat,
+            fiber: ing.resolvedIngredient.fiber,
+            sugar: ing.resolvedIngredient.sugar
+          } : undefined
+        })),
+      nutrition: {
+        totalCalories: finalPerServingNutrition.calories * refinedRecipe.servings,
+        totalProtein: finalPerServingNutrition.protein * refinedRecipe.servings,
+        totalCarbs: finalPerServingNutrition.carbs * refinedRecipe.servings,
+        totalFat: finalPerServingNutrition.fat * refinedRecipe.servings,
+        totalFiber: finalPerServingNutrition.fiber * refinedRecipe.servings,
+        totalSugar: finalPerServingNutrition.sugar * refinedRecipe.servings,
+        caloriesPerServing: finalPerServingNutrition.calories,
+        proteinPerServing: finalPerServingNutrition.protein,
+        carbsPerServing: finalPerServingNutrition.carbs,
+        fatPerServing: finalPerServingNutrition.fat,
+        fiberPerServing: finalPerServingNutrition.fiber,
+        sugarPerServing: finalPerServingNutrition.sugar
       },
-      unavailableIngredients: unavailableIngredients.map(ing => ing.originalName || ing.notes || 'Unknown ingredient'),
-      scalingApplied: scalingApplied,
-      targetCalories: targetCalories,
-      scalingFactor: scalingFactor,
-      mcpResponse: {
-        ...step2Response.data || step2Response.componentJson,
-        props: {
-          ...(step2Response.data?.props || step2Response.componentJson?.props),
-          id: recipe.id, // Include the saved recipe ID
-          title: recipe.name,
-          description: recipe.description,
-          mealType: recipe.mealType,
-          servings: recipe.servings,
-          prepTime: recipe.prepTime,
-          cookTime: recipe.cookTime,
-          totalTime: recipe.totalTime,
-          difficulty: recipe.difficulty,
-          cuisine: recipe.cuisine,
-          tags: recipe.tags,
-          ingredients: finalIngredientsList
-            .filter(ing => !ing.unavailable) // Only include available ingredients in the main ingredients list
-            .map(ing => {
-              console.log(`🔍 DEBUG: Final ingredient processing - originalName: "${ing.originalName}", name: "${ing.name}", notes: "${ing.notes}"`);
-              
-              // Check if this is a spice/seasoning by category or name
-              const isSpiceOrSeasoning = ing.category === 'Spices and Herbs' ||
-                                        ing.originalName?.toLowerCase().includes('baking powder') ||
-                                        ing.originalName?.toLowerCase().includes('leavening') ||
-                                        ing.originalName?.toLowerCase().includes('salt') ||
-                                        ing.originalName?.toLowerCase().includes('pepper') ||
-                                        ing.originalName?.toLowerCase().includes('vanilla') ||
-                                        ing.originalName?.toLowerCase().includes('extract') ||
-                                        ing.originalName?.toLowerCase().includes('chili') ||
-                                        ing.originalName?.toLowerCase().includes('spices');
-              
-              if (isSpiceOrSeasoning) {
-                // For spices, only show amount without nutrition info
-                return {
-                  name: ing.originalName, // Use the original AI ingredient name
-                  amount: ing.amount,
-                  unit: ing.unit,
-                  originalAmount: ing.originalAmount || ing.amount, // Use original amount if scaling was applied
-                  scalingFactor: ing.scalingFactor || 1.0, // Use scaling factor if available
-                  isSpice: true,
-                  // No nutrition info for spices
-                  category: ing.category,
-                  aisle: ing.aisle,
-                  servingSize: ing.servingSize,
-                  notes: ing.originalName, // Add notes field for frontend egg detection
-                  unavailable: false
-                };
-              } else {
-                // For regular ingredients, show nutrition info
-                console.log(`🔢 Final ingredient mapping for ${ing.originalName}: ${ing.amount}${ing.unit} = ${ing.nutrition.calories} cal`);
-                
-                // Check if this is an egg ingredient and convert to quantity
-                let displayAmount = ing.amount;
-                let displayUnit = ing.unit;
-                let isEgg = false;
-                
-                // More comprehensive egg detection
-                const isEggIngredient = ing.resolvedIngredient?.name?.toLowerCase().includes('egg') ||
-                                       ing.originalName?.toLowerCase().includes('egg') ||
-                                       ing.name?.toLowerCase().includes('egg') ||
-                                       ing.resolvedIngredient?.name?.toLowerCase().includes('egg white') ||
-                                       ing.resolvedIngredient?.name?.toLowerCase().includes('egg yolk');
-                
-                console.log(`🥚 Egg detection check for "${ing.originalName}":`);
-                console.log(`   Original name: "${ing.originalName}"`);
-                console.log(`   Database name: "${ing.resolvedIngredient?.name}"`);
-                console.log(`   Is egg ingredient: ${isEggIngredient}`);
-                
-                if (isEggIngredient) {
-                  const eggConversion = convertEggWeightToQuantity(ing.amount, ing.unit);
-                  displayAmount = eggConversion.quantity;
-                  displayUnit = eggConversion.displayUnit;
-                  isEgg = true;
-                  console.log(`🥚 Converted egg weight: ${ing.amount}${ing.unit} → ${displayAmount} ${displayUnit}`);
-                }
-                
-                return {
-                  name: ing.originalName, // Use the original AI ingredient name
-                  amount: displayAmount,
-                  unit: displayUnit,
-                  originalAmount: ing.originalAmount || ing.amount, // Use original amount if scaling was applied
-                  originalUnit: ing.unit, // Keep original unit for calculations
-                  scalingFactor: ing.scalingFactor || 1.0, // Use scaling factor if available
-                  isEgg: isEgg, // Flag for egg ingredients
-                  calories: ing.nutrition.calories,
-                  protein: ing.nutrition.protein,
-                  carbs: ing.nutrition.carbs,
-                  fat: ing.nutrition.fat,
-                  fiber: ing.nutrition.fiber,
-                  sugar: ing.nutrition.sugar,
-                  sodium: ing.nutrition.sodium,
-                  category: ing.category,
-                  aisle: ing.aisle,
-                  servingSize: ing.servingSize,
-                  notes: ing.originalName, // Add notes field for frontend egg detection
-                  unavailable: false
-                };
-              }
-            }),
-          unavailableIngredients: unavailableIngredients.map(ing => ({
-            name: ing.originalName || ing.notes,
-            amount: ing.amount,
-            unit: ing.unit,
-            notes: ing.originalName || ing.notes
-          })),
-          instructions: Array.isArray(recipe.instructions) 
-            ? recipe.instructions 
-            : recipe.instructions.split('\n'),
-          aiGenerated: true,
-          originalQuery: keywords,
-          userContext: userContext
-        }
+      scalingFactor: scalingFactor
+    };
+
+    return NextResponse.json({ 
+      success: true,
+      data: {
+        message: `I've generated a delicious ${recipe.name} recipe for you! It serves ${recipe.servings} people and contains ${Math.round(finalPerServingNutrition.calories)} calories per serving.`,
+        recipe: recipeCardData
+      },
+      componentJson: {
+        type: 'RecipeCard',
+        props: recipeCardData,
+        quickReplies: [
+          { label: 'Save recipe', value: 'I want to save this recipe to my favorites' },
+          { label: 'Generate another', value: 'I want to generate another recipe' },
+          { label: 'Print recipe', value: 'I want to print this recipe' },
+          { label: 'Adjust calories', value: 'I want to adjust the calorie content of this recipe' }
+        ]
       }
     });
   } catch (error) {

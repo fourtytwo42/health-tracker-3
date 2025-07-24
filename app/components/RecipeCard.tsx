@@ -31,7 +31,8 @@ import { formatIngredientAmount } from '@/lib/utils/unitConversion';
 
 interface Recipe {
   id: string;
-  name: string;
+  name?: string;
+  title?: string;
   description?: string;
   mealType: string;
   servings: number;
@@ -43,6 +44,7 @@ interface Recipe {
   cuisine?: string;
   tags?: string[];
   photoUrl?: string;
+  imageUrl?: string;
   isFavorite: boolean;
   isPublic: boolean;
   aiGenerated: boolean;
@@ -157,6 +159,40 @@ export default function RecipeCard({
   const spacing = (v: number) =>
     isMobile ? v * 0.6 : isTablet ? v * 0.8 : v;
 
+  // Add null checks and default values
+  const recipeName = recipe?.name || recipe?.title || 'Untitled Recipe';
+  const recipeDescription = recipe?.description || '';
+  const recipePhotoUrl = recipe?.photoUrl || recipe?.imageUrl;
+  const recipeMealType = recipe?.mealType || 'UNKNOWN';
+  const recipeServings = recipe?.servings || 1;
+  const recipeNutrition = recipe?.nutrition || {
+    caloriesPerServing: 0,
+    proteinPerServing: 0,
+    carbsPerServing: 0,
+    fatPerServing: 0,
+    fiberPerServing: 0,
+    sugarPerServing: 0
+  };
+
+  // Show loading state if recipe data is not properly loaded
+  if (!recipe) {
+    return (
+      <Box
+        sx={{
+          width: cardWidth,
+          height: cardHeight,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          bgcolor: 'grey.100',
+          borderRadius: 3,
+        }}
+      >
+        <Typography>Loading recipe...</Typography>
+      </Box>
+    );
+  }
+
   const toggleIngredientDetails = useCallback((ingredientId: string) => {
     setExpandedIngredients(prev => {
       const newSet = new Set(prev);
@@ -222,10 +258,10 @@ export default function RecipeCard({
         <Box
           component="img"
           src={
-            recipe.photoUrl ||
+            recipePhotoUrl ||
             'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjNjY2NjY2Ii8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxOCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iI2NjYyIgZHk9Ii4zZW0iPk5vIEltYWdlPC90ZXh0Pjwvc3ZnPg=='
           }
-          alt={recipe.name}
+          alt={recipeName}
           sx={{
             position: 'absolute',
             inset: 0,
@@ -640,7 +676,7 @@ export default function RecipeCard({
                                       fontSize: fs(0.7),
                                     }}
                                   >
-                                    {ing.ingredient.name}
+                                    {ing.ingredient?.name || ing.name || 'Unknown'}
                                   </Typography>
                                 </Grid>
                                 <Grid item xs={6}>
@@ -659,7 +695,7 @@ export default function RecipeCard({
                                       fontSize: fs(0.7),
                                     }}
                                   >
-                                    {ing.ingredient.category || 'N/A'}
+                                    {ing.ingredient?.category || 'N/A'}
                                   </Typography>
                                 </Grid>
                                 <Grid item xs={6}>
@@ -678,7 +714,7 @@ export default function RecipeCard({
                                       fontSize: fs(0.7),
                                     }}
                                   >
-                                    {ing.ingredient.aisle || 'N/A'}
+                                    {ing.ingredient?.aisle || 'N/A'}
                                   </Typography>
                                 </Grid>
                                 {ing.notes && (
@@ -825,7 +861,7 @@ export default function RecipeCard({
                 sx={{
                   fontWeight: 'bold',
                   color: '#fff',
-                  fontSize: fs(clampFont(1.4, recipe.name.length, 30, 50)),
+                  fontSize: fs(clampFont(1.4, recipeName.length, 30, 50)),
                   background: 'rgba(0,0,0,0.5)',
                   borderRadius: 2,
                   p: '6px 12px',
@@ -836,7 +872,7 @@ export default function RecipeCard({
                   textShadow: '2px 2px 4px rgba(0,0,0,0.8)',
                 }}
               >
-                {recipe.name}
+                {recipeName}
               </Typography>
 
               {/* Recipe Badges */}
@@ -850,7 +886,7 @@ export default function RecipeCard({
               >
                 {/* Meal Type Badge */}
                 <Chip
-                  label={getMealTypeLetter(recipe.mealType)}
+                  label={getMealTypeLetter(recipeMealType)}
                   size="small"
                   sx={{
                     backgroundColor: 'rgba(255,255,255,0.9)',
@@ -866,7 +902,7 @@ export default function RecipeCard({
                 
                 {/* Servings Badge */}
                 <Chip
-                  label={`${recipe.servings} ${recipe.servings === 1 ? 'serving' : 'servings'}`}
+                  label={`${recipeServings} ${recipeServings === 1 ? 'serving' : 'servings'}`}
                   size="small"
                   sx={{
                     backgroundColor: 'rgba(0,150,136,0.9)',
@@ -882,7 +918,7 @@ export default function RecipeCard({
                 
                               {/* Calories Badge */}
               <Chip
-                label={`${Math.round(recipe.nutrition.caloriesPerServing)} cal`}
+                label={`${Math.round(recipeNutrition.caloriesPerServing)} cal`}
                 size="small"
                 sx={{
                   backgroundColor: 'rgba(255,87,34,0.9)',
@@ -898,10 +934,10 @@ export default function RecipeCard({
               </Box>
             </Box>
 
-            {recipe.description && (
+            {recipeDescription && (
               <Typography
                 sx={{
-                  fontSize: fs(clampFont(0.85, recipe.description.length, 120, 200)),
+                  fontSize: fs(clampFont(0.85, recipeDescription.length, 120, 200)),
                   color: '#fff',
                   background: 'rgba(0,0,0,0.4)',
                   borderRadius: 2,
@@ -915,7 +951,7 @@ export default function RecipeCard({
                   textOverflow: 'ellipsis',
                 }}
               >
-                {recipe.description}
+                {recipeDescription}
               </Typography>
             )}
           </Box>

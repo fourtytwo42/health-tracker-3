@@ -77,7 +77,8 @@ import RecipeCard from '@/app/components/RecipeCard';
 
 interface Recipe {
   id: string;
-  name: string;
+  name?: string;
+  title?: string;
   description?: string;
   mealType: string;
   servings: number;
@@ -89,6 +90,7 @@ interface Recipe {
   cuisine?: string;
   tags?: string[];
   photoUrl?: string;
+  imageUrl?: string;
   isFavorite: boolean;
   isPublic: boolean;
   aiGenerated: boolean;
@@ -100,9 +102,16 @@ interface Recipe {
     amount: number;
     unit: string;
     notes?: string;
-    isOptional: boolean;
-    order: number;
-    ingredient: {
+    isOptional?: boolean;
+    order?: number;
+    name?: string;
+    calories?: number;
+    protein?: number;
+    carbs?: number;
+    fat?: number;
+    fiber?: number;
+    sugar?: number;
+    ingredient?: {
       id: string;
       name: string;
       category: string;
@@ -295,13 +304,18 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
       });
 
       if (response.ok) {
-        const newRecipe = await response.json();
-        console.log('Generated recipe structure:', JSON.stringify(newRecipe, null, 2));
+        const responseData = await response.json();
+        console.log('Generated recipe structure:', JSON.stringify(responseData, null, 2));
+        
+        // Extract the recipe data from the response
+        const newRecipe = responseData.data?.recipe || responseData.recipe || responseData;
+        console.log('Extracted recipe data:', newRecipe);
+        
         setRecipes(prev => [newRecipe, ...prev]);
         setKeywords('');
         setMealType('DINNER');
         setServings(2);
-                  setCalorieGoal(750);
+        setCalorieGoal(750);
       } else {
         const error = await response.json();
         alert(`Error generating recipe: ${error.error}`);
@@ -357,7 +371,8 @@ export default function MenuBuilderTab({ userProfile, foodPreferences }: MenuBui
       });
 
       if (response.ok) {
-        const newRecipe = await response.json();
+        const responseData = await response.json();
+        const newRecipe = responseData.data?.recipe || responseData.recipe || responseData;
         setRecipes(prev => prev.map(recipe => 
           recipe.id === recipeId ? newRecipe : recipe
         ));
