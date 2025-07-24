@@ -475,39 +475,100 @@ CRITICAL WORKOUT TYPE RULES:
 - Use activities like walking, jogging, cycling, swimming, etc.
 - Each exercise should be a continuous block of time
 - Include warm-up and cool-down periods
-- Example: 10 min warm-up walk, 30 min jog, 10 min cool-down walk
-
-**DO NOT DO THIS FOR CARDIO:**
-- ❌ "3 sets of 12 reps of walking" (wrong - cardio is continuous)
-- ❌ "Walk for 5 minutes, then switch to water aerobics" (wrong - different environments)
-- ❌ "Perform 3 sets of 12 repetitions of jogging" (wrong - cardio doesn't use sets/reps)
-- ❌ "3 sets of 12 reps of calisthenics" (wrong - cardio should be continuous movement)
-- ❌ "3 sets of 12 reps of yoga" (wrong - yoga is flexibility, not cardio with sets/reps)
-
-**DO THIS FOR CARDIO:**
-- ✅ "Walk for 10 minutes to warm up"
-- ✅ "Jog for 30 minutes at moderate pace"
-- ✅ "Walk for 10 minutes to cool down"
-- ✅ "Cycle for 20 minutes at moderate intensity"
-- ✅ "Swim for 15 minutes at a steady pace"
 
 **STRENGTH WORKOUTS:**
 - Use sets and reps for resistance exercises
 - Can include multiple exercises with rest periods
 - Focus on specific muscle groups
-- Example: 3 sets of 12 reps for each exercise
 
 **FLEXIBILITY/YOGA WORKOUTS:**
 - Use duration-based activities
 - Focus on stretching and flexibility
 - Include proper warm-up
-- Example: 5 min warm-up, 20 min yoga poses, 5 min cool-down
 
 **HIIT/CIRCUIT WORKOUTS:**
 - Use timed intervals (work/rest periods)
 - High intensity followed by recovery
 - Can include multiple exercises in rotation
-- Example: 30 sec work, 30 sec rest, repeat
+
+EXAMPLES OF CORRECT JSON FORMATS:
+
+**CARDIO WORKOUT EXAMPLE:**
+{
+  "name": "Beginner Cardio Walk",
+  "description": "A gentle 30-minute walking workout for beginners",
+  "category": "CARDIO",
+  "difficulty": "BEGINNER",
+  "duration": 1800,
+  "totalCalories": 180,
+  "targetMuscleGroups": ["legs", "core"],
+  "equipment": [],
+  "instructions": [
+    "Start with 5 minutes of slow walking to warm up",
+    "Increase pace to moderate walking for 20 minutes",
+    "Finish with 5 minutes of slow walking to cool down"
+  ],
+  "mainImagePrompt": "A person walking on a scenic trail in the morning, with a fitness tracker on their wrist and a peaceful expression, surrounded by nature and good lighting",
+  "exercises": [
+    {
+      "name": "Warm-up Walk",
+      "activityType": "walking, 1.7 mph, strolling",
+      "description": "Walk at a slow, comfortable pace to warm up your muscles",
+      "duration": 300,
+      "restPeriod": 0,
+      "imagePrompt": "A person walking slowly on a flat surface, with relaxed posture and arms swinging naturally",
+      "notes": "Focus on breathing and getting comfortable"
+    },
+    {
+      "name": "Moderate Walking",
+      "activityType": "walking, 2.5 mph",
+      "description": "Walk at a moderate pace, keeping good posture",
+      "duration": 1200,
+      "restPeriod": 0,
+      "imagePrompt": "A person walking briskly with good posture, arms swinging naturally, on a sidewalk or trail",
+      "notes": "Maintain steady pace throughout"
+    },
+    {
+      "name": "Cool-down Walk",
+      "activityType": "walking, 1.7 mph, strolling",
+      "description": "Gradually slow down your pace to cool down",
+      "duration": 300,
+      "restPeriod": 0,
+      "imagePrompt": "A person walking slowly and relaxed, with a content expression, finishing their workout",
+      "notes": "Take deep breaths and relax"
+    }
+  ]
+}
+
+**STRENGTH WORKOUT EXAMPLE:**
+{
+  "name": "Beginner Strength Training",
+  "description": "A basic strength workout using bodyweight exercises",
+  "category": "STRENGTH",
+  "difficulty": "BEGINNER",
+  "duration": 1800,
+  "totalCalories": 200,
+  "targetMuscleGroups": ["legs", "arms", "core"],
+  "equipment": [],
+  "instructions": [
+    "Warm up with 5 minutes of light cardio",
+    "Perform 3 sets of each exercise with 60 seconds rest between sets",
+    "Cool down with 5 minutes of stretching"
+  ],
+  "mainImagePrompt": "A person performing bodyweight exercises in a well-lit home gym, showing determination and proper form",
+  "exercises": [
+    {
+      "name": "Bodyweight Squats",
+      "activityType": "calisthenics, moderate effort",
+      "description": "Stand with feet shoulder-width apart, lower into squat position, then return to standing",
+      "sets": 3,
+      "reps": 12,
+      "restPeriod": 60,
+      "imagePrompt": "A person in a squat position with proper form, knees behind toes, back straight",
+      "notes": "Keep your back straight and knees behind your toes"
+    }
+  ]
+}
 
 Please create a workout that:
 1. Is appropriate for the user's fitness level and goals
@@ -526,45 +587,7 @@ IMAGE PROMPT REQUIREMENTS:
 - Make prompts detailed and descriptive for better image generation
 - Include relevant details like environment, equipment, and form cues
 
-Format the response as JSON:
-{
-  "name": "Workout Name",
-  "description": "Brief description",
-  "category": "${args.workoutType}",
-  "difficulty": "${args.difficulty}",
-  "duration": ${args.duration},
-  "totalCalories": estimated_calories,
-  "targetMuscleGroups": ["muscle1", "muscle2"],
-  "equipment": ["equipment1", "equipment2"],
-  "instructions": ["step1", "step2", "step3"],
-  "mainImagePrompt": "A detailed description for the main workout image that captures the overall theme and energy of this workout",
-  "exercises": [
-    {
-      "name": "Exercise Name",
-      "activityType": "calisthenics, moderate effort",
-      "description": "detailed description of how to perform this exercise",
-      "sets": 3,        // For strength training ONLY (omit for cardio/flexibility)
-      "reps": 12,       // For strength training ONLY (omit for cardio/flexibility)
-      "duration": 300,  // For time-based exercises like cardio, yoga, stretching (in seconds)
-      "restPeriod": 60,
-      "notes": "optional notes about form or modifications",
-      "imagePrompt": "A detailed description for an image that shows someone performing this specific exercise correctly"
-    }
-  ]
-}
-
-CRITICAL: 
-1. Use "name" field for exercise names (e.g., "Push-ups", "Squats", "Calf Raises")
-2. Use "activityType" field to specify the exact activity type from the list above
-3. For strength training exercises, use "sets" and "reps" fields (duration will be calculated automatically)
-4. For time-based exercises (cardio, yoga, stretching), use "duration" field (in seconds) instead of sets/reps
-5. Choose the appropriate format based on the exercise type
-6. The activityType must exactly match one from the list above for accurate calorie calculations
-7. For time-based exercises, specify realistic durations (e.g., 300 seconds for 5 minutes of cardio)
-             8. DO NOT include any comments in the JSON response - only valid JSON
-       9. DO NOT include parenthetical text in numeric values (e.g., use "12" not "12 (per leg)")
-       10. For each exercise, include an "imagePrompt" field with a creative, specific description for generating an instructional image of that exercise. Make it detailed and unique to the exercise. Focus on the specific movement, body position, and form cues. Avoid generic descriptions.
-       11. Include a "workoutImagePrompt" field at the workout level with a creative, specific description for generating an image that represents the entire workout. This should capture the overall theme, intensity, and feel of the complete workout session. Make it detailed and inspiring, focusing on the workout as a whole rather than individual exercises.`;
+Format the response as JSON following the examples above. For CARDIO workouts, use duration-based exercises with NO sets or reps. For STRENGTH workouts, use sets and reps.`;
 
           const llmResponse = await this.llmRouter.generateResponse({
             prompt: workoutPrompt,
