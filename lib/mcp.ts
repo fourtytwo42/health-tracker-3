@@ -481,11 +481,15 @@ CRITICAL WORKOUT TYPE RULES:
 - ❌ "3 sets of 12 reps of walking" (wrong - cardio is continuous)
 - ❌ "Walk for 5 minutes, then switch to water aerobics" (wrong - different environments)
 - ❌ "Perform 3 sets of 12 repetitions of jogging" (wrong - cardio doesn't use sets/reps)
+- ❌ "3 sets of 12 reps of calisthenics" (wrong - cardio should be continuous movement)
+- ❌ "3 sets of 12 reps of yoga" (wrong - yoga is flexibility, not cardio with sets/reps)
 
 **DO THIS FOR CARDIO:**
 - ✅ "Walk for 10 minutes to warm up"
 - ✅ "Jog for 30 minutes at moderate pace"
 - ✅ "Walk for 10 minutes to cool down"
+- ✅ "Cycle for 20 minutes at moderate intensity"
+- ✅ "Swim for 15 minutes at a steady pace"
 
 **STRENGTH WORKOUTS:**
 - Use sets and reps for resistance exercises
@@ -514,6 +518,13 @@ Please create a workout that:
 6. Includes proper warm-up and cool-down
 7. Has appropriate rest periods and progression
 8. Follows the specific rules for the workout type above
+9. Creates detailed image prompts for the main workout and each exercise
+
+IMAGE PROMPT REQUIREMENTS:
+- Create a "mainImagePrompt" that captures the overall theme and energy of the workout
+- Create an "imagePrompt" for each exercise that shows proper form and technique
+- Make prompts detailed and descriptive for better image generation
+- Include relevant details like environment, equipment, and form cues
 
 Format the response as JSON:
 {
@@ -526,6 +537,7 @@ Format the response as JSON:
   "targetMuscleGroups": ["muscle1", "muscle2"],
   "equipment": ["equipment1", "equipment2"],
   "instructions": ["step1", "step2", "step3"],
+  "mainImagePrompt": "A detailed description for the main workout image that captures the overall theme and energy of this workout",
   "exercises": [
     {
       "name": "Exercise Name",
@@ -535,7 +547,8 @@ Format the response as JSON:
       "reps": 12,       // For strength training ONLY (omit for cardio/flexibility)
       "duration": 300,  // For time-based exercises like cardio, yoga, stretching (in seconds)
       "restPeriod": 60,
-      "notes": "optional notes about form or modifications"
+      "notes": "optional notes about form or modifications",
+      "imagePrompt": "A detailed description for an image that shows someone performing this specific exercise correctly"
     }
   ]
 }
