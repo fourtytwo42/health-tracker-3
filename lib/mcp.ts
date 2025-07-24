@@ -467,6 +467,44 @@ VIGOROUS INTENSITY (MET > 6):
 - running/jogging, in place (MET: 8.0)
 - rope jumping (MET: 10.0)
 
+CRITICAL WORKOUT TYPE RULES:
+
+**CARDIO WORKOUTS:**
+- NO sets or reps - use continuous duration-based activities
+- Stay in the SAME environment/location throughout the workout
+- Use activities like walking, jogging, cycling, swimming, etc.
+- Each exercise should be a continuous block of time
+- Include warm-up and cool-down periods
+- Example: 10 min warm-up walk, 30 min jog, 10 min cool-down walk
+
+**DO NOT DO THIS FOR CARDIO:**
+- ❌ "3 sets of 12 reps of walking" (wrong - cardio is continuous)
+- ❌ "Walk for 5 minutes, then switch to water aerobics" (wrong - different environments)
+- ❌ "Perform 3 sets of 12 repetitions of jogging" (wrong - cardio doesn't use sets/reps)
+
+**DO THIS FOR CARDIO:**
+- ✅ "Walk for 10 minutes to warm up"
+- ✅ "Jog for 30 minutes at moderate pace"
+- ✅ "Walk for 10 minutes to cool down"
+
+**STRENGTH WORKOUTS:**
+- Use sets and reps for resistance exercises
+- Can include multiple exercises with rest periods
+- Focus on specific muscle groups
+- Example: 3 sets of 12 reps for each exercise
+
+**FLEXIBILITY/YOGA WORKOUTS:**
+- Use duration-based activities
+- Focus on stretching and flexibility
+- Include proper warm-up
+- Example: 5 min warm-up, 20 min yoga poses, 5 min cool-down
+
+**HIIT/CIRCUIT WORKOUTS:**
+- Use timed intervals (work/rest periods)
+- High intensity followed by recovery
+- Can include multiple exercises in rotation
+- Example: 30 sec work, 30 sec rest, repeat
+
 Please create a workout that:
 1. Is appropriate for the user's fitness level and goals
 2. Uses preferred exercises when possible
@@ -475,6 +513,7 @@ Please create a workout that:
 5. Provides detailed, step-by-step instructions with form cues
 6. Includes proper warm-up and cool-down
 7. Has appropriate rest periods and progression
+8. Follows the specific rules for the workout type above
 
 Format the response as JSON:
 {
@@ -492,8 +531,8 @@ Format the response as JSON:
       "name": "Exercise Name",
       "activityType": "calisthenics, moderate effort",
       "description": "detailed description of how to perform this exercise",
-      "sets": 3,        // For strength training (optional for time-based exercises)
-      "reps": 12,       // For strength training (optional for time-based exercises)
+      "sets": 3,        // For strength training ONLY (omit for cardio/flexibility)
+      "reps": 12,       // For strength training ONLY (omit for cardio/flexibility)
       "duration": 300,  // For time-based exercises like cardio, yoga, stretching (in seconds)
       "restPeriod": 60,
       "notes": "optional notes about form or modifications"
