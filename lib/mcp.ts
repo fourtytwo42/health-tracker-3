@@ -570,6 +570,31 @@ EXAMPLES OF CORRECT JSON FORMATS:
   ]
 }
 
+**CORRECT JSON STRUCTURE:**
+{
+  "name": "Workout Name",
+  "description": "Workout description",
+  "category": "CARDIO|STRENGTH|FLEXIBILITY|HIIT",
+  "difficulty": "BEGINNER|INTERMEDIATE|ADVANCED",
+  "duration": 1800,
+  "totalCalories": 200,
+  "targetMuscleGroups": ["legs", "core"],
+  "equipment": [],
+  "instructions": ["step 1", "step 2"],
+  "mainImagePrompt": "DESCRIPTION FOR MAIN WORKOUT IMAGE - THIS GOES AT WORKOUT LEVEL",
+  "exercises": [
+    {
+      "name": "Exercise Name",
+      "activityType": "walking, 2.5 mph",
+      "description": "Exercise description",
+      "duration": 300,
+      "restPeriod": 60,
+      "imagePrompt": "DESCRIPTION FOR THIS EXERCISE'S IMAGE - THIS GOES INSIDE EACH EXERCISE",
+      "notes": "Exercise notes"
+    }
+  ]
+}
+
 Please create a workout that:
 1. Is appropriate for the user's fitness level and goals
 2. Uses preferred exercises when possible
@@ -582,10 +607,12 @@ Please create a workout that:
 9. Creates detailed image prompts for the main workout and each exercise
 
 IMAGE PROMPT REQUIREMENTS:
-- Create a "mainImagePrompt" that captures the overall theme and energy of the workout
-- Create an "imagePrompt" for each exercise that shows proper form and technique
+- Create a "mainImagePrompt" field at the WORKOUT LEVEL (not inside exercises) that captures the overall theme and energy of the workout
+- Create an "imagePrompt" field for each exercise that shows proper form and technique
 - Make prompts detailed and descriptive for better image generation
 - Include relevant details like environment, equipment, and form cues
+
+CRITICAL: The "mainImagePrompt" must be at the workout level, NOT inside individual exercises. Each exercise should have its own "imagePrompt" field.
 
 Format the response as JSON following the examples above. For CARDIO workouts, use duration-based exercises with NO sets or reps. For STRENGTH workouts, use sets and reps.`;
 
