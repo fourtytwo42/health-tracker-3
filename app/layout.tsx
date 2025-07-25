@@ -5,7 +5,6 @@ import CssBaseline from '@mui/material/CssBaseline';
 import { AppRouterCacheProvider } from '@mui/material-nextjs/v14-appRouter';
 import { AuthProvider } from '@/context/AuthContext';
 import theme from './styles/theme';
-import './globals.css';
 
 export const metadata: Metadata = {
   title: 'AI Health Companion',
