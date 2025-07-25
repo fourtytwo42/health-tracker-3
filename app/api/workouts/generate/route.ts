@@ -674,26 +674,50 @@ async function createWorkout(workoutData: any): Promise<any> {
     'water aerobics': 2.5,
     'resistance training, multiple exercises, 8-15 reps': 3.5,
     'calisthenics, moderate effort': 3.8,
+    'calisthenics, light effort': 2.8,
+    'calisthenics, heavy effort': 6.0,
+    'calisthenics, vigorous effort': 8.0,
+    'calisthenics, heavy, vigorous effort': 8.0,
     'Pilates, general': 3.8,
     'calisthenics, home exercise, light/moderate effort': 3.5,
     'bicycling, <10 mph, leisure': 4.0,
     'bicycling, stationary, 50 watts, very light effort': 5.3,
     'bicycling, stationary, 100 watts, light effort': 5.5,
     'jogging, general': 7.0,
-    'calisthenics, heavy, vigorous effort': 8.0,
     'running/jogging, in place': 8.0,
     'rope jumping': 10.0,
-    'flexibility': 2.5
+    'flexibility': 2.5,
+    'stretching': 2.5,
+    'warm-up': 2.0,
+    'cool-down': 2.0,
+    'rest': 1.0
   };
 
   // Process exercises and calculate calories
   let totalCalories = 0;
   const processedExercises = exercises.map((exercise: any, index: number) => {
     const activityType = exercise.activityType;
-    const met = metValues[activityType as keyof typeof metValues];
+    let met = metValues[activityType as keyof typeof metValues];
     
     if (!met) {
-      throw new Error(`Unknown activity type: "${activityType}"`);
+      // Fallback: try to find a similar activity type
+      const activityLower = activityType.toLowerCase();
+      if (activityLower.includes('calisthenics')) {
+        met = 3.8; // Default to moderate effort
+      } else if (activityLower.includes('walking')) {
+        met = 2.9; // Default to 2.5 mph
+      } else if (activityLower.includes('yoga')) {
+        met = 3.0; // Default to Hatha
+      } else if (activityLower.includes('stretch') || activityLower.includes('flexibility')) {
+        met = 2.5;
+      } else if (activityLower.includes('warm') || activityLower.includes('cool')) {
+        met = 2.0;
+      } else if (activityLower.includes('rest')) {
+        met = 1.0;
+      } else {
+        console.warn(`Unknown activity type: "${activityType}", using default MET of 3.0`);
+        met = 3.0; // Default fallback
+      }
     }
     
     // Calculate calories for this exercise
