@@ -1,0 +1,17 @@
+/* Global CSS overrides */
+
+/* Fix for workout title font-size issue */
+.mui-4qxlk1,
+[class*="mui-"][class*="MuiTypography-root"] {
+  font-size: 2rem !important;
+}
+
+/* Override any global 1.3px font-size rules */
+* {
+  font-size: inherit;
+}
+
+/* Ensure workout titles are always visible */
+h1, h2, h3, h4, h5, h6 {
+  font-size: inherit;
+} 
