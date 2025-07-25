@@ -6,7 +6,7 @@ import { SystemMessageService } from '@/lib/services/SystemMessageService';
 import { z } from 'zod';
 
 const generateWorkoutSchema = z.object({
-  keywords: z.string().min(1),
+  keywords: z.string().optional().default(''),
   workoutType: z.string(),
   duration: z.number().min(10).max(180),
   difficulty: z.string(),
@@ -236,8 +236,10 @@ function buildWorkoutGenerationPrompt(
     .map(pref => pref.exercise?.activity || pref.exerciseId)
     .slice(0, 5);
 
+  const requestDescription = keywords.trim() ? `based on this request: "${keywords}"` : 'with no specific requirements - create a well-rounded workout';
+  
   return `
-Create a ${duration}-minute ${difficulty.toLowerCase()} ${workoutType.toLowerCase()} workout based on this request: "${keywords}"
+Create a ${duration}-minute ${difficulty.toLowerCase()} ${workoutType.toLowerCase()} workout ${requestDescription}
 
 USER CONTEXT:
 ${userContext.length > 0 ? userContext.join('\n') : 'No specific user profile data available'}
