@@ -171,9 +171,8 @@ const WorkoutCard: React.FC<WorkoutCardProps> = ({
         }
         title={
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-            <Typography 
-              variant="h4" 
-              component="h2" 
+            <Box
+              component="h2"
               className="workout-title"
               sx={{ 
                 fontWeight: 700,
@@ -181,22 +180,13 @@ const WorkoutCard: React.FC<WorkoutCardProps> = ({
                 color: 'text.primary',
                 lineHeight: 1.2,
                 mb: 0.5,
-                '&.workout-title': {
-                  fontSize: { xs: '1.5rem', sm: '2rem', md: '2.125rem' },
-                },
-                '&.MuiTypography-root': {
-                  fontSize: { xs: '1.5rem', sm: '2rem', md: '2.125rem' },
-                }
-              }}
-              style={{
-                fontSize: '2rem',
-                fontWeight: 700,
-                lineHeight: 1.2,
-                marginBottom: '8px'
+                margin: 0,
+                padding: 0,
+                fontFamily: 'inherit'
               }}
             >
               {workout.name}
-            </Typography>
+            </Box>
             {workout.aiGenerated && (
               <Chip 
                 label="AI Generated" 
