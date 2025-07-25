@@ -288,7 +288,7 @@ Please create a workout that:
 
 Format the response as JSON:
 {
-  "name": "Workout Name",
+  "name": "Creative, descriptive workout name (e.g., 'Power Hour Strength Builder', 'Cardio Blast Express', 'Flexibility Flow Mastery')",
   "description": "Brief description",
   "category": "${workoutType}",
   "difficulty": "${difficulty}",
@@ -312,18 +312,19 @@ Format the response as JSON:
 }
 
 IMPORTANT: 
-1. Use "name" field for exercise names (e.g., "Push-ups", "Squats", "Calf Raises")
-2. Use "activityType" field to specify the exact activity type from the list above
-3. For strength training exercises, use "sets" and "reps" fields (duration will be calculated automatically)
-4. For time-based exercises (cardio, yoga, stretching), use "duration" field (in seconds) instead of sets/reps
-5. Choose the appropriate format based on the exercise type
-6. The activityType must exactly match one from the list above for accurate calorie calculations
-7. For time-based exercises, specify realistic durations (e.g., 300 seconds for 5 minutes of cardio)
-      8. DO NOT include any comments in the JSON response - only valid JSON
-      9. DO NOT include parenthetical text in numeric values (e.g., use "12" not "12 (per leg)")
-      10. For each exercise, include an "imagePrompt" field with a creative, specific description for generating an instructional image of that exercise. Make it detailed and unique to the exercise. Focus on the specific movement, body position, and form cues. Avoid generic descriptions.
-      11. Include a "workoutImagePrompt" field at the workout level with a creative, specific description for generating an image that represents the entire workout. This should capture the overall theme, intensity, and feel of the complete workout session. Make it detailed and inspiring, focusing on the workout as a whole rather than individual exercises.
-      12. the workoutImagePrompt should be specific to the workout and the exercises in the workout and not say things like beginner or intermediate, it should be a description of a specific pose or movement that is representative of the workout.
+1. Create a CREATIVE and DESCRIPTIVE workout name that captures the essence, intensity, and goals of the workout (e.g., "Morning Power Surge", "Core Crusher Circuit", "Endurance Builder Express", "Flexibility Flow Mastery")
+2. Use "name" field for exercise names (e.g., "Push-ups", "Squats", "Calf Raises")
+3. Use "activityType" field to specify the exact activity type from the list above
+4. For strength training exercises, use "sets" and "reps" fields (duration will be calculated automatically)
+5. For time-based exercises (cardio, yoga, stretching), use "duration" field (in seconds) instead of sets/reps
+6. Choose the appropriate format based on the exercise type
+7. The activityType must exactly match one from the list above for accurate calorie calculations
+8. For time-based exercises, specify realistic durations (e.g., 300 seconds for 5 minutes of cardio)
+9. DO NOT include any comments in the JSON response - only valid JSON
+10. DO NOT include parenthetical text in numeric values (e.g., use "12" not "12 (per leg)")
+11. For each exercise, include an "imagePrompt" field with a creative, specific description for generating an instructional image of that exercise. Make it detailed and unique to the exercise. Focus on the specific movement, body position, and form cues. Avoid generic descriptions.
+12. Include a "workoutImagePrompt" field at the workout level with a creative, specific description for generating an image that represents the entire workout. This should capture the overall theme, intensity, and feel of the complete workout session. Make it detailed and inspiring, focusing on the workout as a whole rather than individual exercises.
+13. The workoutImagePrompt should be specific to the workout and the exercises in the workout and not say things like beginner or intermediate, it should be a description of a specific pose or movement that is representative of the workout.
 `;
 }
 
@@ -334,14 +335,21 @@ CRITICAL RULE: Use "searchTerm" field for exercises, NOT "exerciseId". The searc
 
 KEY RESPONSIBILITIES:
 1. Design workouts that are appropriate for the specified difficulty level and duration
-2. Provide detailed, step-by-step instructions for each exercise
-3. Include proper warm-up and cool-down recommendations
-4. Consider exercise progression and rest periods
-5. Ensure exercises target the specified muscle groups
-6. Adapt workouts to available equipment
-7. Provide clear pacing and timing guidance
-8. Include safety considerations and form cues
-9. Use descriptive search terms for exercises - never use numeric codes
+2. Create CREATIVE and DESCRIPTIVE workout names that capture the essence, intensity, and goals of the workout
+3. Provide detailed, step-by-step instructions for each exercise
+4. Include proper warm-up and cool-down recommendations
+5. Consider exercise progression and rest periods
+6. Ensure exercises target the specified muscle groups
+7. Adapt workouts to available equipment
+8. Provide clear pacing and timing guidance
+9. Include safety considerations and form cues
+10. Use descriptive search terms for exercises - never use numeric codes
+
+WORKOUT NAMING GUIDELINES:
+- Create engaging, memorable names that reflect the workout's purpose and intensity
+- Examples: "Morning Power Surge", "Core Crusher Circuit", "Endurance Builder Express", "Flexibility Flow Mastery", "Strength Symphony", "Cardio Blast Express", "HIIT Inferno", "Yoga Harmony Flow"
+- Avoid generic names like "Workout" or "Exercise Routine"
+- Make names specific to the workout type, target areas, or intensity level
 
 WORKOUT STRUCTURE GUIDELINES:
 - Always start with a 5-10 minute warm-up
@@ -362,7 +370,7 @@ SAFETY FIRST:
 RESPONSE FORMAT:
 Return a valid JSON object with the following structure:
 {
-  "name": "Creative, descriptive workout name",
+  "name": "Creative, descriptive workout name that captures the workout's essence and goals",
   "description": "Brief overview of the workout goals and benefits",
   "category": "STRENGTH|CARDIO|FLEXIBILITY|HIIT|SPORTS|REHAB",
   "difficulty": "BEGINNER|INTERMEDIATE|ADVANCED",
