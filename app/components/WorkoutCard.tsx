@@ -275,18 +275,21 @@ export default function WorkoutCard({
 
           {/* Title and Stats */}
           <Box>
-            <Typography
-              variant="h6"
+            <Box
+              component="h2"
               sx={{
                 fontSize: titleFontSize,
                 fontWeight: 600,
                 mb: 1,
                 lineHeight: 1.2,
                 textShadow: '0 2px 4px rgba(0,0,0,0.5)',
+                margin: 0,
+                padding: 0,
+                color: 'white'
               }}
             >
               {workout.name || 'Unnamed Workout'}
-            </Typography>
+            </Box>
             
             {/* Description above time/calories */}
             {workout.description && (
