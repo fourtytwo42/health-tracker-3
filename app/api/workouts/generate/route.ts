@@ -551,7 +551,8 @@ function parseWorkoutResponse(
       exercises: exercises,
       generateImage: generateImage,
       userProfile: userProfile,
-      workoutImagePrompt: workoutData.workoutImagePrompt || workoutData.mainImagePrompt,
+      // Store the main image prompt separately for image generation, not in database
+      mainImagePrompt: workoutData.mainImagePrompt || workoutData.workoutImagePrompt,
     };
 
     console.log('Parsed workout data:', parsedData);
@@ -563,7 +564,7 @@ function parseWorkoutResponse(
 }
 
 async function createWorkout(workoutData: any): Promise<any> {
-  const { exercises, generateImage, userProfile, ...workoutInfo } = workoutData;
+  const { exercises, generateImage, userProfile, mainImagePrompt, ...workoutInfo } = workoutData;
   
   // Generate images if requested
   let workoutPhotoUrl = null;
@@ -576,7 +577,7 @@ async function createWorkout(workoutData: any): Promise<any> {
       
       // Build personalized image prompt using user profile
       const workoutImagePrompt = buildPersonalizedWorkoutImagePrompt(
-        workoutData.workoutImagePrompt || `A professional fitness photo showing a ${(workoutData.difficulty || 'beginner').toLowerCase()} ${(workoutData.category || 'cardio').toLowerCase()} workout. The image should show someone in athletic clothing performing exercises like ${exercises.slice(0, 3).map((e: any) => e.name).join(', ')} in a well-lit gym or home setting. The person should be using proper form and the image should be suitable for fitness instruction.`,
+        mainImagePrompt || `A professional fitness photo showing a ${(workoutData.difficulty || 'beginner').toLowerCase()} ${(workoutData.category || 'cardio').toLowerCase()} workout. The image should show someone in athletic clothing performing exercises like ${exercises.slice(0, 3).map((e: any) => e.name).join(', ')} in a well-lit gym or home setting. The person should be using proper form and the image should be suitable for fitness instruction.`,
         userProfile
       );
       
