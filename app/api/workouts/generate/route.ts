@@ -512,26 +512,50 @@ function parseWorkoutResponse(
       workoutData = JSON.parse(cleanedJson);
     }
 
-    return {
+    // Fix common issues with AI-generated workout data
+    if (workoutData.duration && typeof workoutData.duration === 'number' && workoutData.duration < 3600) {
+      // Convert minutes to seconds if duration is less than 1 hour
+      console.log(`Converting duration from ${workoutData.duration} minutes to ${workoutData.duration * 60} seconds`);
+      workoutData.duration = workoutData.duration * 60;
+    }
+
+    // Ensure we have valid exercises array (handle duplicate exercises arrays)
+    let exercises = workoutData.exercises || [];
+    if (Array.isArray(exercises) && exercises.length > 0) {
+      // Filter out any exercises that don't have required fields
+      exercises = exercises.filter((exercise: any) => 
+        exercise && 
+        exercise.name && 
+        exercise.activityType &&
+        (exercise.duration || (exercise.sets && exercise.reps))
+      );
+    }
+
+    // Ensure all required fields are present
+    const parsedData = {
       userId,
-      name: workoutData.name,
-      description: workoutData.description,
-      category: workoutData.category,
-      difficulty: workoutData.difficulty,
-      duration: workoutData.duration,
-      totalCalories: workoutData.totalCalories,
+      name: workoutData.name || 'Generated Workout',
+      description: workoutData.description || 'AI-generated workout',
+      category: workoutData.category || 'CARDIO',
+      difficulty: workoutData.difficulty || 'BEGINNER',
+      duration: workoutData.duration || 1800, // Default to 30 minutes
+      totalCalories: workoutData.totalCalories || 0,
       targetMuscleGroups: workoutData.targetMuscleGroups || [],
       equipment: workoutData.equipment || [],
       instructions: workoutData.instructions || [],
-      photoUrl: generateImage ? undefined : undefined, // TODO: Implement image generation
+      photoUrl: null,
       isFavorite: false,
       isPublic: false,
       aiGenerated: true,
       originalQuery,
-      exercises: workoutData.exercises || [],
-      generateImage: generateImage, // Include the generateImage flag
-      userProfile: userProfile, // Include user profile for image personalization
+      exercises: exercises,
+      generateImage: generateImage,
+      userProfile: userProfile,
+      workoutImagePrompt: workoutData.workoutImagePrompt || workoutData.mainImagePrompt,
     };
+
+    console.log('Parsed workout data:', parsedData);
+    return parsedData;
   } catch (error) {
     console.error('Error parsing workout response:', error);
     throw new Error('Failed to parse workout generation response');
@@ -552,7 +576,7 @@ async function createWorkout(workoutData: any): Promise<any> {
       
       // Build personalized image prompt using user profile
       const workoutImagePrompt = buildPersonalizedWorkoutImagePrompt(
-        workoutData.workoutImagePrompt || `A professional fitness photo showing a ${workoutData.difficulty.toLowerCase()} ${workoutData.category.toLowerCase()} workout. The image should show someone in athletic clothing performing exercises like ${exercises.slice(0, 3).map((e: any) => e.name).join(', ')} in a well-lit gym or home setting. The person should be using proper form and the image should be suitable for fitness instruction.`,
+        workoutData.workoutImagePrompt || `A professional fitness photo showing a ${(workoutData.difficulty || 'beginner').toLowerCase()} ${(workoutData.category || 'cardio').toLowerCase()} workout. The image should show someone in athletic clothing performing exercises like ${exercises.slice(0, 3).map((e: any) => e.name).join(', ')} in a well-lit gym or home setting. The person should be using proper form and the image should be suitable for fitness instruction.`,
         userProfile
       );
       
