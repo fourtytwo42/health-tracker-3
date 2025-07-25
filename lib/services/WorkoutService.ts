@@ -503,12 +503,74 @@ Return a valid JSON object with the following structure:
     const targetMuscleGroups = workout.targetMuscleGroups ? JSON.parse(workout.targetMuscleGroups) : [];
     const equipment = workout.equipment ? JSON.parse(workout.equipment) : [];
     const instructions = workout.instructions ? JSON.parse(workout.instructions) : [];
+
+    // For AI-generated workouts, we need to handle virtual exercises
+    if (workout.aiGenerated && workout.virtualExercises) {
+      try {
+        const virtualExercisesData = JSON.parse(workout.virtualExercises);
+        
+        // Convert virtual exercises to the format expected by the UI
+        const virtualExercises = virtualExercisesData.map((ve: any, index: number) => ({
+          id: ve.exerciseId || `virtual-${index + 1}`,
+          exercise: {
+            id: ve.exerciseId || `virtual-${index + 1}`,
+            activity: ve.name || 'Virtual Exercise',
+            code: ve.exerciseId || 'VIRTUAL',
+            met: 3.5, // Default MET value
+            description: ve.description || 'AI-generated exercise',
+            category: 'VIRTUAL',
+            intensity: 'MODERATE',
+            isActive: true,
+            // Include exercise image if available
+            imageUrl: ve.imageUrl || null,
+          },
+          sets: ve.sets,
+          reps: ve.reps,
+          duration: ve.duration,
+          restPeriod: ve.restPeriod || 60,
+          order: ve.order || index + 1,
+          notes: ve.notes,
+          calories: ve.calories
+        }));
+
+        return {
+          ...workout,
+          targetMuscleGroups,
+          equipment,
+          instructions,
+          totalCalories: Math.round(workout.totalCalories || 0),
+          exercises: virtualExercises,
+          isVirtual: true
+        };
+      } catch (error) {
+        console.error('Error parsing virtual exercises:', error);
+      }
+    }
+
+    // For regular exercises, check if we have virtual exercises with images to merge
     const virtualExercises = workout.virtualExercises ? JSON.parse(workout.virtualExercises) : [];
+    let exercisesWithImages = workout.exercises;
+    
+    if (virtualExercises.length > 0) {
+      exercisesWithImages = workout.exercises.map((exercise: any, index: number) => {
+        // Find corresponding virtual exercise with image
+        const virtualExercise = virtualExercises[index];
+        
+        return {
+          ...exercise,
+          exercise: {
+            ...exercise.exercise,
+            // Add image URL if available from virtual exercise
+            imageUrl: virtualExercise?.imageUrl || null,
+          }
+        };
+      });
+    }
 
     // Calculate total calories if not provided
     let totalCalories = workout.totalCalories;
-    if (!totalCalories && workout.exercises.length > 0) {
-      totalCalories = workout.exercises.reduce((total: number, we: any) => {
+    if (!totalCalories && exercisesWithImages.length > 0) {
+      totalCalories = exercisesWithImages.reduce((total: number, we: any) => {
         const exerciseDuration = we.duration || (we.reps ? we.reps * 3 : 60); // Estimate duration
         const setsDuration = exerciseDuration * we.sets;
         const totalDuration = setsDuration + (we.restPeriod * (we.sets - 1));
@@ -516,21 +578,6 @@ Return a valid JSON object with the following structure:
         return total + (caloriesPerMinute * totalDuration / 60);
       }, 0);
     }
-
-    // Process exercises to include images from virtualExercises
-    const exercisesWithImages = workout.exercises.map((exercise: any, index: number) => {
-      // Find corresponding virtual exercise with image
-      const virtualExercise = virtualExercises[index];
-      
-      return {
-        ...exercise,
-        exercise: {
-          ...exercise.exercise,
-          // Add image URL if available from virtual exercise
-          imageUrl: virtualExercise?.imageUrl || null,
-        }
-      };
-    });
 
     return {
       ...workout,
