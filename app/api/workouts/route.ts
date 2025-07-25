@@ -139,6 +139,7 @@ function calculateWorkoutStats(workout: any): any {
   const instructions = workout.instructions ? JSON.parse(workout.instructions) : [];
 
   console.log(`=== DEBUG: calculateWorkoutStats for workout ${workout.id} ===`);
+  console.log('Workout name:', workout.name);
   console.log('AI Generated:', workout.aiGenerated);
   console.log('Virtual Exercises field:', workout.virtualExercises ? 'Present' : 'Missing');
   console.log('Exercises from include:', workout.exercises ? workout.exercises.length : 'No exercises array');

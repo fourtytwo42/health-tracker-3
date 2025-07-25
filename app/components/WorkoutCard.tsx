@@ -153,8 +153,12 @@ export default function WorkoutCard({
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const isTablet = useMediaQuery(theme.breakpoints.down('md'));
-
   const [expanded, setExpanded] = useState(false);
+
+  // Debug logging
+  console.log('WorkoutCard received workout:', workout);
+  console.log('Workout name:', workout?.name);
+  console.log('Workout description:', workout?.description);
 
   const fs = (b: number) =>
     `${b * (isMobile ? 0.8 : isTablet ? 0.9 : 1)}rem`;
@@ -267,44 +271,7 @@ export default function WorkoutCard({
             </Box>
           </Box>
 
-          {/* Description Overlay */}
-          {workout.description && (
-            <Box
-              sx={{
-                position: 'absolute',
-                top: '50%',
-                left: '50%',
-                transform: 'translate(-50%, -50%)',
-                backgroundColor: 'rgba(0, 0, 0, 0.7)',
-                backdropFilter: 'blur(8px)',
-                borderRadius: 2,
-                p: 2,
-                maxWidth: '80%',
-                maxHeight: '60%',
-                overflow: 'hidden',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                textAlign: 'center',
-              }}
-            >
-              <Typography
-                variant="body2"
-                sx={{
-                  fontSize: fs(0.8),
-                  lineHeight: 1.4,
-                  display: '-webkit-box',
-                  WebkitLineClamp: 3,
-                  WebkitBoxOrient: 'vertical',
-                  overflow: 'hidden',
-                  color: 'white',
-                  textShadow: '0 1px 2px rgba(0,0,0,0.8)',
-                }}
-              >
-                {workout.description}
-              </Typography>
-            </Box>
-          )}
+
 
           {/* Title and Stats */}
           <Box>
@@ -318,8 +285,34 @@ export default function WorkoutCard({
                 textShadow: '0 2px 4px rgba(0,0,0,0.5)',
               }}
             >
-              {workout.name}
+              {workout.name || 'Unnamed Workout'}
             </Typography>
+            
+            {/* Description above time/calories */}
+            {workout.description && (
+              <Box
+                sx={{
+                  backgroundColor: 'rgba(255,255,255,0.15)',
+                  backdropFilter: 'blur(10px)',
+                  border: '1px solid rgba(255,255,255,0.2)',
+                  borderRadius: 1,
+                  p: 1,
+                  mb: 1,
+                }}
+              >
+                <Typography
+                  variant="body2"
+                  sx={{
+                    fontSize: fs(0.75),
+                    lineHeight: 1.3,
+                    color: 'white',
+                    textShadow: '0 1px 2px rgba(0,0,0,0.8)',
+                  }}
+                >
+                  {workout.description}
+                </Typography>
+              </Box>
+            )}
             
             <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', mb: 1 }}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
