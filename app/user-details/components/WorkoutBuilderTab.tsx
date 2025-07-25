@@ -488,7 +488,7 @@ export default function WorkoutBuilderTab({ userProfile, exercisePreferences }: 
               variant="contained"
               size="large"
               onClick={generateWorkout}
-              disabled={isGenerating || !keywords.trim()}
+              disabled={isGenerating}
               startIcon={isGenerating ? <CircularProgress size={20} /> : <AddIcon />}
               sx={{ minWidth: 200 }}
             >
