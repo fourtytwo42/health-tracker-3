@@ -491,128 +491,145 @@ CRITICAL WORKOUT TYPE RULES:
 - High intensity followed by recovery
 - Can include multiple exercises in rotation
 
+WORKOUT STRUCTURE RULES:
+- Create a CREATIVE, DESCRIPTIVE workout name that captures the essence and goal
+- DO NOT include separate "instructions" array - all instructions go inside exercises
+- Include warm-up, main exercises, rest periods, and cool-down as separate exercises
+- Warm-up, rest, and cool-down exercises should have "generateImage: false" or no imagePrompt
+- Main exercises should have detailed imagePrompt for form visualization
+- Each exercise should include specific instructions for when to rest before/after
+
 EXAMPLES OF CORRECT JSON FORMATS:
 
 **CARDIO WORKOUT EXAMPLE:**
 {
-  "name": "Beginner Cardio Walk",
-  "description": "A gentle 30-minute walking workout for beginners",
+  "name": "Sunrise Power Walk & Flow",
+  "description": "A dynamic morning cardio session combining brisk walking with gentle yoga flow to energize your day and boost metabolism.",
   "category": "CARDIO",
   "difficulty": "BEGINNER",
   "duration": 1800,
   "totalCalories": 180,
-  "targetMuscleGroups": ["legs", "core"],
+  "targetMuscleGroups": ["legs", "core", "cardiovascular"],
   "equipment": [],
-  "instructions": [
-    "Start with 5 minutes of slow walking to warm up",
-    "Increase pace to moderate walking for 20 minutes",
-    "Finish with 5 minutes of slow walking to cool down"
-  ],
-  "mainImagePrompt": "A person walking on a scenic trail in the morning, with a fitness tracker on their wrist and a peaceful expression, surrounded by nature and good lighting",
+  "mainImagePrompt": "A person in a dynamic walking pose on a scenic trail at sunrise, with arms swinging naturally and a determined expression, surrounded by golden morning light and nature",
   "exercises": [
     {
-      "name": "Warm-up Walk",
+      "name": "Morning Warm-up Walk",
       "activityType": "walking, 1.7 mph, strolling",
-      "description": "Walk at a slow, comfortable pace to warm up your muscles",
+      "description": "Start with 5 minutes of gentle walking to warm up your muscles and get your blood flowing. Focus on deep breathing and preparing your body for the workout ahead.",
       "duration": 300,
       "restPeriod": 0,
-      "imagePrompt": "A person walking slowly on a flat surface, with relaxed posture and arms swinging naturally",
-      "notes": "Focus on breathing and getting comfortable"
+      "notes": "Take this time to mentally prepare and set your intention for the workout",
+      "generateImage": false
     },
     {
-      "name": "Moderate Walking",
+      "name": "Power Walking Intervals",
       "activityType": "walking, 2.5 mph",
-      "description": "Walk at a moderate pace, keeping good posture",
+      "description": "Increase your pace to a brisk walk for 20 minutes. Keep your posture tall, engage your core, and swing your arms naturally. This is your main cardio segment.",
       "duration": 1200,
       "restPeriod": 0,
-      "imagePrompt": "A person walking briskly with good posture, arms swinging naturally, on a sidewalk or trail",
-      "notes": "Maintain steady pace throughout"
+      "imagePrompt": "A person walking briskly with excellent posture, arms swinging naturally, on a paved path with determination in their stride",
+      "notes": "Maintain steady pace throughout, focus on breathing rhythm"
     },
     {
-      "name": "Cool-down Walk",
-      "activityType": "walking, 1.7 mph, strolling",
-      "description": "Gradually slow down your pace to cool down",
+      "name": "Cool-down Stretch",
+      "activityType": "yoga, Hatha",
+      "description": "Finish with 5 minutes of gentle stretching to cool down your muscles and improve flexibility. Focus on deep breathing and relaxation.",
       "duration": 300,
       "restPeriod": 0,
-      "imagePrompt": "A person walking slowly and relaxed, with a content expression, finishing their workout",
-      "notes": "Take deep breaths and relax"
+      "notes": "Hold each stretch for 30 seconds, breathe deeply",
+      "generateImage": false
     }
   ]
 }
 
 **STRENGTH WORKOUT EXAMPLE:**
 {
-  "name": "Beginner Strength Training",
-  "description": "A basic strength workout using bodyweight exercises",
+  "name": "Total Body Power Builder",
+  "description": "A comprehensive strength training session targeting all major muscle groups with bodyweight exercises for maximum efficiency.",
   "category": "STRENGTH",
   "difficulty": "BEGINNER",
   "duration": 1800,
   "totalCalories": 200,
-  "targetMuscleGroups": ["legs", "arms", "core"],
+  "targetMuscleGroups": ["legs", "arms", "core", "chest", "back"],
   "equipment": [],
-  "instructions": [
-    "Warm up with 5 minutes of light cardio",
-    "Perform 3 sets of each exercise with 60 seconds rest between sets",
-    "Cool down with 5 minutes of stretching"
-  ],
-  "mainImagePrompt": "A person performing bodyweight exercises in a well-lit home gym, showing determination and proper form",
+  "mainImagePrompt": "A person in a plank position with perfect form, showing full body engagement and strength, in a well-lit home gym setting",
   "exercises": [
+    {
+      "name": "Dynamic Warm-up",
+      "activityType": "calisthenics, home exercise, light/moderate effort",
+      "description": "Perform 5 minutes of dynamic stretches and light movements to prepare your muscles for strength training. Include arm circles, leg swings, and gentle squats.",
+      "duration": 300,
+      "restPeriod": 0,
+      "notes": "Focus on mobility and range of motion",
+      "generateImage": false
+    },
     {
       "name": "Bodyweight Squats",
       "activityType": "calisthenics, moderate effort",
-      "description": "Stand with feet shoulder-width apart, lower into squat position, then return to standing",
+      "description": "Perform 3 sets of 12 squats with 60 seconds rest between sets. Stand with feet shoulder-width apart, lower into squat position, then return to standing.",
       "sets": 3,
       "reps": 12,
       "restPeriod": 60,
-      "imagePrompt": "A person in a squat position with proper form, knees behind toes, back straight",
+      "imagePrompt": "A person in a deep squat position with perfect form, knees behind toes, back straight, arms extended forward for balance",
       "notes": "Keep your back straight and knees behind your toes"
+    },
+    {
+      "name": "Rest Period",
+      "activityType": "rest",
+      "description": "Take 2 minutes to rest and recover before the next exercise. Hydrate and prepare for push-ups.",
+      "duration": 120,
+      "restPeriod": 0,
+      "notes": "Use this time to catch your breath and mentally prepare",
+      "generateImage": false
     }
   ]
 }
 
 **CORRECT JSON STRUCTURE:**
 {
-  "name": "Workout Name",
-  "description": "Workout description",
+  "name": "Creative Workout Name",
+  "description": "Brief workout description",
   "category": "CARDIO|STRENGTH|FLEXIBILITY|HIIT",
   "difficulty": "BEGINNER|INTERMEDIATE|ADVANCED",
   "duration": 1800,
   "totalCalories": 200,
   "targetMuscleGroups": ["legs", "core"],
   "equipment": [],
-  "instructions": ["step 1", "step 2"],
   "mainImagePrompt": "DESCRIPTION FOR MAIN WORKOUT IMAGE - THIS GOES AT WORKOUT LEVEL",
   "exercises": [
     {
       "name": "Exercise Name",
       "activityType": "walking, 2.5 mph",
-      "description": "Exercise description",
+      "description": "Exercise description with instructions",
       "duration": 300,
       "restPeriod": 60,
       "imagePrompt": "DESCRIPTION FOR THIS EXERCISE'S IMAGE - THIS GOES INSIDE EACH EXERCISE",
-      "notes": "Exercise notes"
+      "notes": "Exercise notes",
+      "generateImage": true
     }
   ]
 }
 
 Please create a workout that:
-1. Is appropriate for the user's fitness level and goals
-2. Uses preferred exercises when possible
-3. Avoids disliked exercises
-4. Considers any health markers or limitations
-5. Provides detailed, step-by-step instructions with form cues
-6. Includes proper warm-up and cool-down
-7. Has appropriate rest periods and progression
+1. Has a CREATIVE, DESCRIPTIVE name that captures the workout's essence
+2. Is appropriate for the user's fitness level and goals
+3. Uses preferred exercises when possible
+4. Avoids disliked exercises
+5. Considers any health markers or limitations
+6. Includes warm-up, main exercises, rest periods, and cool-down as separate exercises
+7. Provides detailed instructions within each exercise description
 8. Follows the specific rules for the workout type above
-9. Creates detailed image prompts for the main workout and each exercise
+9. Creates detailed image prompts for the main workout and main exercises only
 
 IMAGE PROMPT REQUIREMENTS:
 - Create a "mainImagePrompt" field at the WORKOUT LEVEL (not inside exercises) that captures the overall theme and energy of the workout
-- Create an "imagePrompt" field for each exercise that shows proper form and technique
+- Create an "imagePrompt" field for main exercises that shows proper form and technique
+- Set "generateImage: false" for warm-up, rest, and cool-down exercises
 - Make prompts detailed and descriptive for better image generation
 - Include relevant details like environment, equipment, and form cues
 
-CRITICAL: The "mainImagePrompt" must be at the workout level, NOT inside individual exercises. Each exercise should have its own "imagePrompt" field.
+CRITICAL: The "mainImagePrompt" must be at the workout level, NOT inside individual exercises. Each main exercise should have its own "imagePrompt" field.
 
 Format the response as JSON following the examples above. For CARDIO workouts, use duration-based exercises with NO sets or reps. For STRENGTH workouts, use sets and reps.`;
 

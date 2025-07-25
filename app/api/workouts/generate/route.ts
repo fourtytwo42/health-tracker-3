@@ -321,6 +321,7 @@ IMPORTANT:
       9. DO NOT include parenthetical text in numeric values (e.g., use "12" not "12 (per leg)")
       10. For each exercise, include an "imagePrompt" field with a creative, specific description for generating an instructional image of that exercise. Make it detailed and unique to the exercise. Focus on the specific movement, body position, and form cues. Avoid generic descriptions.
       11. Include a "workoutImagePrompt" field at the workout level with a creative, specific description for generating an image that represents the entire workout. This should capture the overall theme, intensity, and feel of the complete workout session. Make it detailed and inspiring, focusing on the workout as a whole rather than individual exercises.
+      12. the workoutImagePrompt should be specific to the workout and the exercises in the workout and not say things like beginner or intermediate, it should be a description of a specific pose or movement that is representative of the workout.
 `;
 }
 
@@ -542,7 +543,7 @@ function parseWorkoutResponse(
       totalCalories: workoutData.totalCalories || 0,
       targetMuscleGroups: workoutData.targetMuscleGroups || [],
       equipment: workoutData.equipment || [],
-      instructions: workoutData.instructions || [],
+      instructions: [], // No separate instructions array - all instructions go in exercises
       photoUrl: null,
       isFavorite: false,
       isPublic: false,
@@ -602,6 +603,17 @@ async function createWorkout(workoutData: any): Promise<any> {
       // Generate exercise images in parallel
       console.log('Generating exercise images in parallel...');
       const exerciseImagePromises = exercises.map(async (exercise: any, index: number) => {
+        // Skip image generation for warm-up, rest, and cool-down exercises
+        if (exercise.generateImage === false) {
+          console.log(`Skipping image generation for exercise "${exercise.name}" (generateImage: false)`);
+          return {
+            exerciseIndex: index,
+            success: true,
+            imageUrl: null,
+            skipped: true
+          };
+        }
+
         // Use AI-generated image prompt if available, otherwise fall back to template
         const baseExercisePrompt = exercise.imagePrompt || `A clear, instructional fitness photo showing how to perform ${exercise.name}. The image should show proper form and technique for this exercise. The person should be in athletic clothing and the image should be well-lit and suitable for fitness instruction. ${exercise.description || ''}`;
         const exerciseImagePrompt = buildPersonalizedExerciseImagePrompt(baseExercisePrompt, userProfile);
