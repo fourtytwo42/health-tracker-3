@@ -212,6 +212,8 @@ export default function WorkoutBuilderTab({ userProfile, exercisePreferences }: 
 
       if (response.ok) {
         const data = await response.json();
+        console.log('Loaded workouts:', data.workouts);
+        console.log('First workout name:', data.workouts[0]?.name);
         setWorkouts(data.workouts);
         setTotalPages(data.totalPages);
       }
@@ -243,7 +245,13 @@ export default function WorkoutBuilderTab({ userProfile, exercisePreferences }: 
 
       if (response.ok) {
         const newWorkout = await response.json();
-        setWorkouts(prev => [newWorkout, ...prev]);
+        console.log('Generated workout:', newWorkout);
+        console.log('Workout name:', newWorkout.name);
+        setWorkouts(prev => {
+          const updated = [newWorkout, ...prev];
+          console.log('Updated workouts list:', updated);
+          return updated;
+        });
         setKeywords('');
         setWorkoutType('STRENGTH');
         setDuration(30);

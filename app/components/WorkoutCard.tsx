@@ -89,8 +89,6 @@ interface WorkoutCardProps {
 /*  Constants & Helpers                                               */
 /* ------------------------------------------------------------------ */
 
-const ALL_TABS = ['Instructions', 'Exercises', 'Details'] as const;
-
 const getCategoryIcon = (category: string) => {
   switch (category.toUpperCase()) {
     case 'STRENGTH':
@@ -157,7 +155,6 @@ export default function WorkoutCard({
   const isTablet = useMediaQuery(theme.breakpoints.down('md'));
 
   const [expanded, setExpanded] = useState(false);
-  const [activeTab, setActiveTab] = useState<typeof ALL_TABS[number]>('Instructions');
 
   const fs = (b: number) =>
     `${b * (isMobile ? 0.8 : isTablet ? 0.9 : 1)}rem`;
@@ -168,10 +165,6 @@ export default function WorkoutCard({
   const handleExpandClick = useCallback(() => {
     setExpanded(!expanded);
   }, [expanded]);
-
-  const handleTabClick = (tab: string) => {
-    setActiveTab(tab as typeof ALL_TABS[number]);
-  };
 
   const handleFavoriteClick = useCallback(() => {
     onToggleFavorite(workout.id);
@@ -213,7 +206,7 @@ export default function WorkoutCard({
           },
         }}
       >
-        {/* Header */}
+        {/* Main Image */}
         <Box
           sx={{
             position: 'relative',
@@ -274,6 +267,45 @@ export default function WorkoutCard({
             </Box>
           </Box>
 
+          {/* Description Overlay */}
+          {workout.description && (
+            <Box
+              sx={{
+                position: 'absolute',
+                top: '50%',
+                left: '50%',
+                transform: 'translate(-50%, -50%)',
+                backgroundColor: 'rgba(0, 0, 0, 0.7)',
+                backdropFilter: 'blur(8px)',
+                borderRadius: 2,
+                p: 2,
+                maxWidth: '80%',
+                maxHeight: '60%',
+                overflow: 'hidden',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                textAlign: 'center',
+              }}
+            >
+              <Typography
+                variant="body2"
+                sx={{
+                  fontSize: fs(0.8),
+                  lineHeight: 1.4,
+                  display: '-webkit-box',
+                  WebkitLineClamp: 3,
+                  WebkitBoxOrient: 'vertical',
+                  overflow: 'hidden',
+                  color: 'white',
+                  textShadow: '0 1px 2px rgba(0,0,0,0.8)',
+                }}
+              >
+                {workout.description}
+              </Typography>
+            </Box>
+          )}
+
           {/* Title and Stats */}
           <Box>
             <Typography
@@ -289,7 +321,7 @@ export default function WorkoutCard({
               {workout.name}
             </Typography>
             
-            <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+            <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', mb: 1 }}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                 <TimerIcon sx={{ fontSize: 16 }} />
                 <Typography variant="body2" sx={{ fontSize: fs(0.8) }}>
@@ -313,290 +345,139 @@ export default function WorkoutCard({
                 sx={{ fontSize: fs(0.7) }}
               />
             </Box>
+
+            {/* Target Muscle Groups Badges */}
+            {workout.targetMuscleGroups && workout.targetMuscleGroups.length > 0 && (
+              <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
+                {workout.targetMuscleGroups.map((muscle, index) => (
+                  <Chip
+                    key={index}
+                    label={muscle}
+                    size="small"
+                    sx={{
+                      fontSize: fs(0.65),
+                      backgroundColor: 'rgba(255,255,255,0.15)',
+                      color: 'white',
+                      backdropFilter: 'blur(10px)',
+                      border: '1px solid rgba(255,255,255,0.2)',
+                    }}
+                  />
+                ))}
+              </Box>
+            )}
           </Box>
         </Box>
 
         {/* Content */}
-        <CardContent sx={{ flexGrow: 1, p: 2 }}>
-          {/* Description */}
-          {workout.description && (
-            <Typography
-              variant="body2"
-              color="text.secondary"
-              sx={{
-                mb: 2,
-                fontSize: fs(0.85),
-                lineHeight: 1.5,
-                display: '-webkit-box',
-                WebkitLineClamp: 2,
-                WebkitBoxOrient: 'vertical',
-                overflow: 'hidden',
-              }}
-            >
-              {workout.description}
-            </Typography>
-          )}
-
-          {/* Quick Stats */}
-          <Box sx={{ display: 'flex', gap: 1, mb: 2, flexWrap: 'wrap' }}>
-            <Chip
-              label={`${workout.exercises.length} exercises`}
-              size="small"
-              variant="outlined"
-              sx={{ fontSize: fs(0.75) }}
-            />
-            {workout.targetMuscleGroups && workout.targetMuscleGroups.length > 0 && (
-              <Chip
-                label={workout.targetMuscleGroups.slice(0, 2).join(', ')}
-                size="small"
-                variant="outlined"
-                sx={{ fontSize: fs(0.75) }}
-              />
-            )}
-            {workout.equipment && workout.equipment.length > 0 && (
-              <Chip
-                label={`${workout.equipment.length} equipment`}
-                size="small"
-                variant="outlined"
-                sx={{ fontSize: fs(0.75) }}
-              />
-            )}
-          </Box>
-
-          {/* Expandable Content */}
+        <CardContent sx={{ flexGrow: 1, p: 2, pt: 1 }}>
+          {/* Expandable Exercises */}
           <Collapse in={expanded} timeout="auto" unmountOnExit>
             <Divider sx={{ my: 2 }} />
             
-            {/* Tab Navigation */}
-            <Box sx={{ display: 'flex', mb: 2, borderBottom: 1, borderColor: 'divider' }}>
-              {ALL_TABS.map((tab) => (
-                <Typography
-                  key={tab}
-                  variant="body2"
+            <Box>
+              {workout.exercises.map((workoutExercise, index) => (
+                <Box
+                  key={workoutExercise.id}
                   sx={{
-                    px: 2,
-                    py: 1,
-                    cursor: 'pointer',
-                    borderBottom: activeTab === tab ? 2 : 0,
-                    borderColor: 'primary.main',
-                    color: activeTab === tab ? 'primary.main' : 'text.secondary',
-                    fontWeight: activeTab === tab ? 600 : 400,
-                    fontSize: fs(0.8),
+                    p: 1.5,
+                    mb: 1,
+                    border: 1,
+                    borderColor: 'divider',
+                    borderRadius: 1,
+                    backgroundColor: 'background.paper',
                   }}
-                  onClick={() => handleTabClick(tab)}
                 >
-                  {tab}
-                </Typography>
-              ))}
-            </Box>
-
-            {/* Tab Content */}
-            <Box sx={{ minHeight: 200 }}>
-              {activeTab === 'Instructions' && workout.instructions && (
-                <Box>
-                  {workout.instructions.map((instruction, index) => (
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
                     <Typography
-                      key={index}
                       variant="body2"
                       sx={{
-                        mb: 1,
+                        fontWeight: 600,
                         fontSize: fs(0.85),
-                        lineHeight: 1.6,
-                        '&:before': {
-                          content: `"${index + 1}. "`,
-                          fontWeight: 600,
-                          color: 'primary.main',
-                        },
+                        color: 'primary.main',
                       }}
                     >
-                      {instruction}
+                      {index + 1}. {workoutExercise.exercise.activity}
                     </Typography>
-                  ))}
-                </Box>
-              )}
-
-              {activeTab === 'Exercises' && (
-                <Box>
-                  {workout.exercises.map((workoutExercise, index) => (
-                    <Box
-                      key={workoutExercise.id}
+                    {workoutExercise.sets ? (
+                      <Chip
+                        label={`${workoutExercise.sets} sets`}
+                        size="small"
+                        sx={{ fontSize: fs(0.7) }}
+                      />
+                    ) : workoutExercise.duration ? (
+                      <Chip
+                        label={formatExerciseDuration(workoutExercise.duration)}
+                        size="small"
+                        sx={{ fontSize: fs(0.7) }}
+                      />
+                    ) : null}
+                  </Box>
+                  
+                  <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', mb: 0.5 }}>
+                    {workoutExercise.reps && (
+                      <Typography variant="body2" sx={{ fontSize: fs(0.75), color: 'text.secondary' }}>
+                        {workoutExercise.reps} reps
+                      </Typography>
+                    )}
+                    {workoutExercise.duration && (
+                      <Typography variant="body2" sx={{ fontSize: fs(0.75), color: 'text.secondary' }}>
+                        {formatExerciseDuration(workoutExercise.duration)}
+                      </Typography>
+                    )}
+                    <Typography variant="body2" sx={{ fontSize: fs(0.75), color: 'text.secondary' }}>
+                      {workoutExercise.restPeriod}s rest
+                    </Typography>
+                  </Box>
+                  
+                  {workoutExercise.exercise.description && (
+                    <Typography
+                      variant="body2"
                       sx={{
-                        p: 1.5,
-                        mb: 1,
-                        border: 1,
-                        borderColor: 'divider',
-                        borderRadius: 1,
-                        backgroundColor: 'background.paper',
+                        fontSize: fs(0.75),
+                        color: 'text.secondary',
+                        fontStyle: 'italic',
                       }}
                     >
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
-                        <Typography
-                          variant="body2"
-                          sx={{
-                            fontWeight: 600,
-                            fontSize: fs(0.85),
-                            color: 'primary.main',
+                      {workoutExercise.exercise.description}
+                    </Typography>
+                  )}
+                  
+                  {/* Exercise Image */}
+                  {(generateImage || workoutExercise.exercise.imageUrl) && (
+                    <Box sx={{ mt: 1 }}>
+                      {workoutExercise.exercise.imageUrl ? (
+                        <img 
+                          src={workoutExercise.exercise.imageUrl} 
+                          alt={`${workoutExercise.exercise.activity} exercise`}
+                          style={{
+                            width: '100%',
+                            aspectRatio: '2 / 3',
+                            objectFit: 'cover',
+                            borderRadius: '4px'
+                          }}
+                        />
+                      ) : (
+                        <Box 
+                          sx={{ 
+                            height: 80,
+                            bgcolor: 'grey.100',
+                            borderRadius: 1,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            border: '1px dashed',
+                            borderColor: 'grey.300'
                           }}
                         >
-                          {index + 1}. {workoutExercise.exercise.activity}
-                        </Typography>
-                        {workoutExercise.sets ? (
-                          <Chip
-                            label={`${workoutExercise.sets} sets`}
-                            size="small"
-                            sx={{ fontSize: fs(0.7) }}
-                          />
-                        ) : workoutExercise.duration ? (
-                          <Chip
-                            label={formatExerciseDuration(workoutExercise.duration)}
-                            size="small"
-                            sx={{ fontSize: fs(0.7) }}
-                          />
-                        ) : null}
-                      </Box>
-                      
-                      <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', mb: 0.5 }}>
-                        {workoutExercise.reps && (
-                          <Typography variant="body2" sx={{ fontSize: fs(0.75), color: 'text.secondary' }}>
-                            {workoutExercise.reps} reps
+                          <Typography variant="body2" color="text.secondary" sx={{ fontSize: fs(0.7) }}>
+                            Generating image...
                           </Typography>
-                        )}
-                        {workoutExercise.duration && (
-                          <Typography variant="body2" sx={{ fontSize: fs(0.75), color: 'text.secondary' }}>
-                            {formatExerciseDuration(workoutExercise.duration)}
-                          </Typography>
-                        )}
-                        <Typography variant="body2" sx={{ fontSize: fs(0.75), color: 'text.secondary' }}>
-                          {workoutExercise.restPeriod}s rest
-                        </Typography>
-                      </Box>
-                      
-                      {workoutExercise.exercise.description && (
-                        <Typography
-                          variant="body2"
-                          sx={{
-                            fontSize: fs(0.75),
-                            color: 'text.secondary',
-                            fontStyle: 'italic',
-                          }}
-                        >
-                          {workoutExercise.exercise.description}
-                        </Typography>
-                      )}
-                      
-                      {/* Exercise Image */}
-                      {(generateImage || workoutExercise.exercise.imageUrl) && (
-                        <Box sx={{ mt: 1 }}>
-                          {workoutExercise.exercise.imageUrl ? (
-                            <img 
-                              src={workoutExercise.exercise.imageUrl} 
-                              alt={`${workoutExercise.exercise.activity} exercise`}
-                              style={{
-                                width: '100%',
-                                aspectRatio: '2 / 3',
-                                objectFit: 'cover',
-                                borderRadius: '4px'
-                              }}
-                            />
-                          ) : (
-                            <Box 
-                              sx={{ 
-                                height: 80,
-                                bgcolor: 'grey.100',
-                                borderRadius: 1,
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                border: '1px dashed',
-                                borderColor: 'grey.300'
-                              }}
-                            >
-                              <Typography variant="body2" color="text.secondary" sx={{ fontSize: fs(0.7) }}>
-                                Generating image...
-                              </Typography>
-                            </Box>
-                          )}
                         </Box>
                       )}
                     </Box>
-                  ))}
+                  )}
                 </Box>
-              )}
-
-              {activeTab === 'Details' && (
-                <Grid container spacing={2}>
-                  <Grid item xs={6}>
-                    <Typography variant="body2" sx={{ fontWeight: 600, fontSize: fs(0.8) }}>
-                      Category
-                    </Typography>
-                    <Typography variant="body2" sx={{ fontSize: fs(0.75), color: 'text.secondary' }}>
-                      {workout.category}
-                    </Typography>
-                  </Grid>
-                  <Grid item xs={6}>
-                    <Typography variant="body2" sx={{ fontWeight: 600, fontSize: fs(0.8) }}>
-                      Difficulty
-                    </Typography>
-                    <Typography variant="body2" sx={{ fontSize: fs(0.75), color: 'text.secondary' }}>
-                      {workout.difficulty}
-                    </Typography>
-                  </Grid>
-                  <Grid item xs={6}>
-                    <Typography variant="body2" sx={{ fontWeight: 600, fontSize: fs(0.8) }}>
-                      Duration
-                    </Typography>
-                    <Typography variant="body2" sx={{ fontSize: fs(0.75), color: 'text.secondary' }}>
-                      {formatDuration(workout.duration)}
-                    </Typography>
-                  </Grid>
-                  {workout.totalCalories && (
-                    <Grid item xs={6}>
-                      <Typography variant="body2" sx={{ fontWeight: 600, fontSize: fs(0.8) }}>
-                        Calories
-                      </Typography>
-                      <Typography variant="body2" sx={{ fontSize: fs(0.75), color: 'text.secondary' }}>
-                        ~{workout.totalCalories}
-                      </Typography>
-                    </Grid>
-                  )}
-                  {workout.targetMuscleGroups && workout.targetMuscleGroups.length > 0 && (
-                    <Grid item xs={12}>
-                      <Typography variant="body2" sx={{ fontWeight: 600, fontSize: fs(0.8) }}>
-                        Target Muscle Groups
-                      </Typography>
-                      <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mt: 0.5 }}>
-                        {workout.targetMuscleGroups.map((muscle, index) => (
-                          <Chip
-                            key={index}
-                            label={muscle}
-                            size="small"
-                            variant="outlined"
-                            sx={{ fontSize: fs(0.7) }}
-                          />
-                        ))}
-                      </Box>
-                    </Grid>
-                  )}
-                  {workout.equipment && workout.equipment.length > 0 && (
-                    <Grid item xs={12}>
-                      <Typography variant="body2" sx={{ fontWeight: 600, fontSize: fs(0.8) }}>
-                        Equipment Needed
-                      </Typography>
-                      <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mt: 0.5 }}>
-                        {workout.equipment.map((item, index) => (
-                          <Chip
-                            key={index}
-                            label={item}
-                            size="small"
-                            variant="outlined"
-                            sx={{ fontSize: fs(0.7) }}
-                          />
-                        ))}
-                      </Box>
-                    </Grid>
-                  )}
-                </Grid>
-              )}
+              ))}
             </Box>
           </Collapse>
         </CardContent>
