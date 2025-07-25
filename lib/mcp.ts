@@ -429,217 +429,140 @@ The meal plan includes detailed recipes for each meal with complete ingredient l
             take: 5
           });
 
-                   // Generate workout plan using AI
-         const workoutPrompt = `Create a ${args.duration}-minute ${args.difficulty.toLowerCase()} ${args.workoutType.toLowerCase()} workout based on this request: "${args.keywords}"
+          /* -----------------------  🔽 NEW, SIMPLER PROMPT 🔽  ----------------------- */
+          const workoutPrompt = `
+You are generating a WORKOUT that must STRICTLY follow the JSON schema below. 
+Keep it simple, consistent, and VALID JSON only (no extra text).
 
-USER CONTEXT:
-${userProfile ? `Weight: ${userProfile.weight || 'Not specified'}kg
-Height: ${userProfile.height || 'Not specified'}cm
-Fitness Level: ${userProfile.activityLevel || 'Not specified'}
-Goals: ${userProfile.fitnessGoals || 'Not specified'}` : 'No specific user profile data available'}
+===============================================================================
+INPUTS
+===============================================================================
+USER REQUEST (keywords): ${args.keywords}
+WORKOUT TYPE: ${args.workoutType}            // One of: STRENGTH | CARDIO | FLEXIBILITY | HIIT | CIRCUIT | YOGA | PILATES
+DIFFICULTY: ${args.difficulty}               // One of: BEGINNER | INTERMEDIATE | ADVANCED
+DURATION (minutes): ${args.duration}         // You MUST respect the total time budget
+TARGET MUSCLE GROUPS: ${args.targetMuscleGroups?.join(', ') || 'Any'}
+AVAILABLE EQUIPMENT: ${args.equipment?.join(', ') || 'None'}
+USER PROFILE (optional):
+${userProfile ? `- Weight: ${userProfile.weight || 'N/A'} kg
+- Height: ${userProfile.height || 'N/A'} cm
+- Activity Level: ${userProfile.activityLevel || 'N/A'}
+- Goals: ${userProfile.fitnessGoals || 'N/A'}` : 'No profile data'}
+RECENT BIOMARKERS (most recent first, up to 3):
+${biomarkers.slice(0, 3).map(b => `- ${b.type}: ${b.value}${b.unit || ''}`).join('\n') || 'None'}
 
-${biomarkers.length > 0 ? `Recent Biomarkers: ${biomarkers.slice(0, 3).map(b => `${b.type}: ${b.value}${b.unit || ''}`).join(', ')}` : ''}
+===============================================================================
+ABSOLUTE RULES (READ CAREFULLY)
+===============================================================================
+1) OUTPUT MUST BE VALID JSON. No prose, no markdown, no explanations.
+2) "duration" is in **seconds** (for the workout and each time-based exercise).
+3) The sum of ALL exercise durations + ALL programmed rests MUST NOT exceed the total workout "duration".
+4) Warm-up and cool-down are REQUIRED and MUST be separate exercises (duration-based, no sets/reps, no images).
+   - Total warm-up + cool-down ≈ 10–20% of the workout duration.
+5) RESTS must be explicit as their own exercises OR encoded via "restPeriod" on strength sets.
+   - Rest-only blocks (e.g., "Rest") MUST have "duration" and MUST NOT have "imagePrompt".
+6) IMAGE RULES:
+   - Provide one "mainImagePrompt" at the WORKOUT level (always).
+   - Provide "imagePrompt" ONLY for main, form-relevant exercises (NOT for warm-up, cool-down, or pure rest).
+   - Add "generateImage": false for warm-up, cool-down, and rest blocks.
+7) DIFFERENT WORKOUT TYPES REQUIRE DIFFERENT EXERCISE SCHEMAS:
+   - **STRENGTH / CIRCUIT**: use "sets" + "reps". You MAY include "duration" only for warm-up/cool-down/rest blocks.
+   - **CARDIO / FLEXIBILITY / YOGA / PILATES**: use time-based "duration" only (NO sets/reps).
+   - **HIIT**: time-based intervals (duration) with clearly indicated work/rest periods. NO sets/reps.
+8) TIME SANITY:
+   - If workout duration is short (e.g., 30 min), do NOT include too many multi-set strength blocks.
+     *Example*: In 30 min, 3 strength exercises with 3x12 each can already consume most of the time.
+   - No plan can exceed the total time budget.
+9) Provide "totalCalories" as your estimate (we may recalc later).
+10) Every exercise MUST include a clear "description" of how to perform it.
+11) "activityType" MUST be one of the following OR "rest":
+   LIGHT (MET < 3):
+     - "walking, 1.7 mph, strolling" (2.3)
+     - "walking, 2.5 mph" (2.9)
+     - "yoga, Hatha" (3.0)
+     - "water aerobics" (2.5)
+   MODERATE (MET 3-6):
+     - "resistance training, multiple exercises, 8-15 reps" (3.5)
+     - "calisthenics, moderate effort" (3.8)
+     - "Pilates, general" (3.8)
+     - "calisthenics, home exercise, light/moderate effort" (3.5)
+     - "walking 3.0 mph" (3.3)
+     - "walking 3.4 mph" (3.6)
+     - "bicycling, <10 mph, leisure" (4.0)
+     - "bicycling, stationary, 50 watts, very light effort" (5.3)
+     - "bicycling, stationary, 100 watts, light effort" (5.5)
+   VIGOROUS (MET > 6):
+     - "jogging, general" (7.0)
+     - "calisthenics, heavy, vigorous effort" (8.0)
+     - "running/jogging, in place" (8.0)
+     - "rope jumping" (10.0)
+   Use "rest" for explicit rest blocks.
 
-Target muscle groups: ${args.targetMuscleGroups?.join(', ') || 'Any'}
-Available equipment: ${args.equipment?.join(', ') || 'None'}
+===============================================================================
+TIME BUDGETING GUIDELINES (seconds)
+===============================================================================
+- Warm-up:   ~10% of total time
+- Cool-down: ~10% of total time
+- Main work: ~70–80% of total time
+- Strength rest periods are within "restPeriod" per set, OR as explicit rest exercises.
+- Cardio/Flexibility/Yoga/Pilates should be continuous or logical blocks that fit time.
+- HIIT must alternate work/rest intervals that fit exactly in the time budget.
 
-AVAILABLE ACTIVITY TYPES (choose from these for each exercise):
-LIGHT INTENSITY (MET < 3):
-- walking, 1.7 mph, strolling (MET: 2.3)
-- walking, 2.5 mph (MET: 2.9)
-- yoga, Hatha (MET: 3.0)
-- water aerobics (MET: 2.5)
-
-MODERATE INTENSITY (MET 3-6):
-- resistance training, multiple exercises, 8-15 reps (MET: 3.5)
-- calisthenics, moderate effort (push ups, sit ups, pull-ups, lunges) (MET: 3.8)
-- Pilates, general (MET: 3.8)
-- calisthenics, home exercise, light/moderate effort (MET: 3.5)
-- walking 3.0 mph (MET: 3.3)
-- walking 3.4 mph (MET: 3.6)
-- bicycling, <10 mph, leisure (MET: 4.0)
-- bicycling, stationary, 50 watts, very light effort (MET: 5.3)
-- bicycling, stationary, 100 watts, light effort (MET: 5.5)
-
-VIGOROUS INTENSITY (MET > 6):
-- jogging, general (MET: 7.0)
-- calisthenics, heavy, vigorous effort (MET: 8.0)
-- running/jogging, in place (MET: 8.0)
-- rope jumping (MET: 10.0)
-
-CRITICAL WORKOUT TYPE RULES:
-
-**CARDIO WORKOUTS:**
-- NO sets or reps - use continuous duration-based activities
-- Stay in the SAME environment/location throughout the workout
-- Use activities like walking, jogging, cycling, swimming, etc.
-- Each exercise should be a continuous block of time
-- Include warm-up and cool-down periods
-
-**STRENGTH WORKOUTS:**
-- Use sets and reps for resistance exercises
-- Can include multiple exercises with rest periods
-- Focus on specific muscle groups
-
-**FLEXIBILITY/YOGA WORKOUTS:**
-- Use duration-based activities
-- Focus on stretching and flexibility
-- Include proper warm-up
-
-**HIIT/CIRCUIT WORKOUTS:**
-- Use timed intervals (work/rest periods)
-- High intensity followed by recovery
-- Can include multiple exercises in rotation
-
-WORKOUT STRUCTURE RULES:
-- Create a CREATIVE, DESCRIPTIVE workout name that captures the essence and goal
-- DO NOT include separate "instructions" array - all instructions go inside exercises
-- Include warm-up, main exercises, rest periods, and cool-down as separate exercises
-- Warm-up, rest, and cool-down exercises should have "generateImage: false" or no imagePrompt
-- Main exercises should have detailed imagePrompt for form visualization
-- Each exercise should include specific instructions for when to rest before/after
-
-EXAMPLES OF CORRECT JSON FORMATS:
-
-**CARDIO WORKOUT EXAMPLE:**
+===============================================================================
+VALID JSON OUTPUT SCHEMA (NO EXTRA FIELDS)
+===============================================================================
 {
-  "name": "Sunrise Power Walk & Flow",
-  "description": "A dynamic morning cardio session combining brisk walking with gentle yoga flow to energize your day and boost metabolism.",
-  "category": "CARDIO",
-  "difficulty": "BEGINNER",
-  "duration": 1800,
-  "totalCalories": 180,
-  "targetMuscleGroups": ["legs", "core", "cardiovascular"],
-  "equipment": [],
-  "mainImagePrompt": "A person in a dynamic walking pose on a scenic trail at sunrise, with arms swinging naturally and a determined expression, surrounded by golden morning light and nature",
+  "name": string,                     // Creative, descriptive
+  "description": string,              // Brief high-level summary
+  "category": "CARDIO" | "STRENGTH" | "FLEXIBILITY" | "HIIT" | "CIRCUIT" | "YOGA" | "PILATES",
+  "difficulty": "BEGINNER" | "INTERMEDIATE" | "ADVANCED",
+  "duration": number,                 // total workout duration in SECONDS
+  "totalCalories": number,            // integer estimate
+  "targetMuscleGroups": string[],     // empty array if N/A
+  "equipment": string[],              // empty array if none
+  "mainImagePrompt": string,          // ONE prompt for the whole workout
   "exercises": [
     {
-      "name": "Morning Warm-up Walk",
-      "activityType": "walking, 1.7 mph, strolling",
-      "description": "Start with 5 minutes of gentle walking to warm up your muscles and get your blood flowing. Focus on deep breathing and preparing your body for the workout ahead.",
-      "duration": 300,
-      "restPeriod": 0,
-      "notes": "Take this time to mentally prepare and set your intention for the workout",
-      "generateImage": false
-    },
-    {
-      "name": "Power Walking Intervals",
-      "activityType": "walking, 2.5 mph",
-      "description": "Increase your pace to a brisk walk for 20 minutes. Keep your posture tall, engage your core, and swing your arms naturally. This is your main cardio segment.",
-      "duration": 1200,
-      "restPeriod": 0,
-      "imagePrompt": "A person walking briskly with excellent posture, arms swinging naturally, on a paved path with determination in their stride",
-      "notes": "Maintain steady pace throughout, focus on breathing rhythm"
-    },
-    {
-      "name": "Cool-down Stretch",
-      "activityType": "yoga, Hatha",
-      "description": "Finish with 5 minutes of gentle stretching to cool down your muscles and improve flexibility. Focus on deep breathing and relaxation.",
-      "duration": 300,
-      "restPeriod": 0,
-      "notes": "Hold each stretch for 30 seconds, breathe deeply",
-      "generateImage": false
+      "name": string,
+      "activityType": string,         // must be from the list above OR "rest"
+      "description": string,          // always present
+      // For time-based blocks (CARDIO/FLEX/YOGA/PILATES/HIIT intervals, warm-up, cool-down, rest):
+      "duration": number,             // seconds
+      // For STRENGTH/CIRCUIT main exercises ONLY (NOT warm-up/cool-down/rest):
+      "sets": number,                 // integer >= 1
+      "reps": number,                 // integer >= 1
+      "restPeriod": number,           // seconds between sets (0 if none)
+      // Imagery:
+      "imagePrompt": string,          // only for main, form-relevant exercises
+      "generateImage": boolean,       // false for warm-up, cool-down, rest
+      // Optional:
+      "notes": string
     }
   ]
 }
 
-**STRENGTH WORKOUT EXAMPLE:**
-{
-  "name": "Total Body Power Builder",
-  "description": "A comprehensive strength training session targeting all major muscle groups with bodyweight exercises for maximum efficiency.",
-  "category": "STRENGTH",
-  "difficulty": "BEGINNER",
-  "duration": 1800,
-  "totalCalories": 200,
-  "targetMuscleGroups": ["legs", "arms", "core", "chest", "back"],
-  "equipment": [],
-  "mainImagePrompt": "A person in a plank position with perfect form, showing full body engagement and strength, in a well-lit home gym setting",
-  "exercises": [
-    {
-      "name": "Dynamic Warm-up",
-      "activityType": "calisthenics, home exercise, light/moderate effort",
-      "description": "Perform 5 minutes of dynamic stretches and light movements to prepare your muscles for strength training. Include arm circles, leg swings, and gentle squats.",
-      "duration": 300,
-      "restPeriod": 0,
-      "notes": "Focus on mobility and range of motion",
-      "generateImage": false
-    },
-    {
-      "name": "Bodyweight Squats",
-      "activityType": "calisthenics, moderate effort",
-      "description": "Perform 3 sets of 12 squats with 60 seconds rest between sets. Stand with feet shoulder-width apart, lower into squat position, then return to standing.",
-      "sets": 3,
-      "reps": 12,
-      "restPeriod": 60,
-      "imagePrompt": "A person in a deep squat position with perfect form, knees behind toes, back straight, arms extended forward for balance",
-      "notes": "Keep your back straight and knees behind your toes"
-    },
-    {
-      "name": "Rest Period",
-      "activityType": "rest",
-      "description": "Take 2 minutes to rest and recover before the next exercise. Hydrate and prepare for push-ups.",
-      "duration": 120,
-      "restPeriod": 0,
-      "notes": "Use this time to catch your breath and mentally prepare",
-      "generateImage": false
-    }
-  ]
-}
+===============================================================================
+WHAT TO DO
+===============================================================================
+1) Create a plan that EXACTLY fits the duration (in seconds).
+2) Respect the schema and the workoutType's structural rules.
+3) Include warm-up and cool-down blocks.
+4) Add meaningful exercise descriptions (how to execute, tempo, cues).
+5) Provide imagePrompt ONLY for exercises that need form visualization.
+6) Do NOT include sets/reps for CARDIO/FLEX/YOGA/PILATES/HIIT exercises.
+7) Do NOT include duration for STRENGTH main exercises (except warm-up/cool-down/rest blocks).
 
-**CORRECT JSON STRUCTURE:**
-{
-  "name": "Creative Workout Name",
-  "description": "Brief workout description",
-  "category": "CARDIO|STRENGTH|FLEXIBILITY|HIIT",
-  "difficulty": "BEGINNER|INTERMEDIATE|ADVANCED",
-  "duration": 1800,
-  "totalCalories": 200,
-  "targetMuscleGroups": ["legs", "core"],
-  "equipment": [],
-  "mainImagePrompt": "DESCRIPTION FOR MAIN WORKOUT IMAGE - THIS GOES AT WORKOUT LEVEL",
-  "exercises": [
-    {
-      "name": "Exercise Name",
-      "activityType": "walking, 2.5 mph",
-      "description": "Exercise description with instructions",
-      "duration": 300,
-      "restPeriod": 60,
-      "imagePrompt": "DESCRIPTION FOR THIS EXERCISE'S IMAGE - THIS GOES INSIDE EACH EXERCISE",
-      "notes": "Exercise notes",
-      "generateImage": true
-    }
-  ]
-}
-
-Please create a workout that:
-1. Has a CREATIVE, DESCRIPTIVE name that captures the workout's essence
-2. Is appropriate for the user's fitness level and goals
-3. Uses preferred exercises when possible
-4. Avoids disliked exercises
-5. Considers any health markers or limitations
-6. Includes warm-up, main exercises, rest periods, and cool-down as separate exercises
-7. Provides detailed instructions within each exercise description
-8. Follows the specific rules for the workout type above
-9. Creates detailed image prompts for the main workout and main exercises only
-
-IMAGE PROMPT REQUIREMENTS:
-- Create a "mainImagePrompt" field at the WORKOUT LEVEL (not inside exercises) that captures the overall theme and energy of the workout
-- Create an "imagePrompt" field for main exercises that shows proper form and technique
-- Set "generateImage: false" for warm-up, rest, and cool-down exercises
-- Make prompts detailed and descriptive for better image generation
-- Include relevant details like environment, equipment, and form cues
-
-CRITICAL: The "mainImagePrompt" must be at the workout level, NOT inside individual exercises. Each main exercise should have its own "imagePrompt" field.
-
-Format the response as JSON following the examples above. For CARDIO workouts, use duration-based exercises with NO sets or reps. For STRENGTH workouts, use sets and reps.`;
+Return ONLY valid JSON.
+`;
 
           const llmResponse = await this.llmRouter.generateResponse({
             prompt: workoutPrompt,
             userId: authInfo.userId,
             tool: 'generate_workout',
             maxTokens: 3000,
-            temperature: 0.7
+            temperature: 0.4 // keep it low for formatting discipline
           });
+          /* ------------------------------------------------------------------------ */
 
           // Parse the workout response
           let workoutData;
@@ -656,10 +579,10 @@ Format the response as JSON following the examples above. For CARDIO workouts, u
           }
 
           // Process exercises using activity types and MET values
-          const matchedExercises = [];
+          const matchedExercises: any[] = [];
 
           // MET values mapping
-          const metValues = {
+          const metValues: Record<string, number> = {
             'walking, 1.7 mph, strolling': 2.3,
             'walking, 2.5 mph': 2.9,
             'yoga, Hatha': 3.0,
@@ -676,7 +599,8 @@ Format the response as JSON following the examples above. For CARDIO workouts, u
             'jogging, general': 7.0,
             'calisthenics, heavy, vigorous effort': 8.0,
             'running/jogging, in place': 8.0,
-            'rope jumping': 10.0
+            'rope jumping': 10.0,
+            'rest': 0
           };
 
           for (const exercise of workoutData.exercises) {
@@ -684,60 +608,38 @@ Format the response as JSON following the examples above. For CARDIO workouts, u
               const activityType = exercise.activityType;
               const met = metValues[activityType];
               
-              if (!met) {
+              if (typeof met === 'undefined') {
                 console.error(`Unknown activity type: "${activityType}"`);
                 continue;
               }
               
-                              // Calculate calories for this exercise
-                let exerciseCalories = 0;
-                let totalDuration = 0;
-                const userWeight = userProfile?.weight || 70; // Default to 70kg if no weight available
-                
-                // For strength training, we might need to adjust MET based on intensity
-                let adjustedMet = met;
-                if (exercise.sets && exercise.reps) {
-                  // Strength training is more intense than the base MET suggests
-                  // Adjust MET based on number of sets and reps (more work = higher intensity)
-                  const totalReps = exercise.sets * exercise.reps;
-                  if (totalReps >= 30) adjustedMet = met * 1.2; // High volume = higher intensity
-                  else if (totalReps >= 20) adjustedMet = met * 1.1; // Medium volume
-                }
-                
-                if (exercise.sets && exercise.reps) {
-                // Rep-based exercise (strength training)
-                // For strength training, we need to account for the full effort of each set
-                // This includes the time doing reps, brief pauses between reps, and the intensity
-                
-                // Calculate total time per set (more realistic)
-                // Each set takes approximately 5 minutes (300 seconds)
-                // This includes the time doing reps, rest between reps, and setup
-                const timePerSet = 300; // 5 minutes per set
-                
-                // Total work time across all sets
-                const totalWorkTime = exercise.sets * timePerSet;
-                
-                // Rest time between sets
-                const totalRestTime = (exercise.sets - 1) * (exercise.restPeriod || 60);
-                
-                // For calorie calculation, use total work time
-                totalDuration = totalWorkTime;
-                
-                // Calories = (MET * weight * work_duration_in_hours)
-                exerciseCalories = Math.round((adjustedMet * userWeight * totalDuration) / 3600);
-                
-                console.log(`Rep-based exercise: ${exercise.name} - ${exercise.sets} sets × ${exercise.reps} reps = ${totalWorkTime}s work + ${totalRestTime}s rest = ${totalDuration}s active time`);
-              } else if (exercise.duration) {
-                // Time-based exercise (cardio, yoga, etc.)
-                totalDuration = exercise.duration;
-                
-                // Calories = (MET * weight * duration_in_hours)
-                exerciseCalories = Math.round((met * userWeight * totalDuration) / 3600);
-                
-                console.log(`Time-based exercise: ${exercise.name} - ${totalDuration}s duration`);
+              // Calculate calories for this exercise
+              let exerciseCalories = 0;
+              let totalDuration = 0;
+              const userWeight = userProfile?.weight || 70; // Default to 70kg if no weight available
+              
+              // For strength training, adjust based on sets/reps
+              let adjustedMet = met;
+              if (exercise.sets && exercise.reps) {
+                const totalReps = exercise.sets * exercise.reps;
+                if (totalReps >= 30) adjustedMet = met * 1.2;
+                else if (totalReps >= 20) adjustedMet = met * 1.1;
               }
               
-              // Create a virtual exercise object
+              if (exercise.sets && exercise.reps) {
+                // Approximate 5 minutes (300s) per set
+                const timePerSet = 300;
+                const totalWorkTime = exercise.sets * timePerSet;
+                const totalRestTime = (exercise.sets - 1) * (exercise.restPeriod || 60);
+                totalDuration = totalWorkTime;
+                exerciseCalories = Math.round((adjustedMet * userWeight * totalDuration) / 3600);
+                console.log(`Rep-based exercise: ${exercise.name} -> ${exercise.sets}x${exercise.reps}`);
+              } else if (exercise.duration) {
+                totalDuration = exercise.duration;
+                exerciseCalories = Math.round((met * userWeight * totalDuration) / 3600);
+                console.log(`Time-based exercise: ${exercise.name} -> ${totalDuration}s`);
+              }
+              
               const virtualExercise = {
                 id: `virtual-${Date.now()}-${Math.random()}`,
                 activity: exercise.name,
@@ -745,7 +647,7 @@ Format the response as JSON following the examples above. For CARDIO workouts, u
                 met: met,
                 description: exercise.description,
                 category: 'Virtual Exercise',
-                intensity: met < 3 ? 'LIGHT' : met < 6 ? 'MODERATE' : 'VIGOROUS',
+                intensity: met === 0 ? 'REST' : met < 3 ? 'LIGHT' : met < 6 ? 'MODERATE' : 'VIGOROUS',
                 isActive: true
               };
               
@@ -760,25 +662,17 @@ Format the response as JSON following the examples above. For CARDIO workouts, u
                 reps: exercise.reps || null,
                 duration: exercise.duration || null
               });
-              
-              console.log(`Created virtual exercise: ${exercise.name} (${activityType}, MET: ${met}, Calories: ${exerciseCalories})`);
             } catch (error) {
               console.error(`Failed to process exercise "${exercise.name}":`, error);
-              // Continue with other exercises
             }
           }
 
-          // Only create workout if we have at least one valid exercise
           if (matchedExercises.length === 0) {
             throw new Error('No valid exercises found for the workout. Please try again with different exercise terms.');
           }
 
-          console.log(`Creating workout with ${matchedExercises.length} exercises`);
-          
-          // Calculate total calories from all exercises
           const totalCalories = matchedExercises.reduce((total, exercise) => total + (exercise.calories || 0), 0);
-          
-          // Create the workout in the database with virtual exercises first
+
           const workout = await prisma.workout.create({
             data: {
               userId: authInfo.userId,
@@ -791,7 +685,7 @@ Format the response as JSON following the examples above. For CARDIO workouts, u
               targetMuscleGroups: JSON.stringify(workoutData.targetMuscleGroups || []),
               equipment: JSON.stringify(workoutData.equipment || []),
               instructions: JSON.stringify(workoutData.instructions || []),
-              virtualExercises: JSON.stringify(matchedExercises), // Store virtual exercises
+              virtualExercises: JSON.stringify(matchedExercises),
               isFavorite: false,
               isPublic: false,
               aiGenerated: true,
@@ -799,36 +693,19 @@ Format the response as JSON following the examples above. For CARDIO workouts, u
             }
           });
 
-          // Get user profile for image personalization
-          const userProfileForImages = await prisma.profile.findUnique({
-            where: { userId: authInfo.userId },
-          });
-          
-          // Parse JSON strings if profile exists
-          if (userProfileForImages) {
-            try {
-              if (userProfileForImages.dietaryPreferences) {
-                userProfileForImages.dietaryPreferences = JSON.parse(userProfileForImages.dietaryPreferences);
-              }
-              if (userProfileForImages.privacySettings) {
-                userProfileForImages.privacySettings = JSON.parse(userProfileForImages.privacySettings);
-              }
-            } catch (parseError) {
-              console.error('Error parsing profile JSON fields in MCP:', parseError);
-            }
-          }
-
           // Generate images if requested
           let workoutPhotoUrl = null;
-          let exerciseImages: any[] | null = null;
+          let exerciseImages = null;
           
           if (args.generateImage) {
             try {
               console.log('Generating images for workout via MCP...');
               
-              // Build personalized workout image prompt
-              const baseWorkoutPrompt = workoutData.workoutImagePrompt || `A professional fitness photo showing a ${workoutData.difficulty.toLowerCase()} ${workoutData.category.toLowerCase()} workout. The image should show someone in athletic clothing performing exercises like ${matchedExercises.slice(0, 3).map((e: any) => e.name).join(', ')} in a well-lit gym or home setting. The person should be using proper form and the image should be suitable for fitness instruction.`;
-              const workoutImagePrompt = buildPersonalizedWorkoutImagePrompt(baseWorkoutPrompt, userProfileForImages);
+              // Build personalized image prompt using user profile
+              const workoutImagePrompt = buildPersonalizedWorkoutImagePrompt(
+                workoutData.mainImagePrompt || `A professional fitness photo showing a ${(workoutData.difficulty || 'beginner').toLowerCase()} ${(workoutData.category || 'cardio').toLowerCase()} workout. The image should show someone in athletic clothing performing exercises like ${matchedExercises.slice(0, 3).map((e: any) => e.name).join(', ')} in a well-lit gym or home setting. The person should be using proper form and the image should be suitable for fitness instruction.`,
+                userProfile
+              );
               
               const { generateImage } = await import('./services/ImageGenerationService');
               
@@ -843,7 +720,6 @@ Format the response as JSON following the examples above. For CARDIO workouts, u
                 workoutPhotoUrl = workoutImageResult.imageUrl;
                 console.log('Workout image generated successfully via MCP');
                 
-                // Update workout with image URL
                 await prisma.workout.update({
                   where: { id: workout.id },
                   data: { photoUrl: workoutPhotoUrl }
@@ -852,12 +728,10 @@ Format the response as JSON following the examples above. For CARDIO workouts, u
                 console.error('Failed to generate workout image via MCP:', workoutImageResult.error);
               }
               
-              // Generate exercise images in parallel
               console.log('Generating exercise images in parallel via MCP...');
               const exerciseImagePromises = matchedExercises.map(async (exercise: any, index: number) => {
-                // Use AI-generated image prompt if available, otherwise fall back to template
                 const baseExercisePrompt = exercise.imagePrompt || `A clear, instructional fitness photo showing how to perform ${exercise.name}. The image should show proper form and technique for this exercise. The person should be in athletic clothing and the image should be well-lit and suitable for fitness instruction. ${exercise.description || ''}`;
-                const exerciseImagePrompt = buildPersonalizedExerciseImagePrompt(baseExercisePrompt, userProfileForImages);
+                const exerciseImagePrompt = buildPersonalizedExerciseImagePrompt(baseExercisePrompt, userProfile);
                 
                 try {
                   const imageResult = await generateImage({
@@ -888,7 +762,6 @@ Format the response as JSON following the examples above. For CARDIO workouts, u
               
               console.log(`Generated ${exerciseImageResults.filter((r: any) => r.success).length} out of ${matchedExercises.length} exercise images via MCP`);
               
-              // Update matched exercises with their images
               matchedExercises.forEach((exercise: any, index: number) => {
                 const exerciseImage = exerciseImages ? exerciseImages.find((img: any) => img.exerciseIndex === index) : null;
                 if (exerciseImage?.success) {
@@ -904,6 +777,7 @@ Format the response as JSON following the examples above. For CARDIO workouts, u
           return {
             type: 'WorkoutCard',
             props: {
+              title: workoutData.name,
               workout: {
                 ...workout,
                 targetMuscleGroups: workoutData.targetMuscleGroups || [],
