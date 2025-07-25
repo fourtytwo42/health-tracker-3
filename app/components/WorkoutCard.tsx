@@ -32,7 +32,7 @@ import SpeedIcon from '@mui/icons-material/Speed';
 // Fix for workout title font-size issue
 const workoutTitleStyle = `
   .workout-title-fixed {
-    font-size: 2rem !important;
+    font-size: 1.5rem !important;
   }
 `;
 
