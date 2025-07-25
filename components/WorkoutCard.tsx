@@ -171,7 +171,20 @@ const WorkoutCard: React.FC<WorkoutCardProps> = ({
         }
         title={
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-            <Typography variant="h5" component="h2" sx={{ fontWeight: 600 }}>
+            <Typography 
+              variant="h4" 
+              component="h2" 
+              sx={{ 
+                fontWeight: 700,
+                fontSize: { xs: '1.5rem', sm: '2rem', md: '2.125rem' },
+                color: 'text.primary',
+                lineHeight: 1.2,
+                mb: 0.5,
+                '&.MuiTypography-root': {
+                  fontSize: { xs: '1.5rem', sm: '2rem', md: '2.125rem' },
+                }
+              }}
+            >
               {workout.name}
             </Typography>
             {workout.aiGenerated && (
