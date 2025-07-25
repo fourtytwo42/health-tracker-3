@@ -221,7 +221,7 @@ export default function WorkoutBuilderTab({ userProfile, exercisePreferences }: 
   };
 
   const generateWorkout = async () => {
-    if (!keywords.trim()) return;
+    // Description is now optional - allow empty keywords
 
     setIsGenerating(true);
     try {
@@ -368,8 +368,8 @@ export default function WorkoutBuilderTab({ userProfile, exercisePreferences }: 
           <Grid item xs={12} md={6}>
             <TextField
               fullWidth
-              label="Describe your workout"
-              placeholder="e.g., 30-minute upper body strength workout with dumbbells"
+              label="Describe your workout (optional)"
+              placeholder="e.g., 30-minute upper body strength workout with dumbbells (leave empty for AI to generate)"
               value={keywords}
               onChange={(e) => setKeywords(e.target.value)}
               multiline
