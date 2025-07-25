@@ -1,6 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server;
+import { NextRequest, NextResponse } from 'next/server';
 import { LeaderboardService } from '../../../../lib/services/LeaderboardService';
-import { withAuth, AuthenticatedRequest } from ../../../../lib/middleware/auth';
+import { withAuth, AuthenticatedRequest } from '../../../../lib/middleware/auth';
 
 const leaderboardService = new LeaderboardService();
 

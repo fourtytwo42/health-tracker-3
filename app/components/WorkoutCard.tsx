@@ -32,7 +32,7 @@ import SpeedIcon from '@mui/icons-material/Speed';
 // Fix for workout title font-size issue
 const workoutTitleStyle = `
   .workout-title-fixed {
-    font-size: 1.5rem !important;
+    font-size: 1.25rem !important;
   }
 `;
 
@@ -69,7 +69,7 @@ interface Workout {
   description?: string;
   category: string;
   difficulty: string;
-  duration: number; // minutes
+  duration: number; // seconds
   totalCalories?: number;
   targetMuscleGroups?: string[];
   equipment?: string[];
@@ -124,7 +124,10 @@ const getDifficultyColor = (difficulty: string) => {
   }
 };
 
-const formatDuration = (minutes: number) => {
+const formatDuration = (duration: number) => {
+  // Duration is stored in seconds, convert to minutes for display
+  const minutes = Math.floor(duration / 60);
+  
   if (minutes < 60) return `${minutes}m`;
   const hours = Math.floor(minutes / 60);
   const mins = minutes % 60;
@@ -132,6 +135,7 @@ const formatDuration = (minutes: number) => {
 };
 
 const formatExerciseDuration = (seconds: number) => {
+  // Exercise durations are in seconds, display as seconds
   if (seconds < 60) return `${seconds}s`;
   const minutes = Math.floor(seconds / 60);
   const secs = seconds % 60;
@@ -297,7 +301,7 @@ export default function WorkoutCard({
                   padding: 0,
                   color: 'white',
                   '&.workout-title-fixed': {
-                    fontSize: '2rem !important',
+                    fontSize: '1.25rem !important',
                   }
                 }}
               >
@@ -422,20 +426,38 @@ export default function WorkoutCard({
                       ) : null}
                     </Box>
                     
+                    <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', mb: 0.5 }}>
+                      {workoutExercise.sets && workoutExercise.reps ? (
+                        <Chip
+                          label={`${workoutExercise.sets} sets`}
+                          size="small"
+                          sx={{ fontSize: fs(0.7) }}
+                        />
+                      ) : workoutExercise.duration ? (
+                        <Chip
+                          label={formatExerciseDuration(workoutExercise.duration)}
+                          size="small"
+                          sx={{ fontSize: fs(0.7) }}
+                        />
+                      ) : null}
+                    </Box>
+                    
                     <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', mb: 0.5 }}>
-                      {workoutExercise.reps && (
+                      {workoutExercise.reps && workoutExercise.sets && (
                         <Typography variant="body2" sx={{ fontSize: fs(0.75), color: 'text.secondary' }}>
                           {workoutExercise.reps} reps
                         </Typography>
                       )}
-                      {workoutExercise.duration && (
+                      {workoutExercise.duration && !workoutExercise.sets && (
                         <Typography variant="body2" sx={{ fontSize: fs(0.75), color: 'text.secondary' }}>
                           {formatExerciseDuration(workoutExercise.duration)}
                         </Typography>
                       )}
-                      <Typography variant="body2" sx={{ fontSize: fs(0.75), color: 'text.secondary' }}>
-                        {workoutExercise.restPeriod}s rest
-                      </Typography>
+                      {workoutExercise.restPeriod > 0 && (
+                        <Typography variant="body2" sx={{ fontSize: fs(0.75), color: 'text.secondary' }}>
+                          {workoutExercise.restPeriod}s rest
+                        </Typography>
+                      )}
                     </Box>
                     
                     {workoutExercise.exercise.description && (

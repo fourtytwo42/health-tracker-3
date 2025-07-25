@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { ActivityService } from '../../../../lib/services/ActivityService';
-import { withAuth, AuthenticatedRequest } from ../../../../lib/middleware/auth;
+import { withAuth, AuthenticatedRequest } from '../../../../lib/middleware/auth';
 
 const activityService = new ActivityService();
 

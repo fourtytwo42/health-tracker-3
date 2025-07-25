@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { GoalService } from '../../../../lib/services/GoalService';
-import { withAuth, AuthenticatedRequest } from ../../../../lib/middleware/auth';
+import { withAuth, AuthenticatedRequest } from '../../../../lib/middleware/auth';
 
 const goalService = new GoalService();
 

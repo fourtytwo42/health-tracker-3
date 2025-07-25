@@ -49,7 +49,7 @@ interface ScheduledItem {
   type: 'meal' | 'workout';
   scheduledDate: string;
   scheduledTime: string;
-  duration?: number; // Duration in minutes
+  duration?: number; // Duration in seconds
   notes?: string;
   isCompleted: boolean;
   itemId?: string; // ID of the original recipe/workout
@@ -92,7 +92,7 @@ interface Workout {
   id: string;
   name: string;
   isFavorite: boolean;
-  duration?: number; // Duration in minutes
+  duration?: number; // Duration in seconds
 }
 
 interface TimePeriod {
@@ -937,15 +937,13 @@ export default function CalendarTab() {
                               )}
                               
                               {/* Workout details */}
-                              {item.type === 'workout' && (
+                              {item.type === 'workout' && item.duration && (
                                 <>
-                                  {item.duration && (
-                                    <Typography variant="caption" color="info.main" fontWeight="bold" sx={{ mr: 1 }}>
-                                      -{Math.round((item.duration * 9))} cal
-                                    </Typography>
-                                  )}
+                                  <Typography variant="caption" color="info.main" fontWeight="bold" sx={{ mr: 1 }}>
+                                    -{Math.round((item.duration * 9))} cal
+                                  </Typography>
                                   <Typography variant="caption" color="text.secondary">
-                                    {item.duration} minutes
+                                    {Math.floor(item.duration / 60)} minutes
                                   </Typography>
                                 </>
                               )}
@@ -1193,7 +1191,7 @@ export default function CalendarTab() {
                             type: 'workout', 
                             id: workout.id, 
                             name: workout.name,
-                            duration: workout.duration || 30 // Use workout duration or default 30 minutes
+                            duration: workout.duration ? Math.floor(workout.duration / 60) : 30 // Use workout duration in minutes or default 30 minutes
                           })}
                           sx={{
                             cursor: 'grab',
@@ -1213,13 +1211,13 @@ export default function CalendarTab() {
                             secondary={
                               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.5 }}>
                                 <Typography variant="caption" color="info.main" fontWeight="bold">
-                                  -{Math.round((workout.duration || 30) * 9)} cal
+                                  -{Math.round((workout.duration ? Math.floor(workout.duration / 60) : 30) * 9)} cal
                                 </Typography>
                                 <Typography variant="caption" color="text.secondary">
                                   •
                                 </Typography>
                                 <Typography variant="caption" color="text.secondary">
-                                  {workout.duration || 30} min
+                                  {workout.duration ? Math.floor(workout.duration / 60) : 30} min
                                 </Typography>
                               </Box>
                             }

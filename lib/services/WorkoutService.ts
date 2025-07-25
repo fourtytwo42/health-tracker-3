@@ -457,7 +457,9 @@ WORKOUT STRUCTURE GUIDELINES:
 - For strength training: 3-5 sets, 8-15 reps per set
 - For cardio: 20-60 minutes continuous or interval training
 - For HIIT: 30 seconds work, 30 seconds rest cycles
-- For flexibility: Hold stretches for 15-30 seconds each
+- For flexibility: Hold stretches for 15-60 seconds each (use duration in seconds). Total all exercise durations must fit within the workout time.
+- **CRITICAL**: Individual exercise durations must be MUCH SHORTER than the total workout duration
+- Example: 30-minute workout should have exercises of 30-300 seconds each, NOT 1800 seconds each
 
 SAFETY FIRST:
 - Always include form cues and safety reminders

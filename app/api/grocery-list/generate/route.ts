@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { GroceryService } from '../../../../lib/services/GroceryService';
-import { withAuth, AuthenticatedRequest } from ../../../../lib/middleware/auth';
+import { withAuth, AuthenticatedRequest } from '../../../../lib/middleware/auth';
 
 const groceryService = new GroceryService();
 

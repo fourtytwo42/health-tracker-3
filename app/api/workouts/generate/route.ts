@@ -319,7 +319,12 @@ IMPORTANT:
 5. For time-based exercises (cardio, yoga, stretching), use "duration" field (in seconds) instead of sets/reps
 6. Choose the appropriate format based on the exercise type
 7. The activityType must exactly match one from the list above for accurate calorie calculations
-8. For time-based exercises, specify realistic durations (e.g., 300 seconds for 5 minutes of cardio)
+8. For time-based exercises, specify realistic durations:
+   - Flexibility exercises: 15-60 seconds each (e.g., 30 seconds for a stretch)
+   - Yoga poses: 30-120 seconds each (e.g., 60 seconds for a pose)
+   - Cardio exercises: 120-600 seconds each (e.g., 300 seconds for 5 minutes of cardio)
+   - **CRITICAL**: Individual exercise durations must be MUCH SHORTER than the total workout duration
+   - Example: 30-minute workout (1800 seconds) should have exercises of 30-300 seconds each, NOT 1800 seconds each
 9. DO NOT include any comments in the JSON response - only valid JSON
 10. DO NOT include parenthetical text in numeric values (e.g., use "12" not "12 (per leg)")
 11. For each exercise, include an "imagePrompt" field with a creative, specific description for generating an instructional image of that exercise. Make it detailed and unique to the exercise. Focus on the specific movement, body position, and form cues. Avoid generic descriptions.
@@ -358,8 +363,8 @@ WORKOUT STRUCTURE GUIDELINES:
 - For strength training: 3-5 sets, 8-15 reps per set (use sets and reps)
 - For cardio: 20-60 minutes continuous or interval training (use duration in seconds)
 - For HIIT: 30 seconds work, 30 seconds rest cycles (use duration)
-- For flexibility: Hold stretches for 15-30 seconds each (use duration)
-- For yoga: Hold poses for 30-60 seconds each (use duration)
+- For flexibility: Hold stretches for 15-60 seconds each (use duration in seconds). Total all exercise durations must fit within the workout time.
+- For yoga: Hold poses for 30-120 seconds each (use duration in seconds). Total all exercise durations must fit within the workout time.
 
 SAFETY FIRST:
 - Always include form cues and safety reminders
@@ -585,33 +590,22 @@ async function createWorkout(workoutData: any): Promise<any> {
   if (workoutData.generateImage) {
     try {
       console.log('Generating images for workout...');
-      
+      const { generateImage } = await import('@/lib/services/ImageGenerationService');
+
       // Build personalized image prompt using user profile
       const workoutImagePrompt = buildPersonalizedWorkoutImagePrompt(
         mainImagePrompt || `A professional fitness photo showing a ${(workoutData.difficulty || 'beginner').toLowerCase()} ${(workoutData.category || 'cardio').toLowerCase()} workout. The image should show someone in athletic clothing performing exercises like ${exercises.slice(0, 3).map((e: any) => e.name).join(', ')} in a well-lit gym or home setting. The person should be using proper form and the image should be suitable for fitness instruction.`,
         userProfile
       );
-      
-      const { generateImage } = await import('@/lib/services/ImageGenerationService');
-      
-      console.log('DEBUG: About to generate workout image with prompt:', workoutImagePrompt);
-      const workoutImageResult = await generateImage({
+
+      // Prepare all image generation promises (main + exercises)
+      const mainImagePromise = generateImage({
         prompt: workoutImagePrompt,
         textModel: 'gpt-4o-mini',
         quality: 'low',
         size: '1024x1536'
       });
-      console.log('DEBUG: Workout image result success:', workoutImageResult.success);
 
-      if (workoutImageResult.success) {
-        workoutPhotoUrl = workoutImageResult.imageUrl;
-        console.log('Workout image generated successfully');
-      } else {
-        console.error('Failed to generate workout image:', workoutImageResult.error);
-      }
-      
-      // Generate exercise images in parallel
-      console.log('Generating exercise images in parallel...');
       const exerciseImagePromises = exercises.map(async (exercise: any, index: number) => {
         // Skip image generation for warm-up, rest, and cool-down exercises
         if (exercise.generateImage === false) {
@@ -623,13 +617,8 @@ async function createWorkout(workoutData: any): Promise<any> {
             skipped: true
           };
         }
-
-        // Use AI-generated image prompt if available, otherwise fall back to template
         const baseExercisePrompt = exercise.imagePrompt || `A clear, instructional fitness photo showing how to perform ${exercise.name}. The image should show proper form and technique for this exercise. The person should be in athletic clothing and the image should be well-lit and suitable for fitness instruction. ${exercise.description || ''}`;
         const exerciseImagePrompt = buildPersonalizedExerciseImagePrompt(baseExercisePrompt, userProfile);
-        
-        console.log(`DEBUG: Generating image for exercise "${exercise.name}" with prompt: ${exerciseImagePrompt.substring(0, 100)}...`);
-        
         try {
           const imageResult = await generateImage({
             prompt: exerciseImagePrompt,
@@ -637,7 +626,6 @@ async function createWorkout(workoutData: any): Promise<any> {
             quality: 'low',
             size: '1024x1536'
           });
-          
           return {
             exerciseIndex: index,
             success: imageResult.success,
@@ -653,13 +641,21 @@ async function createWorkout(workoutData: any): Promise<any> {
           };
         }
       });
-      
-      const exerciseImageResults = await Promise.all(exerciseImagePromises);
+
+      // Run all image generations in parallel
+      const [workoutImageResult, exerciseImageResults] = await Promise.all([
+        mainImagePromise,
+        Promise.all(exerciseImagePromises)
+      ]);
+
+      if (workoutImageResult.success) {
+        workoutPhotoUrl = workoutImageResult.imageUrl;
+        console.log('Workout image generated successfully');
+      } else {
+        console.error('Failed to generate workout image:', workoutImageResult.error);
+      }
       exerciseImages = exerciseImageResults;
-      
       console.log(`Generated ${exerciseImageResults.filter(r => r.success).length} out of ${exercises.length} exercise images`);
-      
-      // Debug: Log each exercise image result
       exerciseImageResults.forEach((result, index) => {
         console.log(`  Exercise ${index + 1} image: ${result.success ? 'Success' : 'Failed'}`);
         if (result.success) {
@@ -668,7 +664,6 @@ async function createWorkout(workoutData: any): Promise<any> {
           console.log(`    Error: ${result.error}`);
         }
       });
-      
     } catch (error) {
       console.error('Error generating workout images:', error);
     }

@@ -101,13 +101,15 @@ const WorkoutCard: React.FC<WorkoutCardProps> = ({
     }
   };
 
-  const formatDuration = (minutes: number) => {
+  const formatDuration = (duration: number) => {
+    // Duration is stored in seconds, convert to minutes for display
+    const minutes = Math.floor(duration / 60);
     const hours = Math.floor(minutes / 60);
     const mins = minutes % 60;
     if (hours > 0) {
       return `${hours}h ${mins}m`;
     }
-    return `${mins}m`;
+    return `${minutes}m`;
   };
 
   return (
@@ -176,7 +178,7 @@ const WorkoutCard: React.FC<WorkoutCardProps> = ({
               className="workout-title"
               sx={{ 
                 fontWeight: 700,
-                fontSize: { xs: '1.5rem', sm: '2rem', md: '2.125rem' },
+                fontSize: { xs: '1.25rem', sm: '1.5rem', md: '1.75rem' },
                 color: 'text.primary',
                 lineHeight: 1.2,
                 mb: 0.5,

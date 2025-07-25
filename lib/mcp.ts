@@ -468,11 +468,22 @@ ABSOLUTE RULES (READ CAREFULLY)
 7) DIFFERENT WORKOUT TYPES REQUIRE DIFFERENT EXERCISE SCHEMAS:
    - **STRENGTH / CIRCUIT**: use "sets" + "reps". You MAY include "duration" only for warm-up/cool-down/rest blocks.
    - **CARDIO / FLEXIBILITY / YOGA / PILATES**: use time-based "duration" only (NO sets/reps).
+     * For FLEXIBILITY: Each stretch should be 15-60 seconds. Total all exercise durations must fit within workout time.
+     * For YOGA: Each pose should be 30-120 seconds. Total all exercise durations must fit within workout time.
+     * For CARDIO: Each exercise should be 2-10 minutes. Total all exercise durations must fit within workout time.
    - **HIIT**: time-based intervals (duration) with clearly indicated work/rest periods. NO sets/reps.
 8) TIME SANITY:
    - If workout duration is short (e.g., 30 min), do NOT include too many multi-set strength blocks.
      *Example*: In 30 min, 3 strength exercises with 3x12 each can already consume most of the time.
    - No plan can exceed the total time budget.
+   - **CRITICAL: EXERCISE DURATION vs WORKOUT DURATION**
+     * Workout duration (e.g., 30 minutes = 1800 seconds) is the TOTAL time for the entire workout
+     * Individual exercise durations should be MUCH SHORTER and fit within the workout time
+     * Example: 30-minute workout with 5 exercises = each exercise ~6 minutes max, but typically 30-120 seconds each
+     * NEVER set individual exercise duration equal to the full workout duration
+     * For flexibility/stretching: 15-60 seconds per exercise
+     * For cardio: 2-10 minutes per exercise
+     * For strength: use sets/reps, not duration (except warm-up/cool-down)
 9) Provide "totalCalories" as your estimate (we may recalc later).
 10) Every exercise MUST include a clear "description" of how to perform it.
 11) "activityType" MUST be one of the following OR "rest":
@@ -699,37 +710,36 @@ Return ONLY valid JSON.
           
           if (args.generateImage) {
             try {
-              console.log('Generating images for workout via MCP...');
+              console.log('Generating all images for workout in parallel via MCP...');
+              
+              const { generateImage } = await import('./services/ImageGenerationService');
               
               // Build personalized image prompt using user profile
               const workoutImagePrompt = buildPersonalizedWorkoutImagePrompt(
                 workoutData.mainImagePrompt || `A professional fitness photo showing a ${(workoutData.difficulty || 'beginner').toLowerCase()} ${(workoutData.category || 'cardio').toLowerCase()} workout. The image should show someone in athletic clothing performing exercises like ${matchedExercises.slice(0, 3).map((e: any) => e.name).join(', ')} in a well-lit gym or home setting. The person should be using proper form and the image should be suitable for fitness instruction.`,
                 userProfile
               );
-              
-              const { generateImage } = await import('./services/ImageGenerationService');
-              
-              const workoutImageResult = await generateImage({
+
+              // Prepare all image generation promises (main workout + all exercises) in parallel
+              const mainImagePromise = generateImage({
                 prompt: workoutImagePrompt,
                 textModel: 'gpt-4o-mini',
                 quality: 'low',
                 size: '1024x1536'
               });
 
-              if (workoutImageResult.success) {
-                workoutPhotoUrl = workoutImageResult.imageUrl;
-                console.log('Workout image generated successfully via MCP');
-                
-                await prisma.workout.update({
-                  where: { id: workout.id },
-                  data: { photoUrl: workoutPhotoUrl }
-                });
-              } else {
-                console.error('Failed to generate workout image via MCP:', workoutImageResult.error);
-              }
-              
-              console.log('Generating exercise images in parallel via MCP...');
               const exerciseImagePromises = matchedExercises.map(async (exercise: any, index: number) => {
+                // Skip image generation for warm-up, rest, and cool-down exercises
+                if (exercise.generateImage === false) {
+                  console.log(`Skipping image generation for exercise "${exercise.name}" (generateImage: false)`);
+                  return {
+                    exerciseIndex: index,
+                    success: true,
+                    imageUrl: null,
+                    skipped: true
+                  };
+                }
+                
                 const baseExercisePrompt = exercise.imagePrompt || `A clear, instructional fitness photo showing how to perform ${exercise.name}. The image should show proper form and technique for this exercise. The person should be in athletic clothing and the image should be well-lit and suitable for fitness instruction. ${exercise.description || ''}`;
                 const exerciseImagePrompt = buildPersonalizedExerciseImagePrompt(baseExercisePrompt, userProfile);
                 
@@ -757,9 +767,25 @@ Return ONLY valid JSON.
                 }
               });
               
-              const exerciseImageResults = await Promise.all(exerciseImagePromises);
-              exerciseImages = exerciseImageResults;
+              // Run all image generations in parallel
+              const [workoutImageResult, exerciseImageResults] = await Promise.all([
+                mainImagePromise,
+                Promise.all(exerciseImagePromises)
+              ]);
+
+              if (workoutImageResult.success) {
+                workoutPhotoUrl = workoutImageResult.imageUrl;
+                console.log('Workout image generated successfully via MCP');
+                
+                await prisma.workout.update({
+                  where: { id: workout.id },
+                  data: { photoUrl: workoutPhotoUrl }
+                });
+              } else {
+                console.error('Failed to generate workout image via MCP:', workoutImageResult.error);
+              }
               
+              exerciseImages = exerciseImageResults;
               console.log(`Generated ${exerciseImageResults.filter((r: any) => r.success).length} out of ${matchedExercises.length} exercise images via MCP`);
               
               matchedExercises.forEach((exercise: any, index: number) => {

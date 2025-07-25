@@ -54,7 +54,7 @@ interface Workout {
   description?: string;
   category: string;
   difficulty: string;
-  duration: number; // minutes
+  duration: number; // seconds
   totalCalories?: number;
   targetMuscleGroups?: string[];
   equipment?: string[];
@@ -103,7 +103,9 @@ export default function PrintWorkoutPage() {
     window.history.back();
   };
 
-  const formatDuration = (minutes: number) => {
+  const formatDuration = (duration: number) => {
+    // Duration is stored in seconds, convert to minutes for display
+    const minutes = Math.floor(duration / 60);
     if (minutes < 60) return `${minutes} minutes`;
     const hours = Math.floor(minutes / 60);
     const mins = minutes % 60;
